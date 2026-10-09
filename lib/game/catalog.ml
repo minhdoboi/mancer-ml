@@ -17,13 +17,26 @@ let token s =
   Buffer.contents b
 
 let basics = [ Fire.house; Water.house; Air.house; Earth.house ]
-let specials = [ Troopers.house; Zen.house; Wind.house; Chronomaster.house; Disciples.house ]
+
+let specials =
+  [
+    Troopers.house;
+    Zen.house;
+    Wind.house;
+    Chronomaster.house;
+    Disciples.house;
+    Darksider.house;
+    Faerie.house;
+    Fairy.house;
+  ]
+
 let all = basics @ specials
 
 let init () =
   List.iter Game.init_cards basics;
   Game.init_cards ~cost_fn:Troopers.conscription_cost Troopers.house;
-  List.iter Game.init_cards [ Zen.house; Wind.house; Chronomaster.house; Disciples.house ]
+  List.iter Game.init_cards
+    [ Zen.house; Wind.house; Chronomaster.house; Disciples.house; Darksider.house; Faerie.house; Fairy.house ]
 
 let create houses = { houses }
 let default () = create all

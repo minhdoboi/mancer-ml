@@ -75,8 +75,8 @@ val setup_seats : t -> string * string
 (** [setup.seats] as [(p1, p2)] seat names, else [("human", "oracle")]. *)
 
 val set_setup_seats : t -> string * string -> unit
-val setup_specials : t -> string * string
-val set_setup_specials : t -> string * string -> unit
+val setup_specials : t -> string list * string list
+val set_setup_specials : t -> string list * string list -> unit
 val setup_budget : t -> int
 val set_setup_budget : t -> int -> unit
 

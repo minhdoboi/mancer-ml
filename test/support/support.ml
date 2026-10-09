@@ -15,6 +15,9 @@ let all_houses =
     Wind.house;
     Chronomaster.house;
     Disciples.house;
+    Darksider.house;
+    Faerie.house;
+    Fairy.house;
   ]
 
 let init_all_houses () =
@@ -26,7 +29,10 @@ let init_all_houses () =
   Game.init_cards Zen.house;
   Game.init_cards Wind.house;
   Game.init_cards Chronomaster.house;
-  Game.init_cards Disciples.house
+  Game.init_cards Disciples.house;
+  Game.init_cards Darksider.house;
+  Game.init_cards Faerie.house;
+  Game.init_cards Fairy.house
 
 let card_by_key key =
   all_houses

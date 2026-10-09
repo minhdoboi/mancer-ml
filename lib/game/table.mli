@@ -48,6 +48,10 @@ val group_of_house : string -> string option
 val special_houses : unit -> house list
 (** The ported special houses, initialised. *)
 
+val resolve_special : string list -> string
+(** A side's house for the fight: a random pick from its checked names, or from every ported special when the
+    set is empty or unknown. *)
+
 type t
 
 val start : ?on_event:(game_event -> unit) -> setup -> t

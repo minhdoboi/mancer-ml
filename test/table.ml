@@ -87,6 +87,15 @@ let house_groups () =
   Alcotest.(check (option string)) "Wind" (Some "sinist") (Table.group_of_house "Wind");
   check_bool "Chronomaster present" true (List.exists (fun (a, _) -> a = "panderson") Table.house_groups)
 
+(* The fight resolves each side's checked house set to one house. *)
+let resolve_special () =
+  check_bool "singleton" true (Table.resolve_special [ "zen" ] = "zen");
+  let all = List.map (fun (h : house) -> h.h_key) (Table.special_houses ()) in
+  for _ = 1 to 20 do
+    check_bool "empty means all" true (List.mem (Table.resolve_special []) all);
+    check_bool "unknown dropped" true (Table.resolve_special [ "nope"; "zen" ] = "zen")
+  done
+
 let () =
   Alcotest.run "table"
     [
@@ -96,5 +105,6 @@ let () =
           Alcotest.test_case "human choices" `Quick human_choices;
           Alcotest.test_case "duel roster" `Quick duel_roster;
           Alcotest.test_case "house groups" `Quick house_groups;
+          Alcotest.test_case "resolve special" `Quick resolve_special;
         ] );
     ]

@@ -45,8 +45,18 @@ and transition = Wait_player of player_id * string option
 and mod_ = Spell_mod of (int -> int)
 
 (* Per-slot and per-player card state.  Scala stores `AnyRef` here
-   (CardSpec.scala:98, State.scala:45). *)
-and slot_data = No_data | Targeting of int option | Custom of string
+   (CardSpec.scala:98, State.scala:45).  The mod-carrying cases mirror
+   Scala's `Destroyed` / `Destroyeds` / `LakeData`, which houses stash in
+   the occupant's slot to undo on removal (darksider lake, fairy lesovik
+   and alkonost).  They hold the exact `desc_mod` values added so
+   `Player.remove_desc_mod` (physical equality) finds them again. *)
+and slot_data =
+  | No_data
+  | Targeting of int option
+  | Custom of string
+  | Slot_destroyed of desc_mod
+  | Slot_destroyeds of card list * desc_mod
+  | Lake_mods of desc_mod list
 
 and slot_snap = {
   ss_num : int;

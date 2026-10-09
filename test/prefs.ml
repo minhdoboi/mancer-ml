@@ -29,7 +29,7 @@ let round_trip () =
       Prefs.set_language p "fr";
       Prefs.set_sound_level p 0.5;
       Prefs.set_setup_seats p ("human", "lecturer");
-      Prefs.set_setup_specials p ("zen", "wind");
+      Prefs.set_setup_specials p ([ "zen"; "wind" ], [ "Troopers" ]);
       Prefs.set_setup_budget p 500;
       Prefs.set_setup_portraits p ("gale", "oracle-f");
       let q = Prefs.load ~path () in
@@ -38,9 +38,9 @@ let round_trip () =
       check_string "seats" "human,lecturer"
         (let a, b = Prefs.setup_seats q in
          a ^ "," ^ b);
-      check_string "specials" "zen,wind"
+      check_string "specials" "zen;wind,Troopers"
         (let a, b = Prefs.setup_specials q in
-         a ^ "," ^ b);
+         String.concat ";" a ^ "," ^ String.concat ";" b);
       Alcotest.(check int) "budget" 500 (Prefs.setup_budget q);
       check_string "portrait shared" "gale" (Prefs.player_portrait q))
 
@@ -70,6 +70,15 @@ let clamp_and_fallback () =
       check_bool "known bot" true
         (Prefs.parse_seat ~allowed:[ "oracle" ] ~fallback:`Human "oracle" = `Bot "oracle"))
 
+let old_singles () =
+  (* Files written before multi-select keep loading as one house per side. *)
+  with_temp (fun path ->
+      Out_channel.with_open_text path (fun oc -> output_string oc "setup.specials=zen,wind\n");
+      let p = Prefs.load ~path () in
+      let a, b = Prefs.setup_specials p in
+      Alcotest.(check (list string)) "P1" [ "zen" ] a;
+      Alcotest.(check (list string)) "P2" [ "wind" ] b)
+
 let () =
   Alcotest.run "prefs"
     [
@@ -77,6 +86,7 @@ let () =
         [
           Alcotest.test_case "defaults" `Quick defaults;
           Alcotest.test_case "round trip" `Quick round_trip;
+          Alcotest.test_case "old singles" `Quick old_singles;
           Alcotest.test_case "scala format" `Quick scala_format;
           Alcotest.test_case "clamp and fallback" `Quick clamp_and_fallback;
         ] );

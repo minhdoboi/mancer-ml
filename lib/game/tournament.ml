@@ -474,7 +474,10 @@ let init_specials () =
   Game.init_cards Zen.house;
   Game.init_cards Wind.house;
   Game.init_cards Chronomaster.house;
-  Game.init_cards Disciples.house
+  Game.init_cards Disciples.house;
+  Game.init_cards Darksider.house;
+  Game.init_cards Faerie.house;
+  Game.init_cards Fairy.house
 
 let run_play a =
   let basics = [ Fire.house; Water.house; Air.house; Earth.house ] in

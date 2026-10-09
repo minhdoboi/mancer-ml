@@ -373,6 +373,20 @@ let on_click r f =
   if inside r then hovering := true;
   if clicked r then pending := Some f
 
+(* Dim over the whole window, bands included: a world-sized dim leaves a
+   visible edge now that backdrops go fullscreen. *)
+let shade_full c =
+  let sw = float (R.get_screen_width ()) and sh = float (R.get_screen_height ()) in
+  R.draw_rectangle_rounded (R.Rectangle.create 0. 0. sw sh) 0. 6 c
+
+let click_full f =
+  let m = R.get_mouse_position () in
+  let sw = float (R.get_screen_width ()) and sh = float (R.get_screen_height ()) in
+  let x = R.Vector2.x m and y = R.Vector2.y m in
+  if x >= 0. && x < sw && y >= 0. && y < sh then (
+    hovering := true;
+    if R.is_mouse_button_pressed R.MouseButton.Left then pending := Some f)
+
 let button ?(selected = false) ?(enabled = true) ?(size = 17.) r label f =
   let hot = enabled && inside r in
   fill r (if selected then rgba 40 98 140 240 else if hot then panel_hi else panel);
@@ -482,15 +496,19 @@ type duel_side = { mutable seat : Table.seat; mutable portrait : string }
 type duel_ui = { sides : duel_side * duel_side }
 
 (* Game settings (the Scala Settings dialog): house choices, bot budget,
-   seed, sound and language. Everything persists except the seed. *)
+   seed, sound and language. Everything persists except the seed. Each side
+   checks a set of houses; the fight plays a random pick, an empty set
+   meaning every ported special. *)
 type game_settings = {
-  mutable specials : string * string;
+  mutable specials : string list * string list;
   mutable budget_ms : int;
   mutable seed_text : string;
   mutable seed_focus : bool;
   mutable sound : float;
   mutable lang : string;
   mutable tab : int;
+  mutable class_scroll : float;
+  mutable class_drag : bool;
 }
 
 type lobby_ui = {
@@ -507,25 +525,24 @@ let seat_of_string ~fallback s =
   | `Human -> Table.Human
   | `Bot id -> Table.Bot id
 
-let valid_special s fb =
-  try
-    ignore (Catalog.find_special s);
-    s
-  with Failure _ -> fb
+let valid_specials names =
+  List.filter_map (fun s -> try Some (Catalog.find_special s).h_name with Failure _ -> None) names
 
 let game_settings_from_prefs () =
   let prefs = Prefs.load () in
   let d = Table.default_setup in
   let sp0, sp1 = Prefs.setup_specials prefs in
-  let ds0, ds1 = d.specials in
+  let _ds0, _ds1 = d.specials in
   {
-    specials = (valid_special sp0 ds0, valid_special sp1 ds1);
+    specials = (valid_specials sp0, valid_specials sp1);
     budget_ms = Prefs.setup_budget prefs;
     seed_text = "";
     seed_focus = false;
     sound = Prefs.sound_level prefs;
     lang = Prefs.language prefs;
     tab = 0;
+    class_scroll = 0.;
+    class_drag = false;
   }
 
 let duel_from_prefs () =
@@ -582,7 +599,7 @@ let draw_special_card ?(name_size = 11.) ?(bar_h = 22.) r (h : house) selected s
   outline ~round:0.06
     ~thick:(if selected then 3. else 1.5)
     r
-    (if selected then gold else if inside r then muted else line);
+    (if selected then accent else if inside r then ink_soft else paper_line);
   on_click r set
 
 let lobby_menu = [ "campaign"; "duel"; "settings" ]
@@ -638,8 +655,8 @@ let lobby_keys lobby =
 (* Duel setup (Scala DuelDialog): each side picks a human/bot seat and a
    portrait; a bot seat wears its own faces. *)
 let draw_duel lobby ~fight =
-  fill (rect 0. 0. vw vh) (rgba 0 0 0 120);
-  on_click (rect 0. 0. vw vh) (fun () -> lobby.show_duel <- false);
+  shade_full (rgba 0 0 0 120);
+  click_full (fun () -> lobby.show_duel <- false);
   let box = rect 106. 180. 620. 420. in
   paper box;
   on_click box (fun () -> ());
@@ -673,11 +690,94 @@ let draw_duel lobby ~fight =
 let settings_box = rect 76. 104. 680. 560.
 let gs_seed_field = rect 200. 294. 200. 34.
 
-let set_special gs which name =
+(* Toggle one house in a side's checked set, like the Scala checkboxes. *)
+let set_side gs which set =
   let a, b = gs.specials in
-  let next = if which = 0 then (name, b) else (a, name) in
+  let next = if which = 0 then (set, b) else (a, set) in
   gs.specials <- next;
   try Prefs.set_setup_specials (Prefs.load ()) next with _ -> ()
+
+let toggle_special gs which name =
+  let a, b = gs.specials in
+  let set = if which = 0 then a else b in
+  let mem = List.exists (fun n -> Catalog.token n = Catalog.token name) set in
+  let next =
+    if mem then List.filter (fun n -> Catalog.token n <> Catalog.token name) set else set @ [ name ]
+  in
+  set_side gs which next
+
+(* Group headers toggle the whole group: all checked clears it, otherwise it checks them all. *)
+let toggle_group gs which houses =
+  let names = List.map (fun (h : house) -> h.h_name) houses in
+  let known n = List.exists (fun m -> Catalog.token n = Catalog.token m) names in
+  let a, b = gs.specials in
+  let set = if which = 0 then a else b in
+  let next =
+    if List.for_all known set then List.filter (fun n -> not (known n)) set
+    else set @ List.filter (fun m -> not (List.exists (fun n -> Catalog.token n = Catalog.token m) set)) names
+  in
+  set_side gs which next
+
+let all_specials () = List.map (fun (h : house) -> h.h_name) (Table.special_houses ())
+
+(* Classes tab: two checked-set columns sharing one scrollbar, like the
+   Scala lists. Four pictured cards per row under each author header. *)
+let class_x0 = 100.
+let class_x1 = 410.
+let class_col_w = 296.
+let class_card_w = 66.
+let class_card_h = 86.
+let class_gap = 10.
+let class_row_h = 94.
+let class_y0 = 222.
+let class_y1 = 592.
+let class_bar = rect 720. 222. 12. 370.
+let class_wheel = rect 100. 196. 632. 396.
+
+let class_content_h () =
+  let raw =
+    List.fold_left
+      (fun acc (_, houses) ->
+        let rows = (List.length houses + 3) / 4 in
+        acc +. 22. +. (float rows *. class_row_h) -. 8. +. 14.)
+      0. Table.house_groups
+  in
+  Float.max 0. (raw -. 14.)
+
+let class_maxscroll () = Float.max 0. (class_content_h () -. (class_y1 -. class_y0))
+
+let class_scroll_by gs w =
+  gs.class_scroll <- Float.min (class_maxscroll ()) (Float.max 0. (gs.class_scroll -. (w *. 48.)))
+
+let draw_class_col gs which x0 =
+  let set = if which = 0 then fst gs.specials else snd gs.specials in
+  let sel h = List.exists (fun n -> Catalog.token n = Catalog.token h.h_name) set in
+  let y = ref (class_y0 -. gs.class_scroll) in
+  let seen (r : rect) = r.y +. r.h > class_y0 && r.y < class_y1 in
+  List.iter
+    (fun (author, houses) ->
+      let hr = rect x0 !y class_col_w 22. in
+      if seen hr then (
+        text ~size:13. ~color:(if inside hr then ink else ink_soft) (x0 +. 4.) (!y +. 3.) author;
+        on_click hr (fun () -> toggle_group gs which houses));
+      y := !y +. 22.;
+      List.iteri
+        (fun k (h : house) ->
+          let r =
+            rect
+              (x0 +. (float (k mod 4) *. (class_card_w +. class_gap)))
+              (!y +. (float (k / 4) *. class_row_h))
+              class_card_w class_card_h
+          in
+          if seen r then
+            draw_special_card ~name_size:9. ~bar_h:14. r h (sel h) (fun () ->
+                toggle_special gs which h.h_name))
+        houses;
+      y := !y +. (float ((List.length houses + 3) / 4) *. class_row_h) -. 8.;
+      let sr = rect x0 (!y +. 3.) class_col_w 2. in
+      if seen sr then fill sr (rgba 140 107 41 180);
+      y := !y +. 14.)
+    Table.house_groups
 
 let set_budget gs ms on_budget =
   gs.budget_ms <- ms;
@@ -694,8 +794,8 @@ let set_lang gs code =
   try Prefs.set_language (Prefs.load ()) code with _ -> ()
 
 let draw_game_settings gs ~show_seed ~on_budget ~close =
-  fill (rect 0. 0. vw vh) (rgba 0 0 0 120);
-  on_click (rect 0. 0. vw vh) close;
+  shade_full (rgba 0 0 0 120);
+  click_full close;
   let box = settings_box in
   paper box;
   on_click box (fun () -> ());
@@ -710,29 +810,37 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
     tabs;
   (match gs.tab with
   | 0 ->
-      (* Houses grouped by author like the Scala settings, one row per
-         house with a P1/P2 card pair. *)
-      let col1 = box.x +. 300. and col2 = box.x +. 410. in
-      text ~font:bold ~size:14. ~color:ink col1 (box.y +. 96.) "P1";
-      text ~font:bold ~size:14. ~color:ink col2 (box.y +. 96.) "P2";
-      let y = ref (box.y +. 118.) in
-      let shown = ref "" in
-      List.iter
-        (fun (author, houses) ->
-          List.iter
-            (fun (h : house) ->
-              if author <> !shown then (
-                shown := author;
-                text ~size:13. ~color:ink_soft (box.x +. 24.) (!y +. 4.) author);
-              draw_special_card ~name_size:9. ~bar_h:15. (rect col1 !y 52. 68.) h
-                (Catalog.token h.h_name = Catalog.token (fst gs.specials))
-                (fun () -> set_special gs 0 h.h_name);
-              draw_special_card ~name_size:9. ~bar_h:15. (rect col2 !y 52. 68.) h
-                (Catalog.token h.h_name = Catalog.token (snd gs.specials))
-                (fun () -> set_special gs 1 h.h_name);
-              y := !y +. 74.)
-            houses)
-        Table.house_groups
+      (* Two checked-set columns under one scrollbar; an empty set plays every house. *)
+      let side_head x0 which title =
+        text ~font:bold ~size:14. ~color:ink x0 (box.y +. 96.) title;
+        text ~size:11. ~color:ink_soft (x0 +. 30.) (box.y +. 99.) "(empty = all houses)";
+        pbutton ~size:11.
+          (rect (x0 +. 182.) (box.y +. 94.) 52. 22.)
+          "all"
+          (fun () -> set_side gs which (all_specials ()));
+        pbutton ~size:11. (rect (x0 +. 238.) (box.y +. 94.) 52. 22.) "clear" (fun () -> set_side gs which [])
+      in
+      side_head class_x0 0 "P1";
+      side_head class_x1 1 "P2";
+      draw_class_col gs 0 class_x0;
+      draw_class_col gs 1 class_x1;
+      let max = class_maxscroll () in
+      if max > 0. then (
+        fill class_bar (rgba 140 107 41 90);
+        let view_h = class_y1 -. class_y0 in
+        let th = Float.max 24. (view_h *. view_h /. class_content_h ()) in
+        let ty = class_y0 +. (gs.class_scroll /. max *. (view_h -. th)) in
+        let thumb = rect class_bar.x ty class_bar.w th in
+        fill ~round:0.06 thumb (rgba 122 90 40 255);
+        if R.is_mouse_button_down R.MouseButton.Left then (
+          if gs.class_drag || inside thumb then (
+            gs.class_drag <- true;
+            hovering := true;
+            let _, my = mouse () in
+            let f = (my -. class_y0 -. (th /. 2.)) /. (view_h -. th) in
+            gs.class_scroll <- Float.min max (Float.max 0. (f *. max))))
+        else gs.class_drag <- false)
+      else gs.class_drag <- false
   | 1 ->
       text ~size:14. ~color:ink_soft (box.x +. 24.) (box.y +. 96.) "Bot time per move";
       List.iteri
@@ -1675,11 +1783,12 @@ let () =
     let s0, s1 = lobby.duel.sides in
     let seed = if lobby.gs.seed_text = "" then None else int_of_string_opt lobby.gs.seed_text in
     let d = Table.default_setup in
+    let l0, l1 = lobby.gs.specials in
     let setup =
       {
         d with
         seats = (s0.seat, s1.seat);
-        specials = lobby.gs.specials;
+        specials = (Table.resolve_special l0, Table.resolve_special l1);
         budget_ms = lobby.gs.budget_ms;
         seed;
       }
@@ -1700,7 +1809,7 @@ let () =
             s0.portrait <- clamp_portrait s0.seat "ember";
             s1.seat <- Table.Bot "oracle";
             s1.portrait <- clamp_portrait s1.seat "oracle");
-          (match sh.special with Some h -> lobby.gs.specials <- (h, h) | None -> ());
+          (match sh.special with Some h -> lobby.gs.specials <- ([ h ], [ h ]) | None -> ());
           if sh.bots then lobby.gs.budget_ms <- 100;
           lobby.gs.seed_text <- (match sh.seed with Some n -> string_of_int n | None -> "");
           fight ~persist:false lobby
@@ -1714,6 +1823,9 @@ let () =
     (match !screen with
     | Lobby lobby ->
         if lobby.show_settings then settings_seed_keys lobby.gs;
+        let wheel = R.get_mouse_wheel_move () in
+        if wheel <> 0. && lobby.show_settings && lobby.gs.tab = 0 && inside class_wheel then
+          class_scroll_by lobby.gs wheel;
         if R.is_key_pressed R.Key.Escape then
           if lobby.show_settings then (
             lobby.show_settings <- false;
@@ -1726,7 +1838,10 @@ let () =
         drive_bot ui;
         tick_slides ui;
         let wheel = R.get_mouse_wheel_move () in
-        if wheel <> 0. then ui.scroll_y <- Float.min max_scroll (Float.max 0. (ui.scroll_y +. (wheel *. 48.)));
+        (if wheel <> 0. then
+           match ui.settings with
+           | Some gs when gs.tab = 0 && inside class_wheel -> class_scroll_by gs wheel
+           | _ -> ui.scroll_y <- Float.min max_scroll (Float.max 0. (ui.scroll_y +. (wheel *. 48.))));
         if R.is_key_pressed R.Key.Escape then
           match ui.settings with Some _ -> ui.settings <- None | None -> ui.mode <- Browse
         else if R.is_mouse_button_pressed R.MouseButton.Right then ui.mode <- Browse;

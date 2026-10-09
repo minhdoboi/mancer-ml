@@ -43,6 +43,9 @@ dune exec ./bin/sync_assets.exe    # rebuild ../mancer-assets from ../freespectr
 | `house/MasterOfWind.scala` | `lib/houses/special/wind.ml` |
 | `house/Chronomaster.scala` | `lib/houses/special/chronomaster.ml` |
 | `house/LostChurch.scala` | `lib/houses/special/disciples.ml` |
+| `house/DarkSider.scala` | `lib/houses/special/darksider.ml` |
+| `house/FaerieDruid.scala` | `lib/houses/special/faerie.ml` |
+| `house/FairyKnight.scala` | `lib/houses/special/fairy.ml` |
 | `CardShuffle.scala` | `lib/game/shuffle.ml` |
 | `Tournament.scala` (HeadlessGame) | `lib/game/session.ml` (turn loop), `lib/game/game.ml` (setup, bots) |
 | `update/GameUpdate.scala` (UpdateListener) | `Sp.game_event`, `Updater.listen` |
@@ -177,8 +180,9 @@ fixtures both share. A rules change shows up as an expect diff: review it, then
 
 ## What is not ported
 
-- **35 of 44 houses.** Fire, Water, Air, Earth, Troopers, Zen, Wind,
-  Chronomaster and Disciples are in; the other specials are not. Tournament
+- **32 of 44 houses.** Fire, Water, Air, Earth, Troopers, Zen, Wind,
+  Chronomaster, Disciples, Darksider, Faerie Druid and Fairy Knight are in;
+  the other specials are not. Tournament
   `--special` selects one of those (default Troopers).
 - **Most bots.** Summoner, Strategist, Gambler and Diviner are not
   ported. The greedy bot in `game.ml` picks the cheapest legal card into the
@@ -233,8 +237,9 @@ effect on restart.
 ## Raylib UI
 
 `dune exec ./bin/gui.exe` opens the same lobby, with the duel portrait pickers
-and the game-settings dialog (classes grouped by author with their background
-art, a game tab with bot time and seed, sound, language). Click a lit card to play it; when it needs a target the
+and the game-settings dialog (classes checked per side from a scrolling grid,
+an empty set playing every house, a game tab with bot time and seed, sound,
+language). Click a lit card to play it; when it needs a target the
 legal slots light up, and right click or Esc cancels. Hovering a card shows its
 text. Saved games go to `gui-games/`. The window scales a fixed 1440x900 layout.
 

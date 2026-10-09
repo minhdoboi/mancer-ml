@@ -43,7 +43,7 @@ let default_campaign_position = "day_start"
 let default_language = "en"
 let default_budget_ms = 1000
 let default_seats = ("human", "oracle")
-let default_specials = ("Troopers", "Troopers")
+let default_specials = ([ "Troopers" ], [ "Troopers" ])
 let default_portraits = ("ember", "oracle")
 
 type t = { path : string; props : (string, string) Hashtbl.t }
@@ -291,13 +291,21 @@ let setup_seats t =
   match get t key_setup_seats with None -> default_seats | Some v -> pair_of_csv v ~default:default_seats
 
 let set_setup_seats t (a, b) = persist t [ (key_setup_seats, a ^ "," ^ b) ]
+let split_list v = String.split_on_char ';' v |> List.map String.trim |> List.filter (( <> ) "")
 
 let setup_specials t =
+  (* Sides stay comma-separated; names within a side are semicolon-separated,
+     so old "wind,Troopers" files load as singletons. Empty means all houses. *)
   match get t key_setup_specials with
   | None -> default_specials
-  | Some v -> pair_of_csv v ~default:default_specials
+  | Some v -> (
+      match split_csv v with
+      | [ a; b ] -> (split_list a, split_list b)
+      | [ a ] -> (split_list a, [])
+      | _ -> ([], []))
 
-let set_setup_specials t (a, b) = persist t [ (key_setup_specials, a ^ "," ^ b) ]
+let set_setup_specials t (a, b) =
+  persist t [ (key_setup_specials, String.concat ";" a ^ "," ^ String.concat ";" b) ]
 
 let setup_budget t =
   match get t key_setup_budget with

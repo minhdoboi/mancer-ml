@@ -95,11 +95,13 @@ let valid_special s fb =
 let settings_from_prefs () =
   let prefs = Prefs.load () in
   let d = Table.default_setup in
-  let sp0, sp1 = Prefs.setup_specials prefs in
+  let l0, l1 = Prefs.setup_specials prefs in
   let ds0, ds1 = d.specials in
+  (* The TUI picks a single house per side; a set written by the GUI shows its first pick. *)
+  let head fb = function h :: _ -> valid_special h fb | [] -> fb in
   {
-    sp0 = valid_special sp0 ds0;
-    sp1 = valid_special sp1 ds1;
+    sp0 = head ds0 l0;
+    sp1 = head ds1 l1;
     budget = Prefs.setup_budget prefs;
     seed_text = "";
     lang = Prefs.language prefs;
@@ -237,7 +239,7 @@ let render_settings (w, _) ui =
 let persist_settings gs =
   try
     let p = Prefs.load () in
-    Prefs.set_setup_specials p (gs.sp0, gs.sp1);
+    Prefs.set_setup_specials p ([ gs.sp0 ], [ gs.sp1 ]);
     Prefs.set_setup_budget p gs.budget;
     Prefs.set_language p gs.lang
   with _ -> ()

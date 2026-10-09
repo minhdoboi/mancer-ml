@@ -118,6 +118,21 @@ let special_houses () =
   Lazy.force catalog;
   Catalog.specials
 
+(* Like Scala resolveChoices: a side plays a random house from its checked
+   set; an empty set means every ported special. Unknown names are dropped. *)
+let resolve_special =
+  let rng = Random.State.make_self_init () in
+  fun names ->
+    let name (h : house) = h.h_name in
+    let pool =
+      match
+        List.filter_map (fun n -> try Some (name (Catalog.find_special n)) with Failure _ -> None) names
+      with
+      | [] -> List.map name (special_houses ())
+      | ok -> ok
+    in
+    List.nth pool (Random.State.int rng (List.length pool))
+
 type t = {
   setup : setup;
   seed : int;
