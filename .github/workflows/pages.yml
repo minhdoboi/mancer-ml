@@ -1,0 +1,48 @@
+name: pages
+on:
+  push:
+    branches: [master]
+    paths:
+      - docs/**
+      - assets
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      # the assets submodule: the grimoire draws cards/<file> from it
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      # Pages is built by this workflow, not by Jekyll: the art lives in the
+      # submodule, which Jekyll never sees.
+      - run: mkdir site && cp -r docs/. site/
+      - run: cp -r assets/cards site/cards
+      # Jekyll used to render tuto/README.md into tuto/index.html; this
+      # publishes the folder as it is, so that page is written here.
+      - run: |
+          {
+            echo '<!doctype html><meta charset="utf-8"><title>Tutorials — mancer-ml</title>'
+            echo '<h1>Tutorials</h1><ul>'
+            for f in docs/tuto/*.md; do
+              printf '<li><a href="%s">%s</a></li>\n' "${f#docs/tuto/}" "${f##*/}"
+            done
+            echo '</ul>'
+          } > site/tuto/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

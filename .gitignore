@@ -5,6 +5,11 @@ _build/
 # local opam switch, if created with `opam switch create .`
 _opam/
 
+# local python venv for scripts/gen_vi_tts.py
+.venv/
+__pycache__/
+*.pyc
+
 # merlin / editor state
 .merlin
 *.annot
@@ -12,9 +17,16 @@ _opam/
 *.cmti
 .vscode/
 .idea/
+.pi/
 *~
 .#*
 \#*#
+
+# tournament JSON logs
+tournament-results/
+
+# packaged zips from scripts/package.sh
+dist/
 
 # test leftovers
 *.corrected
@@ -22,3 +34,7 @@ _coverage/
 bisect*.coverage
 
 .DS_Store
+tui-games/
+gui-games/
+.tmp/
+docs/viet
