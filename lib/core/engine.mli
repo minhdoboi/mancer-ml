@@ -1,0 +1,234 @@
+(** The update layer: what house files and the game driver may use.
+
+    Mirrors priv/sp/update/*.scala and priv/sp/GameCardEffect.scala. The update graph is mutated in place; see
+    {!Updater.lift}. *)
+
+open Sp
+
+val emit : updater -> game_event -> unit
+(** Sends an event to the updater's listener (Scala's [updateListener]). *)
+
+val other_player : player_update -> player_update
+
+val make_creature : card -> creature
+(** Fails if the card is a spell. *)
+
+(** {1 Effect environment} *)
+
+val mk_env : player_id -> updater -> env
+val ctx_of_env : env -> context
+val player_of_env : env -> player_update
+val other_of_env : env -> player_update
+
+val spell_damage : env -> int -> damage
+(** Spell damage in the context of the card being played. *)
+
+val ability_damage : env -> int -> damage
+(** Creature-ability damage in the context of the card being played. *)
+
+val own_slot_of_env : env -> slot_update
+(** The player's slot at [env.env_selected]. *)
+
+val opp_slot_of_env : env -> slot_update
+(** The opponent's slot at [env.env_selected]. *)
+
+val get_mana : env -> int -> int
+
+(** {1 Update graph} *)
+
+(** HousesUpdate *)
+module Houses : sig
+  val incr_mana_all : houses_update -> unit
+  (** Adds each house's growth: the start-of-turn mana gain. *)
+
+  val incr_mana : houses_update -> int -> int list -> unit
+  val incr_growth : houses_update -> int -> int list -> unit
+end
+
+val incr_mana_from : slot_update -> player_update -> int -> int list -> unit
+(** Like {!Houses.incr_mana}, but attributed to the creature at [src] so the UI
+    can draw the contextual bonus/malus arcs. A change to every house is quiet. *)
+
+(** SlotUpdate *)
+module Slot : sig
+  val get : slot_update -> slot_state
+  (** Fails on an empty slot. *)
+
+  val adjacent : slot_update -> slot_update list
+  val filled_adjacent : slot_update -> slot_update list
+  val open_adjacent : slot_update -> slot_update list
+  val opposite : slot_update -> slot_update
+  val update : slot_update -> (slot_state -> slot_state) -> unit
+  val toggle : slot_update -> int -> unit
+  val toggle_off : slot_update -> int -> unit
+  val toggle_run : slot_update -> unit
+  val set_data : slot_update -> slot_data -> unit
+  val set_target : slot_update -> int list -> unit
+  val is_runnable : slot_state -> bool
+  val overwrite_add : slot_update -> slot_state -> unit
+
+  (** {2 Interception points}
+      These dispatch to the occupant's reaction; use them from card code. *)
+
+  val heal : slot_update -> int -> unit
+
+  val inflict : slot_update -> damage -> unit
+  (** Applies the player damage mod, then the reaction's [inflict]. *)
+
+  val destroy : slot_update -> unit
+  val stun : slot_update -> unit
+
+  (** {2 Default actions}
+      What {!Reaction.default} does. Calling these directly bypasses the reaction. *)
+
+  val add : slot_update -> slot_state -> unit
+  val remove : slot_update -> dead option -> slot_state
+  val do_heal : slot_update -> int -> unit
+  val do_stun : slot_update -> unit
+  val do_priv_destroy : slot_update -> unit
+  val delayed_destroy : slot_update -> damage -> unit
+  val damage_slot : slot_update -> damage -> unit
+end
+
+(** SlotsUpdate *)
+module Slots : sig
+  val foreach : slots_update -> (slot_update -> unit) -> unit
+  (** Iterates filled slots only. *)
+
+  val foldl : slots_update -> 'a -> ('a -> slot_update -> 'a) -> 'a
+  val get_open : slots_update -> int list
+  val inflict_creatures : slots_update -> damage -> unit
+  val current_attack : slot_update -> slot_state -> int
+
+  val summon : slots_update -> int -> creature -> int
+  (** Returns the new slot id. Summoning over an occupied slot calls the new reaction's [on_spawn_over]. *)
+
+  val toggle_run : slots_update -> unit
+  val heal_creatures : slots_update -> int -> unit
+  val find : slots_update -> (slot_state -> bool) -> slot_update option
+  val find_card : slots_update -> card -> slot_update option
+  val find_slot_id : slots_update -> int -> slot_update option
+  val finish_dead : slots_update -> dead -> unit
+
+  val add_creature : slot_update -> creature -> unit
+  (** Places [creature] in the slot without {!summon} (no [on_summon]). Used by spawn effects such as Phoenix
+      and forest spider. *)
+
+  val move : ?dest_player:player_update -> slots_update -> int -> int -> unit
+  (** [SlotsUpdate.move]: relocate a creature, swapping if the destination is occupied. *)
+end
+
+(** PlayerUpdate *)
+module Player : sig
+  val other : player_update -> player_update
+
+  val mod_damage : player_update -> damage -> damage
+  (** Applies the attacker's SpellMods to spell damage aimed at this player. *)
+
+  val flush : player_update -> unit
+  val refresh_slots : player_update -> unit
+  val sync_houses : player_update -> unit
+  val inflict : player_update -> damage -> unit
+  val heal : player_update -> int -> unit
+  val run_slots : player_update -> unit
+
+  val run_slot : player_update -> int -> slot_state -> unit
+  (** Scala [runSlot(num, state)]: the creature attacks now (plus its extra attacks) if it can. *)
+
+  val apply_effects : player_update -> phase -> unit
+
+  val apply_effect : player_update -> phase -> int -> slot_state -> unit
+  (** Scala [applyEffect(phase, state, num)]: runs one creature's effect of that phase now (nothing if the
+      creature is blocked). *)
+
+  val add_effect : player_update -> phase * card_effect -> unit
+  val remove_effect : player_update -> (card_effect -> bool) -> unit
+  val map_effect : player_update -> (card_effect -> card_effect) -> unit
+  val add_transition : player_update -> transition -> unit
+  val pop_transition : player_update -> transition option
+  val block_slot : player_update -> int -> unit
+  val prepare_next_turn : player_update -> unit
+
+  val submit_command : player_update -> command -> int option
+  (** Goes through [submit_command_hook], which houses may wrap (Scala's decorated [submitCommand]). *)
+
+  val submit : player_update -> command option -> unit
+  val add_desc_mod : player_update -> desc_mod -> unit
+  val insert_desc_mod : player_update -> desc_mod -> unit
+  (** Prepends [m], like Scala [insertDescMod]. *)
+  val remove_desc_mod : player_update -> desc_mod -> unit
+
+  val add_malus : player_update -> string -> int -> unit
+  (** Puts a named handicap on the player, with an amount. *)
+
+  val remove_malus : player_update -> string -> int -> unit
+  (** Takes points off a malus; it goes when the amount reaches zero. *)
+
+  val set_data : player_update -> player_data -> unit
+  (** Goes through [set_data_hook], which houses may wrap (Scala's decorated [setData]). *)
+end
+
+module Reaction : sig
+  val default : unit -> reaction
+  (** Scala's [new Reaction]: every hook is a no-op, actions use the slot's default behaviour. Override fields
+      with [{ (default ()) with ... }]. *)
+
+  val bound_slot : reaction -> slot_update
+  (** The slot the reaction is attached to (Scala's [selected]). Fails if the reaction has not been placed
+      yet. *)
+end
+
+val copy_player_state : player_state -> player_state
+(** Shallow-copies mutable arrays and the [player_state] record. Slot reactions still point at the original
+    update graph until {!Updater.create} rebinds them. *)
+
+val copy_game_state : game_state -> game_state
+
+(** GameStateUpdater *)
+module Updater : sig
+  val create : ?rng:Dice.t -> game_state -> game_desc -> updater
+  (** Copies [state] and rebuilds the update graph, rebinding each occupant to a fresh reaction. The original
+      snapshot is left untouched, which is what lets the oracle simulate from a live position. [rng] feeds
+      random card effects ([java.util.Random] LCG); it defaults to seed 0. *)
+
+  val player : updater -> player_id -> player_update
+  val ended : updater -> player_id option
+
+  val focus : updater -> int -> player_id -> bool -> unit
+  (** Emits {!Sp.Ev_focus}. *)
+
+  val listen : updater -> (game_event -> unit) -> unit
+  (** Replaces the listener. Updaters start with one that ignores everything, so simulations stay silent. *)
+
+  val peek : updater -> game_state
+  (** A copy of the board as it stands, safe to call from a listener mid-step: unlike {!export} it does not
+      flush pending deaths. Slot attacks are re-folded from live sources and mana into the copy only. *)
+
+  val export : updater -> game_state
+  (** Flushes the live graph into an independent [game_state] copy. *)
+
+  val lift : updater -> (updater -> 'a) -> 'a * game_state
+  (** Runs one engine step and publishes the state. Unlike Scala's lift, the returned state is the live one,
+      not a snapshot. *)
+end
+
+(** {1 Card effects (GameCardEffect)} *)
+
+val effects : (phase * card_effect) list -> phase_effects
+(** Several effects for the same phase run in list order. *)
+
+val no_effects : phase_effects
+val focus : card_effect -> card_effect
+val damage : ?is_ability:bool -> ?is_spell:bool -> int -> card_effect
+val damage_creatures : ?is_ability:bool -> ?is_spell:bool -> int -> card_effect
+val damage_creature : ?is_ability:bool -> ?is_spell:bool -> int -> card_effect
+val mass_damage : ?is_ability:bool -> ?is_spell:bool -> ?immune_self:bool -> int -> card_effect
+val heal : int -> card_effect
+val heal_creature : int -> card_effect
+val heal_creatures : int -> card_effect
+val add_mana : int -> int list -> card_effect
+val add_growth : int -> int list -> card_effect
+val fill_empty_slots : creature -> card_effect
+val add_desc_mod : desc_mod -> card_effect
+val remove_desc_mod : desc_mod -> card_effect
+val one_time_player_effect : card_effect -> card_effect

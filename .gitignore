@@ -12,9 +12,16 @@ _opam/
 *.cmti
 .vscode/
 .idea/
+.pi/
 *~
 .#*
 \#*#
+
+# tournament JSON logs
+tournament-results/
+
+# packaged zips from scripts/package.sh
+dist/
 
 # test leftovers
 *.corrected
@@ -22,3 +29,6 @@ _coverage/
 bisect*.coverage
 
 .DS_Store
+tui-games/
+gui-games/
+.tmp/

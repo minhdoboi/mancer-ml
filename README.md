@@ -1,157 +1,315 @@
-# mancer-ml — OCaml prototype
+# mancer-ml
 
-Feasibility prototype for porting `freespectrogdx` (Scala 3 + libGDX) to OCaml.
-
-**Status:** the game engine + the full `Fire` house are ported and verified by
-`test/` (18 Alcotest cases and 4 expect tests, all passing). `bin/main.ml` plays Fire-vs-Fire
-headless games to a decisive result.
+OCaml port of freespectrogdx (Scala 3 + libGDX). The engine, all houses, the campaign, and both UIs
+are in. Port status and the Scala → OCaml map live in
+[docs/tech/migration.md](docs/tech/migration.md).
 
 ```sh
 eval $(opam env --switch=mancer)   # OCaml 5.2.0 + dune 3.24.2
+opam install notty raylib          # terminal UI, raylib UI
 dune build
 dune test                          # Alcotest suites + expect tests
 dune promote                       # accept a reviewed expect-test diff
-dune exec ./bin/main.exe           # 20 headless games
-dune exec ./bin/main.exe -- -v     # first game with an event trace
+dune exec ./bin/tui.exe            # play or watch a game in the terminal
+dune exec ./bin/gui.exe            # raylib window; in a game, F8 cycles spell effects
 ```
-
-## What is ported
-
-| Scala | OCaml |
-|---|---|
-| `State.scala` | `lib/sp.ml` |
-| `CardSpec.scala` | `lib/sp.ml` |
-| `GameCardEffect.scala` | `lib/engine.ml` (effect combinators) |
-| `update/{SlotUpdate,SlotsUpdate,PlayerUpdate,GameUpdate}.scala` | `lib/engine.ml` |
-| `house/Common.scala`, `house/package.scala` (shared helpers) | `lib/common.ml` |
-| `house/Fire.scala` | `lib/fire.ml` |
-| `CardShuffle.scala` (partly), `Tournament.scala` (HeadlessGame) | `lib/game.ml` |
-
-## How the Scala translated
-
-**The card DSL was the easy part, exactly as expected.** Scala's
-`type Effect = Env ⇒ Unit` is `env -> unit`, and `effects(Direct -> f, OnTurn -> g)`
-became a ~10-line builder over a 4-variant phase:
-
-```ocaml
-creature ~key:"fire.blargl" ~attack:(attack 8) ~life:26
-  ~effects:(effects [ Direct, mass_damage ~is_ability:true ~immune_self:true 4 ]) ()
-```
-
-versus the Scala:
-
-```scala
-new Creature("fire.blargl", Attack(8), 26, I18n("fire.blargl.description"),
-  effects = effects(Direct -> massDamage(4, isAbility = true, immuneSelf = true)))
-```
-
-The OCaml card list is ~60 lines for 12 cards and reads at the same level. No
-translation friction here at all.
-
-**`Reaction` was the interesting one.** Scala uses `class Reaction extends Actions`
-with self-typed inheritance; 44 house files subclass it. OCaml has no equivalent
-(mutually recursive modules need explicit signatures here, which is not worth it),
-so reactions became a record of function fields with defaults:
-
-```ocaml
-type reaction = {
-  selected : slot_update option ref;
-  inflict  : slot_update -> damage -> unit;
-  self_protect : damage -> damage;
-  on_my_death : dead -> unit;
-  ...
-}
-```
-
-Houses override single fields with `{ r with on_my_damage = ... }`. `AttackBonusReaction`
-(a 2-method abstract class) became a closure factory:
-
-```ocaml
-~new_reaction:
-  (attack_bonus_reaction
-     ~cond:(fun pos num -> abs (pos - num) = 1)
-     ~get_bonus:(fun pos -> Attack_bonus { tag = "orc"; pos; bonus = (fun a -> a + 2) }))
-```
-
-This is the part I flagged as "a design pass over 44 houses, not a translation",
-and that held up. It is per-house work, but each is a small local rewrite, not a
-rewrite of the layer the rules sit on.
-
-**The cyclic graph cost nothing**, as predicted. `updater → player → slots → slot
-→ slots` builds with one `let rec p = { slots_update = { player = p; ... } }`,
-because OCaml allows a record literal to refer to the value being defined.
-(`slots_update.slot_updates` is `mutable` only to fill the slot array after; no
-`Rc<RefCell<_>>`, no `Obj.magic` in the final code.)
-
-**Two simplifications the port absorbed for free:**
-
-- `FieldUpdate`'s tid/dirty/valuedirty cache exists to make `value` a lazily
-  rebuilt view of the parent. Mutating in place removes the need for it.
-  `PlayerUpdate.dirtyElementals` disappears too: attack sources are re-folded on
-  every read, so `ManaAttack` and attack bonuses are always current. That deleted
-  roughly 80 lines of cache-invalidation bookkeeping *and* the class of bug where
-  a stale flag makes an elemental attack wrong.
-- `AnyRef data` (37 nulls across the tree) became `slot_data`/`player_data` sum
-  types. Fire doesn't need them, but every other house that does will have to
-  enumerate its cases instead of punting on null.
-
-## Two real bugs the port surfaced
-
-Both were found by the mechanics test, and both are the kind that only show up
-after 200 games in Scala:
-
-1. **`Player.mod_damage` did not terminate.** Scala's `PlayerUpdate.mod` folds
-   over the *attacker's* slots starting from `d`; a faithful-looking translation
-   that recursed `otherPlayer mod d` as the fold seed looped forever. `SpellMod`
-   scaling is now correct and tested (dragon 10 → 15).
-
-2. **`Reaction.default`'s `inflict` recursed into itself.** Scala's `Actions.inflict`
-   calls `damageSlot`; routing it back through `SlotUpdate.inflict` meant the
-   default reaction called itself. Only surfaced as a hang, not a wrong number.
-
-Both argue for keeping the Scala Elo harness as the oracle rather than trusting
-the port by inspection.
-
-## Code layout
-
-`lib/` is the wrapped library `Mancer`. `engine.mli`, `common.mli`, `fire.mli`
-and `game.mli` are the public surface; `sp.ml` is types only and has no
-interface because all of it is meant to be public.
-
-`engine.ml` is a sequence of modules in dependency order (`Houses`, `Slot`,
-`Slots`, `Player`, `Reaction`, `Updater`) followed by the card effect
-combinators, so there is no large `let rec` group. House code reads like the
-Scala: `Slot.inflict s d`, `Player.inflict op d`, `Slots.summon su num c`.
-
-Record fields that would clash across types carry a short prefix (`b_` creature
-body, `cd_` card desc, `h_` house, `ps_` player state, `cmd_` command, `env_`
-env, `hl_` house listener), so literals never need a type annotation.
 
 Format with `dune fmt`.
 
-Tests: `test/mechanics.ml` holds the Alcotest suites, `test/expect/` holds
-ppx_expect board snapshots and a short game trace, and `test/support/` the
-fixtures both share. A rules change shows up as an expect diff: review it, then
-`dune promote`.
+## Play
 
-## What is not ported
+Presentation page [here](https://minhdoboi.github.io/mancer-ml).
 
-- **43 of 44 houses.** Fire only.
-- **Deck building.** Scala uses ChocoSolver to satisfy deck constraints
-  (`CardShuffle.scala`). This is the one subsystem with no natural OCaml
-  equivalent — the solver is a Java library — so `game.ml` picks a fixed cost
-  slice instead. If deck legality matters for balance work, this is the piece to
-  look at first.
-- **Bots.** The greedy bot in `game.ml` just picks the cheapest legal card into
-  the frontmost open slot. It is deterministic and first-player-biased (player 0
-  wins every game), which is why the numbers from `bin/main.exe` are not a
-  balance signal yet.
-- **Networking, campaign, rendering, i18n.**
+Both UIs open the same lobby: campaign, duel, and settings.
 
-## Reading the numbers
+**Duel** picks each seat (`human`, `greedy`, `summoner`, `strategist`,
+`lecturer`, `oracle`, or `diviner`) and a portrait. Two humans is hot-seat;
+two bots is a game to watch.
 
-`bin/main.exe` reports the same game 20 times because both the deck and the bot
-are deterministic. It proves the loop terminates and combat resolves; it does
-not prove balance. The useful next step is a non-deterministic bot so the two
-players actually diverge, then a diff against Scala's Elo over the same
-matchups.
+**Settings** picks both special houses, the bot budget, an optional seed,
+and the language. An empty house set plays every special.
+
+Like the Scala lobby, both UIs remember setup in `~/.mancer/user.prefs`
+(the same Java-properties file as `Storage.scala`, overridable with
+`$MANCER_USER_PREFS`). `$MANCER_LANG` (`fr`, `es`, `ru`, `vi`; default `en`)
+wins over the saved language when set; a language picked in the GUI settings
+takes effect on restart. Card text comes from `i18n/<lang>.properties` in
+the assets checkout, falling back to English per key.
+
+### Terminal
+
+```sh
+dune exec ./bin/tui.exe
+```
+
+On your move, pick a card with the arrows and press enter, then choose a
+highlighted slot (arrows or 0–5) and enter again; `p` passes. Space pauses
+a bot game. `w` saves to `tui-games/` in the tournament format. After a
+game, `r` replays the same seed and `n` deals again.
+
+Bots print stats to stdout, so the TUI sends stdout to `/dev/null` and
+draws on a duplicate of the terminal descriptor.
+
+### Raylib
+
+```sh
+dune exec ./bin/gui.exe
+dune exec ./bin/gui.exe -- --shot out.png --bots --seed 1 --wait 8
+```
+
+The window scales a fixed 1440×900 layout. Click a lit card to play it;
+legal targets light up; right-click or Esc cancels. Hovering a card shows
+its text. Saved games go to `gui-games/`. **F8** cycles the spell-effect
+demos on the board.
+
+Bots search on a second domain so the window keeps drawing; their move is
+submitted on the main one, and leaving a game waits for a running search
+to finish.
+
+## Tournament
+
+`bin/main.exe` shuffles legal decks, plays the requested bots, and writes
+`game-NNN.json` plus `summary.json` under `tournament-results/<timestamp>/`.
+Default is greedy vs greedy. `--budget` is the search bots' milliseconds per
+move (default 1000).
+
+Two tournaments share the driver, and they measure different things:
+
+- `--mode bots` (the default) ranks the **bots**. Every seat plays
+  `--special`, the seat order alternates, and `summary.json` holds the bots'
+  W/L/D and Elo.
+- `--mode houses` ranks the **houses**. They play a round robin against each
+  other, with the bots as the instrument, and the Elo in the `houses` table
+  is the houses' rating.
+
+Mixing them would rate a bot by the houses it happened to draw, which
+measures neither.
+
+```sh
+dune exec ./bin/main.exe           # 20 greedy-vs-greedy games
+dune exec ./bin/main.exe -- -v     # first game with an event trace
+dune exec ./bin/main.exe -- --bots greedy,oracle --games 4 --budget 200 --seed 1
+dune exec ./bin/main.exe -- --special zen --games 4 --seed 1
+dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
+dune exec ./bin/compare_engines.exe -- --seed 1 --special zen --turns 80
+```
+
+The greedy bot always takes the cheapest legal card, so greedy-vs-greedy
+win counts are not a balance signal. Oracle vs greedy is.
+
+`--bots greedy,summoner,strategist,lecturer,oracle,diviner` is the full
+matchup. Lecturer is a UCT tree search; tune with
+`LECTURER_OPTS=exploration=0.7,maxDepth=4,...`.
+
+### House tournament
+
+There's a tournament feature, to check house balance, but it's not very reliable
+due to the gaming style of the bots.
+
+`--mode houses` compares houses. `--special` takes a list of houses; every
+pair of them plays, `--games` games per pair, and within a pairing the house
+at seat 0 alternates every game while the bots alternate every other one — so
+every house meets every bot from every seat and the rating measures the house,
+not the seat or the bot.
+
+```sh
+# zen, wind and darksider play each other, 2 games per pair
+dune exec ./bin/main.exe -- --mode houses --special zen,wind,darksider \
+  --bots diviner --games 2 --budget 200
+
+# a house and its challengers: --opponent-special adds to the list
+dune exec ./bin/main.exe -- --mode houses --special zen \
+  --opponent-special dudes,junk,trappers --bots diviner --games 20 --budget 200
+```
+
+A game counts for the house of the seat that won it. `--include` and
+`--exclude` match on the house name; when both seats play the same house the
+second is labelled `zen2`, so the two stay apart.
+
+With two bots, give a pairing at least four games: the house at seat 0
+alternates every game (so the seat cancels over the round robin) but the bots
+cross only every other game, and four games are what it takes for both.
+
+House keys are the game names, not always the module names: `--special
+Troopers`, `--special Dudes`, `--special reaper` (Soul Reaper also answers
+to `soulreaper`).
+
+```
+dune exec ./bin/main.exe -- --mode houses --special seasons,darksider,sower,dreamweaver,wind,elementalist --games 5 --bots diviner --budget=200
+```
+
+|              | seasons    |   darksider  |   sower   |   dreamweaver |  wind |   elementalist
+|--------------|------------|--------------|-----------|---------------|-------|---------------
+| seasons      | -          |   4-1        |   5-0     |   4-1         |  5-0  |   4-1
+| darksider    | 1-4        |   -          |   4-1     |   1-4         |  2-3  |   1-4
+| sower        | 0-5        |   1-4        |   -       |   2-3         |  3-2  |   2-3
+| dreamweaver  | 1-4        |   4-1        |   3-2     |   -           |  5-0  |   3-2
+| wind         | 0-5        |   3-2        |   2-3     |   0-5         |  -    |   0-5
+| elementalist | 1-4        |   4-1        |   3-2     |   2-3         |  5-0  |   -
+
+```
+dune exec ./bin/main.exe -- --mode houses --special paganist,highpriest,seasons,Troopers,antimancer --games 3 --bots diviner --budget=200
+```
+
+|             | paganist  |  highpriest |  seasons  |   Troopers  |  antimancer
+|-------------|-----------|-------------|-----------|-------------|------------
+| paganist    | -         |  2-1        |  2-1      |   2-1       |  2-1
+| highpriest  | 1-2       |  -          |  1-2      |   1-2       |  3-0
+| seasons     | 1-2       |  2-1        |  -        |   2-1       |  3-0
+| Troopers    | 1-2       |  2-1        |  1-2      |   -         |  2-1
+| antimancer  | 1-2       |  0-3        |  0-3      |   1-2       |  -
+
+
+## Limitations
+
+Both UIs hide what the Scala game hides, but the bots don't play blind:
+like the original, they think on the full `game_state`, so anything the
+engine tracks is visible to them even when your board keeps it secret.
+
+- **Opponent hands in search.** Strategist, lecturer, oracle, and summoner
+  explore the opponent's replies with that side's real hand, never a guess. That can be a problem for hidden knowledge like stealth card, or Mistwalker called element for example.
+  Diviner is the exception: it samples belief hands for the opponent's
+  deck, but even its worlds keep the true board, Stalker included.
+- **Not every rule of the original game is implemented.** The 1% rule and
+  some of the deck-building rules are missing, so decks and matchups can
+  differ from the original Spectromancer.
+
+## License
+
+The game engine and tools are under the
+[GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0); the
+mancer-assets media carries the same license. You may use and modify them in
+open source projects; if you ship a product or hosted service that includes
+this code or the mancer-assets media, you must publish corresponding source
+under the same license. Bundled fonts keep their own terms
+(`assets/fonts/IMFellEnglish-OFL.txt`).
+
+## Assets
+
+Art, sounds, and text live in the
+[mancer-assets](https://github.com/minhdoboi/mancer-assets) submodule at
+`assets/` (`git submodule update --init`, or point `$MANCER_ASSETS` at another
+checkout), committed in the shape the game loads: `cards/<card key>.jpg`,
+`backgrounds/<house key>.jpg`, `portraits/<id>.png`, `sounds/<sound key>.mp3`.
+
+The one thing built from a source is the portraits: `assets/source/portraits/`
+holds the 1024² originals (tracked with [git-lfs](https://git-lfs.com) — install
+it before you clone or pull, or those arrive as pointer text), and
+`bin/sync_assets.ml` cuts them to the 256² the UI draws and reports every house
+card the game finds no art for.
+
+```sh
+dune exec ./bin/sync_assets.exe
+scripts/push_assets.sh "message"   # commit assets/, push, stage the pointer
+```
+
+How to paint it is in [AGENTS.md](AGENTS.md).
+
+## Package
+
+The GUI is a native binary, so you package **on each OS** (Linux, macOS,
+Windows). raylib is linked statically; the zip is the executable, `assets/`,
+and a small launcher.
+
+```sh
+scripts/package.sh
+```
+
+That writes `dist/mancer-<version>-<os>-<arch>/` and a matching zip. Players
+run `./mancer` on Linux, `mancer.app` on macOS, or `mancer.bat` on Windows.
+The first macOS launch needs right-click → Open (the app is not signed).
+Windows is built with mingw via Diskuv OCaml or opam; Git Bash can run the
+same script.
+
+Does the package actually start? `scripts/smoke.sh` opens the game in a
+hidden window, loads its fonts and its art, and plays a few seconds of a
+game; it exits 0 when the build runs.
+
+```sh
+scripts/smoke.sh                  # the newest package for this OS
+scripts/smoke.sh dist/mancer-1.0.zip
+scripts/smoke.sh --no-window      # the assets only, for a machine with no display
+```
+
+CI runs the same check on the macOS app, on the Windows exe, and on the
+Linux binary, so a build that cannot start fails the pipeline instead of the
+player's desktop.
+Full steps, signing, and DLL notes: [docs/tech/packaging.md](docs/tech/packaging.md).
+
+## Layout
+
+`lib/` is the wrapped library `Mancer`.
+
+| Path | Role |
+|---|---|
+| `lib/core/` | Types (`sp.ml`), engine, shared house helpers |
+| `lib/houses/` | Basic and special houses |
+| `lib/bots/` | Search bots |
+| `lib/game/` | Session, table, shuffle, campaign, tournament, assets |
+| `gui/` | The raylib front end as a library: spell effects (`fx*`) and the screens (`gui_*`) |
+| `bin/` | `main`, `tui`, `gui` (entry point), `replay`, `compare_engines`, `sync_assets`, `cardlist` |
+| `templates/` | The grimoire page: `cards.html` with `cards.css` and `cards.js` beside it |
+| `test/` | Alcotest suites, `expect/` board snapshots, `support/` fixtures |
+
+`session.mli` drives a live game: `Session.create`, `status`,
+`legal_commands`, `submit`, plus an `on_event` listener. `table.mli` sits
+on top for front ends (seats, seeded deals, bot dispatch, legal targets).
+`engine.ml` is modules in dependency order (`Houses`, `Slot`, `Slots`,
+`Player`, `Reaction`, `Updater`) followed by the card effect combinators.
+House code reads like the Scala: `Slot.inflict s d`, `Player.inflict op d`,
+`Slots.summon su num c`.
+
+Record fields that would clash across types carry a short prefix (`b_`
+creature body, `cd_` card desc, `h_` house, `ps_` player state), so
+literals never need a type annotation.
+
+A rules change shows up as an expect diff: review it, then `dune promote`.
+
+## Docs
+
+- [Grimoire](docs/cards.html) — every house and card with art, cost and
+  rules text. The page reads [cards.json](docs/cards.json) and draws the
+  list: a search box covers every house and card at once, and the list on the
+  left picks the house to show. The list is published in every language the
+  game ships — the English one is `cards.json`, the others
+  `cards.<lang>.json` — and the menu in the header picks one, so the page
+  reads in the reader's own language. Regenerate and commit after touching a
+  house or the strings:
+
+  ```sh
+  dune exec ./bin/cardlist.exe
+  ```
+
+  `.github/workflows/pages.yml` publishes `docs/` and copies `assets/cards/`
+  next to those files, so the art has to be in the submodule; the workflow
+  checks it out for that reason. The page fetches the card list over http,
+  so opening it as a `file://` URL finds nothing — serve the folder to look
+  at it:
+
+  ```sh
+  python3 -m http.server --directory docs
+  ```
+
+  The page itself is a template, not program output: `templates/cards.html`
+  with `templates/cards.css` and `templates/cards.js` beside it. `cardlist`
+  fills the `{{css}}`, `{{js}}` and `{{langs}}` markers and writes
+  `docs/cards.html`, so editing the page means editing the template and
+  running the tool again. The text of a list comes from the i18n bundle of
+  that language (`assets/i18n/<lang>.properties`), so a translation of the
+  card names and rules text is enough to publish the list in it.
+- [Tutorials](docs/tuto/README.md) — the architecture, how the AI opponents
+  think (Oracle, Diviner, and the rest), the maths behind the spell effects,
+  and how the lobby ocean and the blacksmith sounds are synthesised
+- [Migration status and Scala map](docs/tech/migration.md)
+- [House port mismatches](docs/tech/house-port-mismatches.md)
+- [Spell-effect port plan](docs/tech/effects-port-plan.md)
+- [Packaging for Linux, macOS, Windows](docs/tech/packaging.md)
+
+## Credits
+
+* The custom house design comes from the spectromancer suggestions forum.
+* Migration was done with multiple models Opus,Sonnet,Grok. The art was mostly
+generated with Grok Imagine. At the end to avoid spending too much money,
+I used more Deepseek, Minimax, Flux or Meta Muse Image, depending on the tasks.
+A simple dev setup can be pi harness with Deepseek or GLM, with a green provider
+like greenpt via a router like edenai for example, and Flux (bfl or via fal for example).

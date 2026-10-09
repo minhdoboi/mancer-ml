@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grimoire — Mancers</title>
+<meta name="description" id="metadesc" content="The Mancers grimoire: every house and card, with art, cost, stats and rules text.">
+<style>
+:root{--bg:#14110f;--fg:#e8dfd0;--muted:#a89c88;--accent:#d9a441;--card:#1f1a16;--line:#3a3028;--spell:#b4656a}
+@media (prefers-color-scheme:light){:root{--bg:#f6f0e4;--fg:#2a211a;--muted:#6b5d4d;--accent:#9a5b0f;--card:#fffaf0;--line:#d8ccb6;--spell:#9c3a42}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 Georgia,serif}
+main{max-width:1080px;margin:0 auto;padding:40px 16px 80px}
+h1{font-size:2.6rem;margin:0;color:var(--accent);letter-spacing:.02em}
+header{display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;justify-content:space-between}
+.tools{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.lang{display:flex;gap:8px;align-items:center;font-size:.9rem;color:var(--muted)}
+#lang{padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);font:inherit;font-size:.9rem}
+#lang:focus{outline:none;border-color:var(--accent)}
+.btn{padding:8px 16px;border-radius:6px;border:1px solid var(--accent);color:var(--accent);text-decoration:none;font-size:.95rem;white-space:nowrap}
+.btn:hover{background:var(--accent);color:var(--bg)}
+a{color:var(--accent)}
+.pager{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;margin:0 0 24px;font-size:.9rem}
+.pager a,.pager .cur{padding:6px 13px;border:1px solid var(--line);border-radius:999px;text-decoration:none;color:var(--muted)}
+.pager a:hover{color:var(--accent);border-color:var(--accent)}
+.pager .cur{color:var(--accent);border-color:var(--accent)}
+.pager .gap{color:var(--line)}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:28px;align-items:start}
+.sidebar{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--card);padding:8px}
+.sidebar ul{list-style:none;margin:0;padding:0}
+.sidebar a{display:block;padding:6px 10px;border-radius:6px;text-decoration:none;color:var(--muted);font-size:.95rem}
+.sidebar a:hover{color:var(--accent);background:#ffffff08}
+.sidebar a.on{background:var(--accent);color:var(--bg)}
+#q{position:sticky;top:0;z-index:1;display:block;width:100%;margin:0 0 8px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);font:inherit;font-size:.9rem}
+#q:focus{outline:none;border-color:var(--accent)}
+.count{color:var(--muted);font-size:.9rem}
+h2{margin:0 0 .4em;font-size:1.35rem;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:6px}
+.blurb{margin:.6em 0 0;color:var(--fg);font-size:.95rem;max-width:62ch}
+.summary{margin:.35em 0 .9em;color:var(--muted);font-size:.85rem}
+section.house{scroll-margin-top:16px;margin-bottom:34px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;scroll-margin-top:16rem}
+.card.spell{border-left:3px solid var(--spell)}
+.top{display:flex;gap:12px;align-items:flex-start}
+.art{flex:0 0 80px}
+.art img{width:80px;height:80px;object-fit:contain;display:block;border-radius:4px;background:#0003}
+.noart{width:80px;height:80px;display:flex;align-items:center;justify-content:center;border:1px dashed var(--line);border-radius:4px;color:var(--muted);font-size:.75rem;text-align:center}
+.head{flex:1;min-width:0}
+h3{margin:0;font-size:1rem;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.cost{color:var(--accent);font-variant-numeric:tabular-nums;font-weight:400}
+.meta{margin:.15em 0 0;color:var(--muted);font-size:.8rem;display:flex;gap:10px;align-items:baseline}
+.type{text-transform:uppercase;letter-spacing:.06em;font-size:.72rem}
+.stat{font-variant-numeric:tabular-nums}
+.desc{margin:0;font-size:.9rem;border-top:1px solid var(--line);padding-top:8px}
+footer{color:var(--muted);font-size:.9rem;margin-top:56px;border-top:1px solid var(--line);padding-top:16px}
+.empty{display:none;color:var(--muted)}
+.hidden{display:none !important}
+.load{color:var(--muted)}
+code{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:.9em}
+@media (max-width:820px){
+  .layout{grid-template-columns:1fr}
+  .sidebar{position:static;max-height:11em}
+}
+@media (max-width:520px){.top{flex-direction:column}.art{flex:none}}
+
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">Grimoire</h1>
+    <div class="tools">
+      <label class="lang"><span id="langlabel">Language</span>
+        <select id="lang"></select>
+      </label>
+      <a class="btn" href="index.html"><span aria-hidden="true">&#8592;</span> <span id="back">Back</span></a>
+    </div>
+  </header>
+  <p class="load" id="loading">Loading the card list…</p>
+  <p class="empty" id="none">No card matches.</p>
+  <div class="layout">
+    <div id="nav"></div>
+    <div id="houses"></div>
+  </div>
+  <footer>
+    <p id="footer"></p>
+  </footer>
+</main>
+<script>
+const PAGE_LANGS = [{"code":"en","name":"English","file":"cards.json"},{"code":"fr","name":"Français","file":"cards.fr.json"},{"code":"es","name":"Español","file":"cards.es.json"},{"code":"ru","name":"Русский","file":"cards.ru.json"},{"code":"vi","name":"Tiếng Việt","file":"cards.vi.json"}];
+</script>
+<script>
+/* The grimoire page: it reads the card list of one language and draws it.
+   The list is one JSON per language (cards.json, cards.fr.json, ...), the
+   menu in the header picks one, and the page redraws with its text. */
+
+let DATA = null, SELECTED = null, QUERY = '', LANG = 'en';
+
+/* the languages the page was built with, each with the file it lives in */
+const LANGS = typeof PAGE_LANGS === 'undefined' ? [] : PAGE_LANGS;
+
+const el = (tag, cls, html) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html !== undefined) e.innerHTML = html;
+  return e;
+};
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* the strings of the page, in the language of the list */
+const t = key => (DATA && DATA.ui && DATA.ui[key] != null) ? DATA.ui[key] : key;
+/* a string with its {0} and {1} filled in */
+const fill = (tmpl, args) => args.reduce((s, v, i) => s.split('{' + i + '}').join(v), tmpl);
+
+const ASSETS_URL = 'https://github.com/minhdoboi/mancer-assets';
+const langFile = code => {
+  const l = LANGS.find(l => l.code === code);
+  return l && l.file ? l.file : (code === 'en' ? 'cards.json' : 'cards.' + code + '.json');
+};
+
+function cardEl(c) {
+  const art = c.art
+    ? `<img src="${c.art}" alt="${esc(c.name)}" loading="lazy" width="80" height="80">`
+    : `<div class="noart">${esc(t('noart'))}</div>`;
+  // the top of the card: the picture on the left, the facts on the right
+  const type = c.spell ? t('spell') : t('creature');
+  const stats = c.spell ? '' : `<span class="stat">${c.attack === null ? 'X' : c.attack} / ${c.life}</span>`;
+  const cost = c.cost === 0 ? t('token') : c.cost;
+  const a = el('article', 'card' + (c.spell ? ' spell' : ''));
+  a.id = c.key;
+  a.dataset.text = (c.name + ' ' + c.houseName + ' ' + c.text + ' ' + c.key).toLowerCase();
+  a.innerHTML = `<div class="top">
+      <div class="art">${art}</div>
+      <div class="head">
+        <h3>${esc(c.name)} <span class="cost">${cost}</span></h3>
+        <p class="meta"><span class="type">${esc(type)}</span>${stats}</p>
+      </div>
+    </div>
+    ${c.text ? `<p class="desc">${esc(c.text)}</p>` : ''}`;
+  return a;
+}
+
+function houseEl(h) {
+  const s = el('section', 'house');
+  s.id = h.key;
+  const creatures = h.cards.filter(c => !c.spell).length;
+  const spells = h.cards.length - creatures;
+  const summary = fill(t('summary'), [creatures, spells]);
+  const credit = h.author ? esc(h.author) : h.cards.length;
+  s.innerHTML = `<h2>${esc(h.name)} <span class="count">(${credit})</span></h2>
+    ${h.blurb ? `<p class="blurb">${esc(h.blurb)}</p>` : ''}
+    <p class="summary">${esc(summary)}</p>`;
+  const grid = el('div', 'grid');
+  h.cards.forEach(c => grid.appendChild(cardEl(c)));
+  s.appendChild(grid);
+  return s;
+}
+
+function drawNav() {
+  const nav = el('nav', 'sidebar');
+  const q = el('input');
+  q.id = 'q';
+  q.type = 'search';
+  q.placeholder = t('search');
+  q.value = QUERY;
+  q.autocomplete = 'off';
+  q.spellcheck = false;
+  q.addEventListener('input', () => { QUERY = q.value; apply(); });
+  nav.appendChild(q);
+  const ul = el('ul');
+  DATA.houses.forEach(h => {
+    const li = el('li');
+    const a = el('a', null, esc(h.name));
+    a.href = '#' + h.key;
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      select(h.key);
+      history.replaceState(null, '', location.search + '#' + h.key);
+    });
+    li.appendChild(a);
+    ul.appendChild(li);
+  });
+  nav.appendChild(ul);
+  return nav;
+}
+
+function drawLangMenu() {
+  const sel = document.getElementById('lang');
+  sel.innerHTML = '';
+  LANGS.forEach(l => {
+    const o = el('option', null, esc(l.name));
+    o.value = l.code;
+    o.selected = l.code === LANG;
+    sel.appendChild(o);
+  });
+  sel.onchange = () => setLang(sel.value);
+}
+
+/* the parts of the page that carry text: the title, the menu, the footer */
+function drawChrome() {
+  const title = t('title');
+  document.title = title + ' — Mancers';
+  document.getElementById('title').textContent = title;
+  document.getElementById('back').textContent = t('back');
+  document.getElementById('langlabel').textContent = t('language');
+  const meta = document.getElementById('metadesc');
+  if (meta) meta.setAttribute('content', t('description'));
+  document.getElementById('none').textContent = t('none');
+  const file = langFile(LANG);
+  const footer = fill(esc(t('footer')), [
+    '<a href="' + ASSETS_URL + '">mancer-assets</a>',
+    '<a href="' + file + '">' + file + '</a>'
+  ]);
+  document.getElementById('footer').innerHTML = footer;
+}
+
+function select(key) {
+  SELECTED = key;
+  apply();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function apply() {
+  const terms = QUERY.toLowerCase().split(/\s+/).filter(Boolean);
+  const searching = terms.length > 0;
+  let shown = 0;
+  DATA.houses.forEach(h => {
+    const section = document.getElementById(h.key);
+    // a search looks at every house; browsing shows the one that was picked
+    const onShow = searching || h.key === SELECTED;
+    let any = false;
+    section.querySelectorAll('.card').forEach(c => {
+      const hit = !searching || terms.every(t => c.dataset.text.includes(t));
+      c.classList.toggle('hidden', !hit);
+      if (hit) any = true;
+    });
+    if (onShow && any) shown += section.querySelectorAll('.card:not(.hidden)').length;
+    section.classList.toggle('hidden', !any || !onShow);
+  });
+  document.getElementById('none').style.display = shown ? 'none' : 'block';
+  document.querySelectorAll('.sidebar a').forEach(a => {
+    a.classList.toggle('on', !searching && a.getAttribute('href') === '#' + SELECTED);
+  });
+}
+
+async function load(code) {
+  const file = langFile(code);
+  const res = await fetch(file);
+  if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+  const data = await res.json();
+  DATA = data;
+  LANG = data.lang || code;
+  document.documentElement.lang = LANG;
+  const byHouse = {};
+  DATA.cards.forEach(c => {
+    if (!byHouse[c.house]) byHouse[c.house] = [];
+    byHouse[c.house].push(c);
+  });
+  const names = {};
+  DATA.houses.forEach(h => {
+    names[h.key] = h.name;
+    h.cards = byHouse[h.key] || [];
+  });
+  DATA.cards.forEach(c => { c.houseName = names[c.house] || ''; });
+  const houses = document.getElementById('houses');
+  houses.innerHTML = '';
+  DATA.houses.forEach(h => houses.appendChild(houseEl(h)));
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  nav.appendChild(drawNav());
+  drawLangMenu();
+  drawChrome();
+  document.getElementById('loading').style.display = 'none';
+  // a link may point at a house: #fire
+  const wanted = location.hash.slice(1);
+  SELECTED = DATA.houses.some(h => h.key === wanted) ? wanted : DATA.houses[0].key;
+  apply();
+}
+
+function known(code) {
+  return LANGS.some(l => l.code === code);
+}
+
+function remember(code) {
+  try { localStorage.setItem('grimoire.lang', code); } catch (e) { }
+}
+
+/* the language to open with: the one in the link, then the one the reader
+   picked last, then the one the browser asks for */
+function wantedLang() {
+  const asked = new URLSearchParams(location.search).get('lang');
+  if (asked && known(asked)) { remember(asked); return asked; }
+  let saved = null;
+  try { saved = localStorage.getItem('grimoire.lang'); } catch (e) { }
+  if (saved && known(saved)) return saved;
+  const nav = (navigator.language || 'en').toLowerCase();
+  const hit = LANGS.find(l => nav === l.code || nav.startsWith(l.code + '-'));
+  return hit ? hit.code : 'en';
+}
+
+async function setLang(code) {
+  if (code === LANG || !known(code)) return;
+  LANG = code;
+  document.documentElement.lang = code;
+  remember(code);
+  history.replaceState(null, '', '?lang=' + code + location.hash);
+  const loading = document.getElementById('loading');
+  loading.textContent = t('loading');
+  loading.style.display = 'block';
+  await load(code);
+}
+
+load(wantedLang()).catch(err => {
+  document.getElementById('loading').innerHTML =
+    'The card list lives in <code>cards.json</code>, next to this page. ' + esc(String(err)) +
+    '<br>A page opened as a file cannot read it: serve the folder over http — ' +
+    '<code>python3 -m http.server --directory docs</code>';
+});
+
+</script>
+</body>
+</html>

@@ -1,3 +1,206 @@
 (test
  (name mechanics)
+ (modules mechanics)
  (libraries mancer support alcotest))
+
+(test
+ (name houses)
+ (modules houses)
+ (libraries mancer support alcotest))
+
+(test
+ (name anger)
+ (modules anger)
+ (libraries mancer support alcotest))
+
+(test
+ (name sadness)
+ (modules sadness)
+ (libraries mancer support alcotest))
+
+(test
+ (name fear)
+ (modules fear)
+ (libraries mancer support alcotest))
+
+(test
+ (name joy)
+ (modules joy)
+ (libraries mancer support alcotest))
+
+(test
+ (name shuffle)
+ (modules shuffle)
+ (libraries mancer support alcotest))
+
+(test
+ (name test_oracle)
+ (modules test_oracle)
+ (libraries mancer support alcotest))
+
+(test
+ (name test_tournament)
+ (modules test_tournament)
+ (libraries mancer support alcotest unix))
+
+(test
+ (name test_lecturer)
+ (modules test_lecturer)
+ (libraries mancer support alcotest))
+
+(test
+ (name dice)
+ (modules dice)
+ (libraries mancer alcotest))
+
+(test
+ (name replay)
+ (modules replay)
+ (libraries mancer support alcotest))
+
+(test
+ (name session)
+ (modules session)
+ (libraries mancer support alcotest))
+
+(test
+ (name table)
+ (modules table)
+ (libraries mancer alcotest))
+
+(test
+ (name prefs)
+ (modules prefs)
+ (libraries mancer alcotest))
+
+(test
+ (name campaign)
+ (modules campaign)
+ (libraries mancer alcotest))
+
+(test
+ (name heuris)
+ (modules heuris)
+ (libraries mancer support alcotest))
+
+(test
+ (name test_summoner)
+ (modules test_summoner)
+ (libraries mancer support alcotest))
+
+(test
+ (name test_strategist)
+ (modules test_strategist)
+ (libraries mancer alcotest))
+
+(test
+ (name test_diviner)
+ (modules test_diviner)
+ (libraries mancer support alcotest))
+
+(test
+ (name spell_looks)
+ (modules spell_looks)
+ (libraries mancer support alcotest)
+ (deps
+  (source_tree ../gui)))
+
+(test
+ (name more_houses)
+ (modules more_houses)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_b)
+ (modules houses_b)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_c)
+ (modules houses_c)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_d)
+ (modules houses_d)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_e)
+ (modules houses_e)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_f)
+ (modules houses_f)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_g)
+ (modules houses_g)
+ (libraries mancer support alcotest))
+
+(test
+ (name port_fixes)
+ (modules port_fixes)
+ (libraries mancer support alcotest))
+
+(test
+ (name assets)
+ (modules assets)
+ (libraries mancer alcotest))
+
+(test
+ (name command_order)
+ (modules command_order)
+ (libraries mancer support alcotest))
+
+(test
+ (name emotion)
+ (modules emotion)
+ (libraries mancer support alcotest))
+
+(test
+ (name paganist)
+ (modules paganist)
+ (libraries mancer support alcotest))
+
+(test
+ (name kahjivir)
+ (modules kahjivir)
+ (libraries mancer support alcotest))
+
+(test
+ (name blacksmith)
+ (modules blacksmith)
+ (libraries mancer support alcotest))
+
+ (test
+ (name houses_h)
+ (modules houses_h)
+ (libraries mancer support alcotest))
+
+(test
+ (name lightstave)
+ (modules lightstave)
+ (libraries mancer support alcotest))
+
+(test
+ (name beastlord)
+ (modules beastlord)
+ (libraries mancer support alcotest))
+
+(test
+ (name chaospriest)
+ (modules chaospriest)
+ (libraries mancer support alcotest))
+
+(test
+ (name barbarians)
+ (modules barbarians)
+ (libraries mancer support alcotest))
+
+(test
+ (name update)
+ (modules update)
+ (libraries mancer alcotest))

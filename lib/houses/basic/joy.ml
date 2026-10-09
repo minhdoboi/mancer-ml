@@ -1,0 +1,133 @@
+(* Joy house — an earth variant that takes earth's basic slot.
+   Effects and stats are exactly earth's; only the keys and names differ. *)
+
+open Sp
+open Engine
+open Common
+
+let young_nymph =
+  creature ~key:"joy.nymph" ~attack:(attack 2) ~life:11 ~description:"joy.nymph.description" ()
+
+let () = young_nymph.cost <- 1
+
+(* The owner's two strongest creatures (highest attack, leftmost on a tie),
+   as published at the start of the step — before Fusion's cost is paid. *)
+let fusion_sources (p : player_state) =
+  let ranked =
+    Array.to_list p.ps_slots
+    |> List.mapi (fun i st -> (i, st))
+    |> List.filter_map (fun (i, st) -> Option.map (fun s -> (i, s.attack)) st)
+    |> List.sort (fun (_, a) (_, b) -> compare b a)
+  in
+  match ranked with a :: b :: _ -> [ a; b ] | xs -> xs
+
+let fusion_attack p = List.fold_left (fun acc (_, a) -> acc + a) 0 (fusion_sources p)
+
+let fusion : card_effect =
+ fun env ->
+  let p = player_of_env env in
+  let sources = fusion_sources p.pstate in
+  let amount = List.fold_left (fun acc (_, a) -> acc + a) 0 sources in
+  Player.inflict (other_of_env env) (spell_damage env amount);
+  List.iter
+    (fun (num, atk) -> drain p.slots_update.slot_updates.(num) (spell_damage env atk))
+    sources
+
+let therapy : card_effect =
+ fun env -> Player.heal (player_of_env env) (2 * (get_mana env 3 + env.env_paid_cost))
+
+let nymph : card_effect =
+ fun env ->
+  let p = player_of_env env in
+  let spawn num =
+    (* isInSlotRange: the player's open slot list, so blocked slots are skipped *)
+    if List.mem num p.pstate.ps_slot_list then
+      let slot = p.slots_update.slot_updates.(num) in
+      if Option.is_none slot.value then Slots.add_creature slot (make_creature young_nymph)
+  in
+  spawn (env.env_selected - 1);
+  spawn (env.env_selected + 1)
+
+(* Laughing Golem: heals its adjacent creatures by 3 each turn. *)
+let golem_light : card_effect =
+ fun env -> List.iter (fun s -> Slot.heal s 3) (Slot.filled_adjacent (own_slot_of_env env))
+
+(* Playful Faery: while its owner has 15 life or less, its death hands its
+   owner one joy mana. *)
+let faery_reaction () =
+  let r = Reaction.default () in
+  {
+    r with
+    on_my_death =
+      (fun _ ->
+        let me = Reaction.bound_slot r in
+        if me.slots.player.pstate.ps_life <= 15 then
+          Houses.incr_mana me.slots.player.houses_update 1 [ 3 ]);
+  }
+
+(* Attachment Healer: while its owner is at 15 life or less, it also heals its
+   owner and creatures when it is summoned, not only each turn. *)
+let attachment_summon : card_effect =
+ fun env ->
+  if (player_of_env env).pstate.ps_life <= 15 then (
+    Player.heal (player_of_env env) 3;
+    heal_creatures 3 env)
+
+let cards =
+  [
+    creature ~key:"joy.faery" ~attack:(attack 2) ~life:12 ~description:"joy.faery.description"
+      ~new_reaction:faery_reaction
+      ~effects:(effects [ (On_turn, focus (heal 3)) ])
+      ();
+    spell ~key:"joy.care" ~description:"joy.care.description" ~input_spec:Select_owner_creature
+      ~effects:(effects [ (Direct, heal 8); (Direct, heal_creature 8) ])
+      ();
+    creature ~key:"joy.cat" ~attack:(attack 1) ~life:22 ~description:"joy.cat.description"
+      ~run_attack:multi_run_attack ();
+    spell ~key:"joy.bond" ~description:"joy.bond.description"
+      ~desc_args:(fun state pid -> [ string_of_int (2 * state.players.(pid).ps_houses.(3).mana) ])
+      ~effects:(effects [ (Direct, therapy) ])
+      ();
+    creature ~key:"joy.kitsune" ~attack:(attack 1) ~life:13 ~description:"joy.kitsune.description"
+      ~new_reaction:(mana_growth_reaction ~owner:true ~amount:2 ~house_indexes:[ 3 ])
+      ();
+    spell ~key:"joy.fusion" ~description:"joy.fusion.description"
+      ~desc_args:(fun state pid -> [ string_of_int (fusion_attack state.players.(pid)) ])
+      ~effects:(effects [ (Direct, fusion) ])
+      ();
+    creature ~key:"joy.nymphea" ~attack:(attack 4) ~life:21 ~description:"joy.nymphea.description"
+      ~effects:(effects [ (Direct, nymph) ])
+      ();
+    creature ~key:"joy.faune" ~attack:(attack 6) ~life:26 ~description:"joy.faune.description"
+      ~effects:(effects [ (On_turn, focus (heal_creature 4)) ])
+      ();
+    spell ~key:"joy.burst" ~description:"joy.burst.description"
+      ~effects:(effects [ (Direct, mass_damage ~is_spell:true 25) ])
+      ();
+    creature ~key:"joy.sunstonegolem" ~attack:(mana_attack 3) ~life:44
+      ~description:"joy.sunstonegolem.description"
+      ~effects:(effects [ (On_turn, add_mana 1 [ 3 ]); (On_turn, golem_light) ])
+      ();
+    creature ~key:"joy.attachment" ~attack:(attack 3) ~life:35 ~description:"joy.attachment.description"
+      ~effects:
+        (effects
+           [ (Direct, attachment_summon); (On_turn, focus (heal 3)); (On_turn, heal_creatures 3) ])
+      ();
+    creature ~key:"joy.dragon" ~attack:(attack 3) ~life:37 ~description:"joy.dragon.description"
+      ~run_attack:multi_run_attack
+      ~effects:(effects [ (On_turn, heal_creature 4) ])
+      ();
+  ]
+
+let house =
+  {
+    h_key = "joy";
+    h_name = "joy";
+    h_cards = cards;
+    h_index = 3;
+    h_effects = [];
+    h_house_id = 4;
+    h_additional_cards = [ young_nymph ];
+    h_make_listener = (fun () -> default_listener);
+    h_data = No_player_data;
+  }

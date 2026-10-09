@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grimoire — Mancers</title>
+<meta name="description" id="metadesc" content="The Mancers grimoire: every house and card, with art, cost, stats and rules text.">
+<style>
+{{css}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">Grimoire</h1>
+    <div class="tools">
+      <label class="lang"><span id="langlabel">Language</span>
+        <select id="lang"></select>
+      </label>
+      <a class="btn" href="index.html"><span aria-hidden="true">&#8592;</span> <span id="back">Back</span></a>
+    </div>
+  </header>
+  <p class="load" id="loading">Loading the card list…</p>
+  <p class="empty" id="none">No card matches.</p>
+  <div class="layout">
+    <div id="nav"></div>
+    <div id="houses"></div>
+  </div>
+  <footer>
+    <p id="footer"></p>
+  </footer>
+</main>
+<script>
+const PAGE_LANGS = {{langs}};
+</script>
+<script>
+{{js}}
+</script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+# Shell scripts must stay LF: Windows checkouts otherwise add CR and sh fails.
+*.sh text eol=lf

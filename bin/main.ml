@@ -1,29 +1,49 @@
-(* Headless driver: plays Fire-vs-Fire games and prints the outcome.
-   Mirrors what `Tournament --bots ... --games N` does on the Scala side. *)
+(* Headless tournament driver.  Mirrors `Tournament --bots ... --games N` on the Scala side. *)
 
 open Mancer
-open Sp
 
 let () =
-  let verbose = Array.length Sys.argv > 1 && Sys.argv.(1) = "-v" in
-  let games = if verbose then 1 else 20 in
-  Game.init_cards Fire.house;
-  let desc = { gd_players = [| Game.make_player_desc Fire.house; Game.make_player_desc Fire.house |] } in
-  let wins = ref 0 and losses = ref 0 and draws = ref 0 in
-  for i = 1 to games do
-    let r = Game.play_game desc ~max_turns:400 ~verbose in
-    let outcome =
-      match r.winner with
-      | Some 0 ->
-          incr wins;
-          "player 0"
-      | Some _ ->
-          incr losses;
-          "player 1"
-      | None ->
-          incr draws;
-          "draw"
-    in
-    Printf.printf "game %d: %s after %d turns\n" i outcome r.turns
-  done;
-  Printf.printf "\np0 %d / p1 %d / draws %d over %d games\n" !wins !losses !draws games
+  Printexc.record_backtrace true;
+  let usage =
+    "main.exe [--mode bots|houses|summary] [--games N] \
+     [--bots greedy,summoner,strategist,lecturer,oracle,diviner] [--budget MS] [--maxTurns N]\n\
+     \          [--out DIR] [--resume DIR] [--seed N] [--special HOUSE] [--opponent-special HOUSES] \
+     [--dir DIR] [-v]"
+  in
+  (* Tournament.parse already reads the flags; Arg is only here so unknown
+     tokens still produce a usage line. *)
+  let argv = Sys.argv in
+  (try
+     Arg.parse_argv argv
+       [
+         ("-v", Arg.Unit ignore, " verbose event trace on the first game");
+         ("--seed", Arg.Int ignore, "N replay the deals of a previous run");
+         ("--games", Arg.Int ignore, "N games per pairing (default 20)");
+         ( "--bots",
+           Arg.String ignore,
+           "IDS comma-separated (greedy, summoner, strategist, lecturer, oracle, diviner)" );
+         ("--budget", Arg.Int ignore, "MS search bots' time budget per move (default 1000)");
+         ("--maxTurns", Arg.Int ignore, "N (default 300)");
+         ("--out", Arg.String ignore, "DIR (default tournament-results/<timestamp>)");
+         ("--resume", Arg.String ignore, "DIR continue a previous run");
+         ("--special", Arg.String ignore, "HOUSES the house both seats play (bots), or a list of houses (houses)");
+         ( "--opponent-special",
+           Arg.String ignore,
+           "HOUSES comma-separated houses the house tournament compares, each of them once" );
+         ("--mode", Arg.String ignore, "bots|houses|summary (default bots)");
+         ("--dir", Arg.String ignore, "DIR summary input");
+         ("--include", Arg.String ignore, "specials");
+         ("--exclude", Arg.String ignore, "specials");
+         ("--minPlays", Arg.Int ignore, "N");
+         ("summary", Arg.Unit ignore, " recompute standings from --dir");
+       ]
+       (fun a -> raise (Arg.Bad ("unexpected argument " ^ a)))
+       usage
+   with
+  | Arg.Help h ->
+      print_string h;
+      exit 0
+  | Arg.Bad h ->
+      prerr_string h;
+      exit 2);
+  Tournament.run (Tournament.parse argv)
