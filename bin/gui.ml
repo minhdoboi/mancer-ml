@@ -12,6 +12,10 @@ module R = Raylib
 let vw = 832.
 let vh = 768.
 
+(* Thin black title bar in screen pixels, drawn in place of the desktop's
+   large CSD so the window reads like Scala's "The Mancer's echo" chrome. *)
+let chrome_h = 22.
+
 type rect = { x : float; y : float; w : float; h : float }
 
 let rect x y w h = { x; y; w; h }
@@ -20,10 +24,11 @@ let off_x = ref 0.
 let off_y = ref 0.
 
 let fit_frame () =
-  let sw = float (R.get_screen_width ()) and sh = float (R.get_screen_height ()) in
+  let sw = float (R.get_screen_width ()) in
+  let sh = Float.max 1. (float (R.get_screen_height ()) -. chrome_h) in
   scale := Float.min (sw /. vw) (sh /. vh);
   off_x := (sw -. (vw *. !scale)) /. 2.;
-  off_y := (sh -. (vh *. !scale)) /. 2.
+  off_y := chrome_h +. ((sh -. (vh *. !scale)) /. 2.)
 
 let screen r =
   R.Rectangle.create (!off_x +. (r.x *. !scale)) (!off_y +. (r.y *. !scale)) (r.w *. !scale) (r.h *. !scale)
@@ -37,6 +42,22 @@ let mouse () =
 let inside r =
   let mx, my = mouse () in
   mx >= r.x && mx < r.x +. r.w && my >= r.y && my < r.y +. r.h
+
+let overlap a b =
+  let x = Float.max a.x b.x and y = Float.max a.y b.y in
+  let x2 = Float.min (a.x +. a.w) (b.x +. b.w) and y2 = Float.min (a.y +. a.h) (b.y +. b.h) in
+  if x2 > x && y2 > y then Some (rect x y (x2 -. x) (y2 -. y)) else None
+
+(* Raylib has no z-index; scissor cuts later draws to [r] in world space. *)
+let begin_clip r =
+  let x = !off_x +. (r.x *. !scale) and y = !off_y +. (r.y *. !scale) in
+  R.begin_scissor_mode
+    (int_of_float (Float.floor x))
+    (int_of_float (Float.floor y))
+    (int_of_float (Float.ceil (r.w *. !scale)))
+    (int_of_float (Float.ceil (r.h *. !scale)))
+
+let end_clip () = R.end_scissor_mode ()
 
 (* ----------------------------------------------------------------- colors *)
 
@@ -59,6 +80,24 @@ let ink = rgba 46 28 23 255
 let ink_soft = rgba 87 64 54 255
 let paper_line = rgba 122 90 40 255
 
+(* Multiplies every later fill/text/image. The battle backdrop fade uses this
+   the same way libGDX parentAlpha tints a group. *)
+let draw_alpha = ref 1.
+
+let with_alpha a f =
+  let prev = !draw_alpha in
+  draw_alpha := prev *. Float.max 0. (Float.min 1. a);
+  Fun.protect ~finally:(fun () -> draw_alpha := prev) f
+
+let alpha_color c =
+  let k = !draw_alpha in
+  if k >= 0.999 then c else R.fade c k
+
+(* libGDX Interpolation.fade: smootherstep, used by fadeIn/fadeOut. *)
+let fade_smooth u =
+  let a = Float.max 0. (Float.min 1. u) in
+  a *. a *. a *. ((a *. ((a *. 6.) -. 15.)) +. 10.)
+
 (* fire, water, air, earth, special *)
 let house_color = function
   | 0 -> rgba 232 104 60 255
@@ -71,35 +110,83 @@ let house_color = function
 
 let regular = ref (R.get_font_default ())
 let bold = ref (R.get_font_default ())
+let paper_font = ref (R.get_font_default ())
+
+let finish_font ?(mips = false) f =
+  let tex = R.Font.texture f in
+  if mips then (
+    R.gen_texture_mipmaps (R.addr tex);
+    R.Font.set_texture f tex;
+    R.set_texture_filter (R.Font.texture f) R.TextureFilter.Trilinear)
+  else R.set_texture_filter tex R.TextureFilter.Bilinear;
+  f
+
+(* Walk back to the start of the UTF-8 character that contains [i]. *)
+let utf8_floor s i =
+  let n = String.length s in
+  let rec go i =
+    if i <= 0 then 0
+    else if i >= n then n
+    else if Char.code s.[i] land 0xC0 = 0x80 then go (i - 1)
+    else i
+  in
+  go i
 
 let load_fonts () =
+  (* Scala rasterizes a language-specific FreeType charset. Latin-1 is enough
+     for en; French needs œ; Russian and Vietnamese sit outside Latin-1, so
+     those glyphs were never in the atlas (Cyrillic vanished; Vietnamese lost
+     ă/ơ/ư and tones). *)
+  let range a b = List.init (b - a + 1) (fun i -> a + i) in
+  let script =
+    match Assets.lang () with
+    | "ru" -> range 0x400 0x45F
+    | "vi" -> range 0x100 0x17F @ [ 0x1A0; 0x1A1; 0x1AF; 0x1B0 ] @ range 0x1EA0 0x1EF9
+    | "fr" | "es" -> range 0x100 0x17F
+    | _ -> []
+  in
   let codepoints =
-    List.init (127 - 32) (fun i -> i + 32)
-    @ List.init (256 - 160) (fun i -> i + 160)
+    range 32 126 @ range 160 255 @ script
     @ [ 0x2013; 0x2014; 0x2018; 0x2019; 0x201C; 0x201D; 0x2022; 0x2026 ]
   in
-  let load paths =
+  let codes = Ctypes.CArray.of_list Ctypes.int codepoints in
+  let load ?(mips = false) size paths =
     match List.find_opt Sys.file_exists paths with
     | None -> R.get_font_default ()
-    | Some p ->
-        let f = R.load_font_ex p 64 (Some (Ctypes.CArray.of_list Ctypes.int codepoints)) in
-        R.set_texture_filter (R.Font.texture f) R.TextureFilter.Bilinear;
-        f
+    | Some p -> finish_font ~mips (R.load_font_ex p size (Some codes))
   in
   let fonts = "/usr/share/fonts/truetype/" in
-  regular := load [ fonts ^ "noto/NotoSans-Regular.ttf"; fonts ^ "dejavu/DejaVuSans.ttf" ];
-  bold := load [ fonts ^ "noto/NotoSans-Bold.ttf"; fonts ^ "dejavu/DejaVuSans-Bold.ttf" ]
+  regular := load 64 [ fonts ^ "noto/NotoSans-Regular.ttf"; fonts ^ "dejavu/DejaVuSans.ttf" ];
+  bold := load 64 [ fonts ^ "noto/NotoSans-Bold.ttf"; fonts ^ "dejavu/DejaVuSans-Bold.ttf" ];
+  (* IM Fell English has neither Cyrillic nor Vietnamese, so those locales use
+     a system serif on parchment too (Scala [I18n.useCommonSkin]). *)
+  let paper_paths =
+    let system_serif =
+      [
+        fonts ^ "noto/NotoSerif-Regular.ttf";
+        fonts ^ "dejavu/DejaVuSerif.ttf";
+        fonts ^ "liberation/LiberationSerif-Regular.ttf";
+        fonts ^ "noto/NotoSans-Regular.ttf";
+        fonts ^ "dejavu/DejaVuSans.ttf";
+      ]
+    in
+    match Assets.lang () with
+    | "ru" | "vi" -> system_serif
+    | _ -> Filename.concat (Assets.root ()) "fonts/IMFellEnglish.ttf" :: system_serif
+  in
+  (* Regular IM Fell (or the common face), rasterized 3× like Scala so 18pt stays sharp. *)
+  paper_font := load ~mips:true 54 paper_paths
 
 let text_w ?(font = regular) size s = R.Vector2.x (R.measure_text_ex !font s size 0.)
 
 let text ?(font = regular) ?(size = 18.) ?(color = fg) x y s =
-  R.draw_text_ex !font s (pos x y) (size *. !scale) 0. color
+  R.draw_text_ex !font s (pos x y) (size *. !scale) 0. (alpha_color color)
 
 let text_c ?font ?size ?color r y s =
   let size' = Option.value size ~default:18. in
   text ?font ?size ?color (r.x +. ((r.w -. text_w ?font size' s) /. 2.)) y s
 
-(* cropped to [w] with an ellipsis *)
+(* cropped to [w] with an ellipsis; [n] is a UTF-8 boundary so we never split a letter *)
 let fit ?font size w s =
   if text_w ?font size s <= w then s
   else
@@ -107,7 +194,7 @@ let fit ?font size w s =
       if n = 0 then ""
       else
         let t = String.sub s 0 n ^ "…" in
-        if text_w ?font size t <= w then t else go (n - 1)
+        if text_w ?font size t <= w then t else go (utf8_floor s (n - 1))
     in
     go (String.length s)
 
@@ -124,10 +211,10 @@ let wrap ?font size w s =
 
 (* ---------------------------------------------------------------- shapes *)
 
-let fill ?(round = 0.12) r c = R.draw_rectangle_rounded (screen r) round 6 c
+let fill ?(round = 0.12) r c = R.draw_rectangle_rounded (screen r) round 6 (alpha_color c)
 
 let outline ?(round = 0.12) ?(thick = 1.5) r c =
-  R.draw_rectangle_rounded_lines_ex (screen r) round 6 (thick *. !scale) c
+  R.draw_rectangle_rounded_lines_ex (screen r) round 6 (thick *. !scale) (alpha_color c)
 
 (* ---------------------------------------------------------------- images *)
 
@@ -187,30 +274,39 @@ let image ?(tint = R.Color.white) tex r =
   let ra = r.w /. r.h in
   let sw, sh = if tw /. th > ra then (th *. ra, th) else (tw, tw /. ra) in
   let src = R.Rectangle.create ((tw -. sw) /. 2.) ((th -. sh) /. 2.) sw sh in
-  R.draw_texture_pro tex src (screen r) (R.Vector2.create 0. 0.) 0. tint
+  R.draw_texture_pro tex src (screen r) (R.Vector2.create 0. 0.) 0. (alpha_color tint)
 
 (* [r] filled, texture stretched (frames keep native aspect because [r] does) *)
 let image_at ?(tint = R.Color.white) tex r =
   let src = R.Rectangle.create 0. 0. (float (R.Texture.width tex)) (float (R.Texture.height tex)) in
-  R.draw_texture_pro tex src (screen r) (R.Vector2.create 0. 0.) 0. tint
+  R.draw_texture_pro tex src (screen r) (R.Vector2.create 0. 0.) 0. (alpha_color tint)
 
-(* Backdrop stretched over the whole window, letterbox bands included: the
-   832×768 world only covers the fitted area, and window decorations can
-   shrink the drawable area below the requested size. *)
+(* Backdrop filling the whole window without stretching. Crop to the window
+   aspect so letterbox bands are covered and the art keeps its proportions. *)
 let cover tex =
   let sw = float (R.get_screen_width ()) and sh = float (R.get_screen_height ()) in
-  let src = R.Rectangle.create 0. 0. (float (R.Texture.width tex)) (float (R.Texture.height tex)) in
-  R.draw_texture_pro tex src (R.Rectangle.create 0. 0. sw sh) (R.Vector2.create 0. 0.) 0. R.Color.white
+  let tw = float (R.Texture.width tex) and th = float (R.Texture.height tex) in
+  let ra = sw /. sh in
+  let src_w, src_h = if tw /. th > ra then (th *. ra, th) else (tw, tw /. ra) in
+  let src = R.Rectangle.create ((tw -. src_w) /. 2.) ((th -. src_h) /. 2.) src_w src_h in
+  R.draw_texture_pro tex src (R.Rectangle.create 0. 0. sw sh) (R.Vector2.create 0. 0.) 0.
+    (alpha_color R.Color.white)
 
-(* Scala combat/slot is 112×140 with the gold well only in the middle. Crop
-   to that well so an empty slot can be drawn at card size. *)
+(* Scala combat/slot is 112×140; the gold well is 81×95 at (15, 24). Crop to
+   that well. A 90×102 override is the well already cropped. *)
+let slot_well_w = 81.
+let slot_well_h = 95.
+
 let slot_src tex =
   let tw = float (R.Texture.width tex) and th = float (R.Texture.height tex) in
-  if int_of_float tw = 112 && int_of_float th = 140 then R.Rectangle.create 15. 24. 81. 95.
+  if int_of_float tw = 112 && int_of_float th = 140 then R.Rectangle.create 15. 24. slot_well_w slot_well_h
   else R.Rectangle.create 0. 0. tw th
 
+let slot_well_rect r =
+  rect (r.x +. ((r.w -. slot_well_w) /. 2.)) (r.y +. ((r.h -. slot_well_h) /. 2.)) slot_well_w slot_well_h
+
 let image_slot ?(tint = R.Color.white) tex r =
-  R.draw_texture_pro tex (slot_src tex) (screen r) (R.Vector2.create 0. 0.) 0. tint
+  R.draw_texture_pro tex (slot_src tex) (screen r) (R.Vector2.create 0. 0.) 0. (alpha_color tint)
 
 let card_texture c = texture (Assets.card_art c)
 
@@ -283,12 +379,6 @@ let on_click r f =
   if inside r then hovering := true;
   if clicked r then pending := Some f
 
-(* Dim over the whole window, bands included: a world-sized dim leaves a
-   visible edge now that backdrops go fullscreen. *)
-let shade_full c =
-  let sw = float (R.get_screen_width ()) and sh = float (R.get_screen_height ()) in
-  R.draw_rectangle_rounded (R.Rectangle.create 0. 0. sw sh) 0. 6 c
-
 let click_full f =
   let m = R.get_mouse_position () in
   let sw = float (R.get_screen_width ()) and sh = float (R.get_screen_height ()) in
@@ -304,9 +394,23 @@ let button ?(selected = false) ?(enabled = true) ?(size = 17.) r label f =
   text_c ~font:bold ~size ~color:(if enabled then fg else faint) r (r.y +. ((r.h -. size) /. 2.) -. 2.) label;
   if enabled then on_click r f
 
+(* Soft drop shadow around a parchment sheet. The map stays undimmed;
+   stacked low-alpha rings read as a small blur, not a hard outline. *)
+let paper_shadow r =
+  let n = 9 in
+  let step = 2.2 in
+  for i = n downto 1 do
+    let pad = float i *. step in
+    let dy = float i *. 0.5 in
+    fill ~round:0.2
+      (rect (r.x -. pad) (r.y -. pad +. dy) (r.w +. (2. *. pad)) (r.h +. (2. *. pad)))
+      (rgba 22 12 6 6)
+  done
+
 (* Paper scroll dialog box, like the Scala dialogs: parchment.png is a
    nine-patch with a 48px deckled edge, stretched middle. *)
 let paper r =
+  paper_shadow r;
   match texture (Assets.ui "parchment") with
   | None -> fill r panel
   | Some t ->
@@ -318,17 +422,118 @@ let paper r =
         for j = 0 to 2 do
           let src = R.Rectangle.create t0.(i) t0.(j) tw.(i) tw.(j) in
           let dst = screen { x = xs.(i); y = ys.(j); w = ws.(i); h = hs.(j) } in
-          R.draw_texture_pro t src dst (R.Vector2.create 0. 0.) 0. R.Color.white
+          R.draw_texture_pro t src dst (R.Vector2.create 0. 0.) 0. (alpha_color R.Color.white)
         done
       done
 
-(* Button on a paper dialog: transparent until hovered, dark ink text. *)
-let pbutton ?(selected = false) ?(enabled = true) ?(size = 17.) r label f =
+(* Scala parchment TextButton: amber fill + IM Fell ink. *)
+let pbutton ?(selected = false) ?(enabled = true) ?(size = 16.) r label f =
   let hot = enabled && inside r in
-  if selected || hot then fill r (if selected then rgba 190 152 100 255 else rgba 222 196 150 255);
-  outline r (if selected then ink else if hot then ink_soft else paper_line);
-  text_c ~font:bold ~size ~color:(if enabled then ink else faint) r (r.y +. ((r.h -. size) /. 2.) -. 2.) label;
+  if hot then hovering := true;
+  let fill_c =
+    if not enabled then rgba 184 132 55 140
+    else if selected then rgba 168 112 38 255
+    else if hot then rgba 199 143 61 255
+    else rgba 184 132 55 255
+  in
+  fill ~round:0.12 r fill_c;
+  outline ~round:0.12 ~thick:1.2 r (if hot || selected then rgba 92 54 18 255 else rgba 110 70 24 230);
+  text_c ~font:paper_font ~size
+    ~color:(if enabled then ink else ink_soft)
+    r
+    (r.y +. ((r.h -. size) /. 2.))
+    label;
   if enabled then on_click r f
+
+let btn_h = 28.
+let paper_btn_w ?(size = 16.) label = Float.max 28. (text_w ~font:paper_font size label +. 16.)
+
+(* Notebook tabs on parchment: labels on a rule, not amber buttons. The
+   active tab is ink plus a short underline that sits on the strip. *)
+let ptabs ~x ~y ~w ~selected keys set =
+  let size = 18. and h = 30. and pad = 14. and gap = 8. in
+  let items =
+    List.mapi
+      (fun k key ->
+        let label = Assets.text key in
+        (k, label, text_w ~font:paper_font size label +. (pad *. 2.)))
+      keys
+  in
+  fill ~round:0. (rect x (y +. h -. 1.) w 1.) (rgba 122 90 40 130);
+  let cx = ref x in
+  List.iter
+    (fun (k, label, tw) ->
+      let r = rect !cx y tw h in
+      let on = k = selected in
+      let hot = inside r in
+      if on then
+        fill ~round:0.6
+          (rect (r.x +. 8.) (r.y +. r.h -. 4.) (r.w -. 16.) 3.)
+          (rgba 122 90 40 255);
+      text_c ~font:paper_font ~size ~color:(if on || hot then ink else ink_soft) r
+        (r.y +. ((h -. size) /. 2.))
+        label;
+      on_click r (fun () -> set k);
+      cx := !cx +. tw +. gap)
+    items
+
+let paper_btn_row ?(size = 16.) ?(h = btn_h) ?(gap = 8.) ~cx ~y items =
+  let widths = List.map (fun (label, _) -> paper_btn_w ~size label) items in
+  let total = List.fold_left ( +. ) 0. widths +. (float (max 0 (List.length items - 1)) *. gap) in
+  let x = ref (cx -. (total /. 2.)) in
+  List.iter2
+    (fun (label, f) w ->
+      pbutton ~size (rect !x y w h) label f;
+      x := !x +. w +. gap)
+    items widths
+
+let debug_mode () = try Prefs.debug_mode (Prefs.load ()) with _ -> false
+
+(* Parchment checkbox, like Scala's CheckBox("parchment"): a square plus the
+   label, not a selected button. *)
+let checkbox ?(size = 18.) ~checked ~x ~y ~max_w label f =
+  let box_s = 24. and gap = 10. in
+  let text_x = x +. box_s +. gap in
+  let text_max = Float.max 40. (max_w -. box_s -. gap) in
+  let lines = wrap ~font:paper_font size text_max label in
+  let line_h = size +. 4. in
+  let h = Float.max box_s (float (max 1 (List.length lines)) *. line_h) in
+  let hit = rect x y max_w h in
+  let box = rect x (y +. ((h -. box_s) /. 2.)) box_s box_s in
+  let hot = inside hit in
+  if hot then hovering := true;
+  fill ~round:0.16 box (if checked then rgba 168 112 38 255 else rgba 255 252 242 230);
+  outline ~round:0.16
+    ~thick:(if checked || hot then 2. else 1.5)
+    box
+    (if checked || hot then rgba 92 54 18 255 else paper_line);
+  if checked then (
+    let thick = 2.6 *. !scale in
+    let c = alpha_color (rgba 255 244 214 255) in
+    R.draw_line_ex
+      (pos (box.x +. (box.w *. 0.22)) (box.y +. (box.h *. 0.52)))
+      (pos (box.x +. (box.w *. 0.42)) (box.y +. (box.h *. 0.74)))
+      thick c;
+    R.draw_line_ex
+      (pos (box.x +. (box.w *. 0.42)) (box.y +. (box.h *. 0.74)))
+      (pos (box.x +. (box.w *. 0.78)) (box.y +. (box.h *. 0.26)))
+      thick c);
+  List.iteri
+    (fun i l -> text ~font:paper_font ~size ~color:ink text_x (y +. (float i *. line_h) +. 1.) l)
+    lines;
+  on_click hit f
+
+let close_dialog _id k = k ()
+let drop_dialog () = ()
+
+let draw_dialog_dim () =
+  let sw = R.get_screen_width () and sh = R.get_screen_height () in
+  R.draw_rectangle 0 0 sw sh (rgba 0 0 0 (int_of_float ((255. *. 0.45) +. 0.5)))
+
+let run_dialog _id shown draw =
+  if shown then (
+    draw_dialog_dim ();
+    draw ())
 
 (* ------------------------------------------------------------- portraits *)
 
@@ -354,26 +559,33 @@ let draw_face ?tint id r =
       fill r panel;
       text_c ~size:11. ~color:muted r (r.y +. (r.h /. 2.) -. 6.) "?"
 
-let draw_portrait_chooser ~x ~y ~size ~col_w ?(sub = "") id ids set =
-  let ctrl = 28. and gap = 8. in
+let draw_portrait_chooser ~x ~y ~size ~col_w ?(sub = "") ?(name_size = 14.) ?(sub_size = 13.) id ids set =
+  let ctrl = 22. and gap = 6. and ctrl_h = 26. in
   let total = ctrl +. gap +. size +. gap +. ctrl in
   let x0 = x +. ((col_w -. total) /. 2.) in
-  let mid_y = y +. ((size -. 32.) /. 2.) in
-  pbutton ~size:16. (rect x0 mid_y ctrl 32.) "<" (fun () -> set (cycle_portrait ids id (-1)));
+  let mid_y = y +. ((size -. ctrl_h) /. 2.) in
+  pbutton ~size:16. (rect x0 mid_y ctrl ctrl_h) "<" (fun () -> set (cycle_portrait ids id (-1)));
   let face = rect (x0 +. ctrl +. gap) y size size in
   draw_face id face;
   outline ~round:0.04 face (if inside face then ink_soft else paper_line);
   on_click face (fun () -> set (cycle_portrait ids id 1));
   pbutton ~size:16.
-    (rect (face.x +. size +. gap) mid_y ctrl 32.)
+    (rect (face.x +. size +. gap) mid_y ctrl ctrl_h)
     ">"
     (fun () -> set (cycle_portrait ids id 1));
-  text_c ~size:13. ~color:ink_soft (rect x (y +. size) col_w 0.) (y +. size +. 8.) (portrait_label id);
-  if sub <> "" then text_c ~size:12. ~color:ink_soft (rect x (y +. size) col_w 0.) (y +. size +. 26.) sub
+  text_c ~font:paper_font ~size:name_size ~color:ink_soft
+    (rect x (y +. size) col_w 0.)
+    (y +. size +. 8.)
+    (portrait_label id);
+  if sub <> "" then
+    text_c ~font:paper_font ~size:sub_size ~color:ink_soft
+      (rect x (y +. size) col_w 0.)
+      (y +. size +. 8. +. name_size +. 4.)
+      sub
 
 (* ------------------------------------------------------------ lobby ui *)
 
-let seat_options = Table.Human :: List.map (fun id -> Table.Bot id) Tournament.bot_ids
+let ai_portrait_ids = List.map (fun (o : Table.opponent) -> o.Table.opp_portrait) Table.duel_opponents
 let budget_options = [ 100; 250; 500; 1000; 2000; 5000 ]
 let languages = [ "en"; "fr"; "es"; "ru"; "vi" ]
 
@@ -405,6 +617,10 @@ let ai_label portrait =
 type duel_side = { mutable seat : Table.seat; mutable portrait : string }
 type duel_ui = { sides : duel_side * duel_side }
 
+let set_ai_side (sd : duel_side) id =
+  sd.portrait <- id;
+  sd.seat <- (match Table.bot_of_portrait id with Some b -> Table.Bot b | None -> Table.Bot "oracle")
+
 (* Game settings (the Scala Settings dialog): house choices, bot budget,
    seed, sound and language. Everything persists except the seed. Each side
    checks a set of houses; the fight plays a random pick, an empty set
@@ -416,6 +632,7 @@ type game_settings = {
   mutable seed_focus : bool;
   mutable sound : float;
   mutable lang : string;
+  mutable debug : bool;
   mutable tab : int;
   mutable class_scroll : float;
   mutable class_drag : bool;
@@ -427,6 +644,8 @@ type lobby_ui = {
   mutable menu : int;
   mutable show_duel : bool;
   mutable show_settings : bool;
+  mutable show_campaign_intro : bool;
+  mutable show_campaign : bool;
   mutable message : string;
 }
 
@@ -450,6 +669,7 @@ let game_settings_from_prefs () =
     seed_focus = false;
     sound = Prefs.sound_level prefs;
     lang = Prefs.language prefs;
+    debug = Prefs.debug_mode prefs;
     tab = 0;
     class_scroll = 0.;
     class_drag = false;
@@ -469,13 +689,14 @@ let duel_from_prefs () =
   let p0, p1 = Prefs.setup_portraits prefs in
   let seat0 = seat_of_string ~fallback:fb0 s0 in
   (* The AI side follows its saved face and the face's bot. *)
+  let as_bot seat = match seat with Table.Human -> Table.Bot "oracle" | Table.Bot _ as b -> b in
   let seat1, portrait1 =
     match Table.bot_of_portrait (Prefs.ai_opponent prefs) with
     | Some b when List.mem b Tournament.bot_ids ->
         let seat = Table.Bot b in
         (seat, clamp_portrait seat (Prefs.ai_opponent prefs))
     | _ ->
-        let seat = seat_of_string ~fallback:fb1 s1 in
+        let seat = as_bot (seat_of_string ~fallback:fb1 s1) in
         (seat, clamp_portrait seat p1)
   in
   { sides = ({ seat = seat0; portrait = clamp_portrait seat0 p0 }, { seat = seat1; portrait = portrait1 }) }
@@ -487,6 +708,8 @@ let new_lobby () =
     menu = 1;
     show_duel = false;
     show_settings = false;
+    show_campaign_intro = false;
+    show_campaign = false;
     message = "";
   }
 
@@ -499,20 +722,66 @@ let persist_duel lobby =
     match s1.seat with Table.Bot _ -> Prefs.set_ai_opponent p s1.portrait | Table.Human -> ()
   with _ -> ()
 
-(* One special-house card that keeps its background picture. *)
-let draw_special_card ?(name_size = 11.) ?(bar_h = 22.) r (h : house) selected set =
+(* Split a single-word house name near the middle so a larger label still fits. *)
+let house_label_lines ?font size w s =
+  if text_w ?font size s <= w then [ s ]
+  else
+    let len = String.length s in
+    let rec from n =
+      let n = utf8_floor s n in
+      if n < 1 then None
+      else
+        let a = String.sub s 0 n and b = String.sub s n (len - n) in
+        if text_w ?font size a <= w && text_w ?font size b <= w then Some [ a; b ]
+        else from (n - 1)
+    in
+    match from ((len + 1) / 2) with
+    | Some lines -> lines
+    | None ->
+        let rec longest n =
+          let n = utf8_floor s n in
+          if n <= 1 then n
+          else if text_w ?font size (String.sub s 0 n) <= w then n
+          else longest (n - 1)
+        in
+        let n = longest len in
+        [ String.sub s 0 n; fit ?font size w (String.sub s n (len - n)) ]
+
+(* One special-house card that keeps its background picture. The name bar
+   covers the lower part of the art so the label can stay readable. *)
+let draw_special_card ?(name_size = 13.) ?(bar_h = 32.) ?clip r (h : house) selected set =
+  let hit =
+    match clip with
+    | None -> inside r
+    | Some view -> ( match overlap r view with Some c -> inside c | None -> false)
+  in
+  let pic = rect r.x r.y r.w (Float.max 8. (r.h -. bar_h)) in
   (match texture (Assets.background h) with
-  | Some t -> image ~tint:(if selected then R.Color.white else rgba 150 150 150 255) t r
-  | None -> fill r panel);
-  R.draw_rectangle_rec (screen (rect r.x (r.y +. r.h -. bar_h) r.w bar_h)) shade;
-  text_c ~font:bold ~size:name_size r (r.y +. r.h -. (bar_h -. 4.)) (cap h.h_name);
+  | Some t -> image ~tint:(if selected then R.Color.white else rgba 150 150 150 255) t pic
+  | None -> fill pic panel);
+  let bar = rect r.x (r.y +. r.h -. bar_h) r.w bar_h in
+  R.draw_rectangle_rec (screen bar) (alpha_color shade);
+  let lines = house_label_lines ~font:paper_font name_size (r.w -. 4.) (cap h.h_name) in
+  let line_h = name_size +. 1. in
+  let block = (float (List.length lines) *. line_h) -. 1. in
+  let y0 = bar.y +. ((bar.h -. block) /. 2.) in
+  List.iteri (fun i s -> text_c ~font:paper_font ~size:name_size r (y0 +. (float i *. line_h)) s) lines;
   outline ~round:0.06
     ~thick:(if selected then 3. else 1.5)
     r
-    (if selected then accent else if inside r then ink_soft else paper_line);
-  on_click r set
+    (if selected then accent else if hit then ink_soft else paper_line);
+  match clip with
+  | None -> on_click r set
+  | Some view -> Option.iter (fun c -> on_click c set) (overlap r view)
 
 let lobby_menu = [ "campaign"; "duel"; "settings" ]
+
+let campaign_is_fresh () =
+  let p = Prefs.load () in
+  Prefs.campaign_completed p = [] && Prefs.campaign_position p = Campaign.day_start_id
+
+let open_campaign lobby =
+  if campaign_is_fresh () then lobby.show_campaign_intro <- true else lobby.show_campaign <- true
 
 let draw_lobby lobby =
   (match texture (Assets.ui "lobby-elements") with Some t -> cover t | None -> ());
@@ -530,69 +799,86 @@ let draw_lobby lobby =
   List.iteri
     (fun i key ->
       let r = rect 40. (vh -. 176. +. (float i *. 40.)) 184. 36. in
-      let enabled = key <> "campaign" in
-      let hot = enabled && inside r in
+      let hot = inside r in
       if hot then hovering := true;
-      (* Scala's text menu: white, gold on hover, grey when disabled. *)
-      let color =
-        if not enabled then rgba 128 128 128 255
-        else if lobby.menu = i || hot then rgba 255 214 89 255
-        else R.Color.white
-      in
+      let color = if hot then rgba 255 214 89 255 else R.Color.white in
       let label = Assets.text ("button." ^ key) in
       text ~size:24. ~color:(rgba 0 0 0 200) 50. (r.y +. 10.) label;
       text ~size:24. ~color 48. (r.y +. 8.) label;
-      if enabled then
-        on_click r (fun () ->
-            lobby.menu <- i;
-            if key = "duel" then lobby.show_duel <- true
-            else if key = "settings" then (
-              lobby.show_settings <- true;
-              lobby.gs.tab <- 0)))
+      on_click r (fun () ->
+          lobby.menu <- i;
+          if key = "campaign" then open_campaign lobby
+          else if key = "duel" then lobby.show_duel <- true
+          else if key = "settings" then (
+            lobby.show_settings <- true;
+            lobby.gs.tab <- 0)))
     lobby_menu;
   if lobby.message <> "" then text ~size:13. ~color:red 48. (vh -. 60.) lobby.message;
   text_c ~size:14. ~color:faint (rect 0. 0. vw 0.) (vh -. 28.) "↑↓ choose · Enter opens · Esc quits"
 
 let lobby_keys lobby =
-  if R.is_key_pressed R.Key.Up then lobby.menu <- (if lobby.menu <= 1 then 2 else lobby.menu - 1);
-  if R.is_key_pressed R.Key.Down then lobby.menu <- (if lobby.menu >= 2 then 1 else lobby.menu + 1);
+  if R.is_key_pressed R.Key.Up then lobby.menu <- (if lobby.menu <= 0 then 2 else lobby.menu - 1);
+  if R.is_key_pressed R.Key.Down then lobby.menu <- (if lobby.menu >= 2 then 0 else lobby.menu + 1);
   if R.is_key_pressed R.Key.Enter then
-    if lobby.menu = 1 then lobby.show_duel <- true
-    else (
-      lobby.show_settings <- true;
-      lobby.gs.tab <- 0)
+    match lobby.menu with
+    | 0 -> open_campaign lobby
+    | 1 -> lobby.show_duel <- true
+    | _ ->
+        lobby.show_settings <- true;
+        lobby.gs.tab <- 0
 
-(* Duel setup (Scala DuelDialog): each side picks a human/bot seat and a
-   portrait; a bot seat wears its own faces. *)
+(* Duel setup (Scala DuelDialog): portraits pick the faces, and an AI
+   portrait brings its bot along. Dev mode can put a bot in seat one. *)
 let draw_duel lobby ~fight =
-  shade_full (rgba 0 0 0 120);
-  click_full (fun () -> lobby.show_duel <- false);
-  let box = rect 106. 180. 620. 420. in
+  click_full (fun () -> close_dialog "duel" (fun () -> lobby.show_duel <- false));
+  let debug = debug_mode () in
+  let box = rect 106. 150. 620. (if debug then 440. else 400.) in
   paper box;
   on_click box (fun () -> ());
-  text_c ~font:bold ~size:20. ~color:ink box (box.y +. 16.) (Assets.text "button.duel");
-  let side x label (sd : duel_side) =
-    text ~font:bold ~size:16. ~color:ink (x +. 16.) (box.y +. 52.) label;
-    List.iteri
-      (fun k opt ->
-        pbutton ~selected:(opt = sd.seat) ~size:11.
-          (rect (x +. 16. +. (float k *. 68.)) (box.y +. 78.) 62. 30.)
-          (cap (Table.seat_name opt))
-          (fun () ->
-            sd.seat <- opt;
-            sd.portrait <- clamp_portrait opt sd.portrait))
-      seat_options;
-    let ids = portraits_for sd.seat in
-    let sub = match sd.seat with Table.Human -> "" | Table.Bot _ -> ai_label sd.portrait in
-    draw_portrait_chooser ~x ~y:(box.y +. 122.) ~size:100. ~col_w:280. ~sub sd.portrait ids (fun v ->
-        sd.portrait <- v)
-  in
+  text_c ~font:paper_font ~size:26. ~color:ink box (box.y +. 16.) (Assets.text "button.duel");
   let s0, s1 = lobby.duel.sides in
-  side 126. (Assets.text "lobby.you") s0;
-  side 426. (Assets.text "lobby.opponent") s1;
-  pbutton ~size:18. (rect 256. 540. 150. 44.) (Assets.text "button.fight") fight;
-  pbutton ~size:18. (rect 416. 540. 150. 44.) (Assets.text "button.cancel") (fun () ->
-      lobby.show_duel <- false)
+  if (not debug) && match s0.seat with Table.Bot _ -> true | Table.Human -> false then (
+    s0.seat <- Table.Human;
+    s0.portrait <- clamp_portrait Table.Human s0.portrait);
+  (match s1.portrait with
+  | id when List.mem id ai_portrait_ids -> set_ai_side s1 id
+  | _ -> set_ai_side s1 (List.hd ai_portrait_ids));
+  let col_w = 280. in
+  let side ~x ~label ~(sd : duel_side) ~you =
+    text_c ~font:paper_font ~size:22. ~color:ink (rect x (box.y +. 52.) col_w 0.) (box.y +. 52.) label;
+    let y = ref (box.y +. 82.) in
+    if you && debug then (
+      let hw = paper_btn_w ~size:16. "Human" and bw = paper_btn_w ~size:16. "Bot" in
+      let gap = 6. in
+      let x0 = x +. ((col_w -. hw -. gap -. bw) /. 2.) in
+      pbutton ~selected:(sd.seat = Table.Human) ~size:16. (rect x0 !y hw 26.) "Human" (fun () ->
+          sd.seat <- Table.Human;
+          sd.portrait <- clamp_portrait Table.Human sd.portrait);
+      pbutton
+        ~selected:(match sd.seat with Table.Bot _ -> true | Table.Human -> false)
+        ~size:16.
+        (rect (x0 +. hw +. gap) !y bw 26.)
+        "Bot"
+        (fun () ->
+          let id = if List.mem sd.portrait ai_portrait_ids then sd.portrait else List.hd ai_portrait_ids in
+          set_ai_side sd id);
+      y := !y +. 32.);
+    let ids, sub, on_pick =
+      match sd.seat with
+      | Table.Human -> (Table.player_portraits, "", fun v -> sd.portrait <- v)
+      | Table.Bot _ -> (ai_portrait_ids, ai_label sd.portrait, set_ai_side sd)
+    in
+    draw_portrait_chooser ~x ~y:!y ~size:120. ~col_w ~sub ~name_size:18. ~sub_size:16. sd.portrait ids on_pick
+  in
+  side ~x:126. ~label:(Assets.text "lobby.you") ~sd:s0 ~you:true;
+  side ~x:426. ~label:(Assets.text "lobby.opponent") ~sd:s1 ~you:false;
+  paper_btn_row ~size:20. ~h:30.
+    ~cx:(box.x +. (box.w /. 2.))
+    ~y:(box.y +. box.h -. 48.)
+    [
+      (Assets.text "button.fight", fight);
+      (Assets.text "button.cancel", fun () -> close_dialog "duel" (fun () -> lobby.show_duel <- false));
+    ]
 
 (* Game settings (the classes/game/sound/language tabs of the Scala Settings
    dialog). The game tab holds the bot budget and seed from the old setup
@@ -619,37 +905,45 @@ let toggle_special gs which name =
 (* Group headers toggle the whole group: all checked clears it, otherwise it checks them all. *)
 let toggle_group gs which houses =
   let names = List.map (fun (h : house) -> h.h_name) houses in
-  let known n = List.exists (fun m -> Catalog.token n = Catalog.token m) names in
+  let same a b = Catalog.token a = Catalog.token b in
+  let known n = List.exists (same n) names in
   let a, b = gs.specials in
   let set = if which = 0 then a else b in
+  let selected n = List.exists (same n) set in
   let next =
-    if List.for_all known set then List.filter (fun n -> not (known n)) set
-    else set @ List.filter (fun m -> not (List.exists (fun n -> Catalog.token n = Catalog.token m) set)) names
+    if names <> [] && List.for_all selected names then List.filter (fun n -> not (known n)) set
+    else set @ List.filter (fun m -> not (selected m)) names
   in
   set_side gs which next
 
 let all_specials () = List.map (fun (h : house) -> h.h_name) (Table.special_houses ())
 
 (* Classes tab: two checked-set columns sharing one scrollbar, like the
-   Scala lists. Four pictured cards per row under each author header. *)
+   Scala lists. Three pictured cards per row so the house names stay readable. *)
+let class_cols = 3
 let class_x0 = 100.
-let class_x1 = 410.
-let class_col_w = 296.
-let class_card_w = 66.
-let class_card_h = 86.
-let class_gap = 10.
-let class_row_h = 94.
-let class_y0 = 222.
-let class_y1 = 592.
-let class_bar = rect 720. 222. 12. 370.
-let class_wheel = rect 100. 196. 632. 396.
+let class_col_w = 304.
+let class_gap = 8.
+let class_card_w = (class_col_w -. (float (class_cols - 1) *. class_gap)) /. float class_cols
+let class_card_h = 118.
+let class_row_h = 126.
+let class_head_h = 26.
+let class_x1 = class_x0 +. class_col_w +. 12.
+let class_y0 = 214.
+let class_y1 = 608.
+let class_bar = rect (class_x1 +. class_col_w +. 4.) class_y0 12. (class_y1 -. class_y0)
+
+let class_wheel =
+  rect class_x0 (class_y0 -. 18.) (class_x1 -. class_x0 +. class_col_w +. 20.) (class_y1 -. class_y0 +. 18.)
+
+let class_view = rect class_x0 class_y0 (class_x1 -. class_x0 +. class_col_w) (class_y1 -. class_y0)
+let class_rows n = (n + class_cols - 1) / class_cols
 
 let class_content_h () =
   let raw =
     List.fold_left
       (fun acc (_, houses) ->
-        let rows = (List.length houses + 3) / 4 in
-        acc +. 22. +. (float rows *. class_row_h) -. 8. +. 14.)
+        acc +. class_head_h +. (float (class_rows (List.length houses)) *. class_row_h) -. 8. +. 14.)
       0. Table.house_groups
   in
   Float.max 0. (raw -. 14.)
@@ -666,24 +960,25 @@ let draw_class_col gs which x0 =
   let seen (r : rect) = r.y +. r.h > class_y0 && r.y < class_y1 in
   List.iter
     (fun (author, houses) ->
-      let hr = rect x0 !y class_col_w 22. in
+      let hr = rect x0 !y class_col_w class_head_h in
       if seen hr then (
-        text ~size:13. ~color:(if inside hr then ink else ink_soft) (x0 +. 4.) (!y +. 3.) author;
-        on_click hr (fun () -> toggle_group gs which houses));
-      y := !y +. 22.;
+        let hit = match overlap hr class_view with Some c -> inside c | None -> false in
+        text ~font:paper_font ~size:18. ~color:(if hit then ink else ink_soft) (x0 +. 4.) (!y +. 3.) author;
+        Option.iter (fun c -> on_click c (fun () -> toggle_group gs which houses)) (overlap hr class_view));
+      y := !y +. class_head_h;
       List.iteri
         (fun k (h : house) ->
           let r =
             rect
-              (x0 +. (float (k mod 4) *. (class_card_w +. class_gap)))
-              (!y +. (float (k / 4) *. class_row_h))
+              (x0 +. (float (k mod class_cols) *. (class_card_w +. class_gap)))
+              (!y +. (float (k / class_cols) *. class_row_h))
               class_card_w class_card_h
           in
           if seen r then
-            draw_special_card ~name_size:9. ~bar_h:14. r h (sel h) (fun () ->
+            draw_special_card ~name_size:18. ~bar_h:42. ~clip:class_view r h (sel h) (fun () ->
                 toggle_special gs which h.h_name))
         houses;
-      y := !y +. (float ((List.length houses + 3) / 4) *. class_row_h) -. 8.;
+      y := !y +. (float (class_rows (List.length houses)) *. class_row_h) -. 8.;
       let sr = rect x0 (!y +. 3.) class_col_w 2. in
       if seen sr then fill sr (rgba 140 107 41 180);
       y := !y +. 14.)
@@ -704,36 +999,33 @@ let set_lang gs code =
   try Prefs.set_language (Prefs.load ()) code with _ -> ()
 
 let draw_game_settings gs ~show_seed ~on_budget ~close =
-  shade_full (rgba 0 0 0 120);
-  click_full close;
+  click_full (fun () -> close_dialog "settings" close);
   let box = settings_box in
   paper box;
   on_click box (fun () -> ());
-  text_c ~font:bold ~size:20. ~color:ink box (box.y +. 16.) (Assets.text "settings.title");
-  let tabs = [ "settings.classes"; "Game"; "settings.sound"; "settings.lang" ] in
-  List.iteri
-    (fun k key ->
-      pbutton ~selected:(gs.tab = k) ~size:14.
-        (rect (box.x +. 24. +. (float k *. 158.)) (box.y +. 44.) 150. 34.)
-        (Assets.text key)
-        (fun () -> gs.tab <- k))
-    tabs;
+  text_c ~font:paper_font ~size:26. ~color:ink box (box.y +. 14.) (Assets.text "settings.title");
+  ptabs ~x:(box.x +. 24.) ~y:(box.y +. 46.) ~w:(box.w -. 48.) ~selected:gs.tab
+    [ "settings.classes"; "Game"; "settings.sound"; "settings.lang" ]
+    (fun k -> gs.tab <- k);
   (match gs.tab with
   | 0 ->
-      (* Two checked-set columns under one scrollbar; an empty set plays every house. *)
-      let side_head x0 which title =
-        text ~font:bold ~size:14. ~color:ink x0 (box.y +. 96.) title;
-        text ~size:11. ~color:ink_soft (x0 +. 30.) (box.y +. 99.) "(empty = all houses)";
-        pbutton ~size:11.
-          (rect (x0 +. 182.) (box.y +. 94.) 52. 22.)
+      let side_head x0 which =
+        let aw = paper_btn_w ~size:16. "all" in
+        pbutton ~size:16.
+          (rect x0 (box.y +. 82.) aw 26.)
           "all"
           (fun () -> set_side gs which (all_specials ()));
-        pbutton ~size:11. (rect (x0 +. 238.) (box.y +. 94.) 52. 22.) "clear" (fun () -> set_side gs which [])
+        pbutton ~size:16.
+          (rect (x0 +. aw +. 6.) (box.y +. 82.) (paper_btn_w ~size:16. "clear") 26.)
+          "clear"
+          (fun () -> set_side gs which [])
       in
-      side_head class_x0 0 "P1";
-      side_head class_x1 1 "P2";
+      side_head class_x0 0;
+      side_head class_x1 1;
+      begin_clip class_view;
       draw_class_col gs 0 class_x0;
       draw_class_col gs 1 class_x1;
+      end_clip ();
       let max = class_maxscroll () in
       if max > 0. then (
         fill class_bar (rgba 140 107 41 90);
@@ -752,60 +1044,80 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
         else gs.class_drag <- false)
       else gs.class_drag <- false
   | 1 ->
-      text ~size:14. ~color:ink_soft (box.x +. 24.) (box.y +. 96.) "Bot time per move";
-      List.iteri
-        (fun k ms ->
-          pbutton ~selected:(ms = gs.budget_ms) ~size:13.
-            (rect (box.x +. 24. +. (float k *. 100.)) (box.y +. 116.) 92. 30.)
-            (if ms < 1000 then Printf.sprintf "%d ms" ms else Printf.sprintf "%d s" (ms / 1000))
-            (fun () -> set_budget gs ms on_budget))
+      text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 96.) "Bot time per move";
+      let bx = ref (box.x +. 24.) in
+      List.iter
+        (fun ms ->
+          let label = if ms < 1000 then Printf.sprintf "%d ms" ms else Printf.sprintf "%d s" (ms / 1000) in
+          let w = paper_btn_w ~size:16. label in
+          pbutton ~selected:(ms = gs.budget_ms) ~size:16.
+            (rect !bx (box.y +. 122.) w 28.)
+            label
+            (fun () -> set_budget gs ms on_budget);
+          bx := !bx +. w +. 6.)
         budget_options;
       if show_seed then (
-        text ~size:14. ~color:ink_soft (box.x +. 24.) (box.y +. 170.) "Seed";
+        text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 170.) "Seed";
         fill gs_seed_field (if gs.seed_focus then rgba 255 252 242 255 else rgba 235 209 140 255);
         outline gs_seed_field (if gs.seed_focus then accent else paper_line);
         let caret = if gs.seed_focus && Float.rem (R.get_time ()) 1. < 0.5 then "|" else "" in
-        text ~size:16.
+        text ~font:paper_font ~size:20.
           ~color:(if gs.seed_text = "" && not gs.seed_focus then ink_soft else ink)
-          (gs_seed_field.x +. 10.) (gs_seed_field.y +. 6.)
+          (gs_seed_field.x +. 10.) (gs_seed_field.y +. 5.)
           (if gs.seed_text = "" && not gs.seed_focus then "random" else gs.seed_text ^ caret);
         on_click gs_seed_field (fun () -> gs.seed_focus <- true);
-        pbutton ~size:14.
-          (rect (gs_seed_field.x +. 210.) gs_seed_field.y 90. 34.)
+        pbutton ~size:18.
+          (rect (gs_seed_field.x +. 210.) gs_seed_field.y (paper_btn_w ~size:18. "Random") 28.)
           "Random"
           (fun () ->
             gs.seed_text <- "";
-            gs.seed_focus <- false))
+            gs.seed_focus <- false));
+      let debug_y = if show_seed then box.y +. 248. else box.y +. 170. in
+      checkbox ~checked:gs.debug ~x:(box.x +. 24.) ~y:debug_y ~max_w:(box.w -. 48.)
+        (Assets.text "settings.debug") (fun () ->
+          gs.debug <- not gs.debug;
+          try Prefs.set_debug_mode (Prefs.load ()) gs.debug with _ -> ())
   | 2 ->
-      text ~size:14. ~color:ink_soft (box.x +. 24.) (box.y +. 220.) (Assets.text "sound.level");
-      pbutton ~size:16.
-        (rect (box.x +. 24.) (box.y +. 242.) 56. 32.)
+      text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 220.)
+        (Assets.text "sound.level");
+      let minus_w = paper_btn_w ~size:18. "-" in
+      pbutton ~size:18.
+        (rect (box.x +. 24.) (box.y +. 248.) minus_w 30.)
         "-"
         (fun () -> set_sound gs (gs.sound -. 0.1));
-      text_c ~font:bold ~size:14. ~color:ink
-        (rect (box.x +. 88.) (box.y +. 242.) 80. 32.)
-        (box.y +. 248.)
+      text_c ~font:paper_font ~size:20. ~color:ink
+        (rect (box.x +. 24. +. minus_w) (box.y +. 248.) 64. 30.)
+        (box.y +. 252.)
         (Printf.sprintf "%d%%" (int_of_float ((gs.sound *. 100.) +. 0.5)));
-      pbutton ~size:16.
-        (rect (box.x +. 176.) (box.y +. 242.) 56. 32.)
+      let plus_x = box.x +. 24. +. minus_w +. 64. in
+      let plus_w = paper_btn_w ~size:18. "+" in
+      pbutton ~size:18.
+        (rect plus_x (box.y +. 248.) plus_w 30.)
         "+"
         (fun () -> set_sound gs (gs.sound +. 0.1));
-      pbutton ~size:13.
-        (rect (box.x +. 244.) (box.y +. 242.) 76. 32.)
+      pbutton ~size:16.
+        (rect (plus_x +. plus_w +. 6.) (box.y +. 248.) (paper_btn_w ~size:16. "test") 30.)
         "test"
         (fun () ->
           set_sound gs gs.sound;
           play_sound "move")
   | _ ->
-      List.iteri
-        (fun k code ->
-          pbutton ~selected:(code = gs.lang) ~size:13.
-            (rect (box.x +. 24. +. (float k *. 100.)) (box.y +. 220.) 92. 32.)
+      let lx = ref (box.x +. 24.) in
+      List.iter
+        (fun code ->
+          let w = paper_btn_w ~size:18. code in
+          pbutton ~selected:(code = gs.lang) ~size:18.
+            (rect !lx (box.y +. 220.) w 30.)
             code
-            (fun () -> set_lang gs code))
+            (fun () -> set_lang gs code);
+          lx := !lx +. w +. 6.)
         languages;
-      text ~size:13. ~color:ink_soft (box.x +. 24.) (box.y +. 268.) (Assets.text "settings.lang.restart"));
-  pbutton ~size:16. (rect (box.x +. 260.) (box.y +. 496.) 160. 40.) "Close" close
+      text ~font:paper_font ~size:18. ~color:ink_soft (box.x +. 24.) (box.y +. 264.)
+        (Assets.text "settings.lang.restart"));
+  paper_btn_row ~size:18.
+    ~cx:(box.x +. (box.w /. 2.))
+    ~y:(box.y +. box.h -. 52.)
+    [ ("Close", fun () -> close_dialog "settings" close) ]
 
 let settings_seed_keys gs =
   if gs.seed_focus then (
@@ -821,11 +1133,399 @@ let settings_seed_keys gs =
       gs.seed_text <- String.sub gs.seed_text 0 (String.length gs.seed_text - 1));
   if R.is_mouse_button_pressed R.MouseButton.Left && not (inside gs_seed_field) then gs.seed_focus <- false
 
+(* ----------------------------------------------------------- campaign *)
+
+type campaign_dlg =
+  | Camp_none
+  | Camp_fight of Campaign.node
+  | Camp_meeting of Campaign.node
+  | Camp_restart
+  | Camp_note of { title : string; body : string; ack : unit -> unit }
+  | Camp_end of { node : Campaign.node; won : bool }
+
+type campaign_ui = {
+  mutable dlg : campaign_dlg;
+  mutable night : float;
+  mutable night_target : float;
+  mutable pending_fight : Campaign.node option;
+  mutable pending_epilogue : bool;
+  mutable pending_lobby : bool;
+}
+
+let map_x x = x *. vw
+let map_y y = (1. -. y) *. vh
+let hit_r = 17.
+
+let circle_at x y radius color =
+  let p = pos x y in
+  R.draw_circle
+    (int_of_float (R.Vector2.x p +. 0.5))
+    (int_of_float (R.Vector2.y p +. 0.5))
+    (radius *. !scale) color
+
+let bez a c b t =
+  let u = 1. -. t in
+  (u *. u *. a) +. (2. *. u *. t *. c) +. (t *. t *. b)
+
+let draw_curve (from : Campaign.node) (toward : Campaign.node) width color =
+  let x0 = map_x from.x and y0 = map_y from.y in
+  let x1 = map_x toward.x and y1 = map_y toward.y in
+  let dx = x1 -. x0 and dy = y1 -. y0 in
+  let len = Float.max 16. (sqrt ((dx *. dx) +. (dy *. dy))) in
+  let sign = if (Hashtbl.hash from.id + Hashtbl.hash toward.id) mod 2 = 0 then 1. else -1. in
+  let bulge = Float.min 58. (len *. 0.24) *. sign in
+  let cx = ((x0 +. x1) *. 0.5) -. (dy /. len *. bulge) in
+  let cy = ((y0 +. y1) *. 0.5) +. (dx /. len *. bulge) in
+  let steps = 22 in
+  for i = 0 to steps - 1 do
+    let t0 = float i /. float steps and t1 = float (i + 1) /. float steps in
+    R.draw_line_ex
+      (pos (bez x0 cx x1 t0) (bez y0 cy y1 t0))
+      (pos (bez x0 cx x1 t1) (bez y0 cy y1 t1))
+      (width *. !scale) color
+  done
+
+let campaign_progress () =
+  let p = Prefs.load () in
+  (Prefs.campaign_completed p, Prefs.campaign_position p)
+
+let mage_line (n : Campaign.node) =
+  match n.fight with
+  | None -> Assets.text ("campaign." ^ n.id ^ ".name")
+  | Some f ->
+      let mage =
+        Assets.format (Assets.text "campaign.mage")
+          [ Assets.text f.house_key; Assets.text ("campaign.role." ^ f.bot_id) ]
+      in
+      let life = match f.life with Some n -> n | None -> 60 in
+      Assets.text ("campaign." ^ n.id ^ ".name")
+      ^ " (" ^ mage ^ ")   "
+      ^ Assets.format (Assets.text "campaign.life") [ string_of_int life ]
+
+let end_line ~node_id ~bot_id ~won =
+  Assets.text (Campaign.end_message_key ~node_id ~bot_id ~won ~has_key:Assets.has_key)
+
+let parchment_card ~title ~portrait ~subtitle ~message buttons =
+  click_full (fun () -> ());
+  let msg_w = 400. in
+  let face = 112. in
+  let type_size = 20. in
+  let line_h = 26. in
+  let lines = wrap ~font:paper_font type_size msg_w message in
+  let nlines = min 8 (List.length lines) in
+  let edge = 36. in
+  let title_h = 32. in
+  let sub_h = if subtitle = "" then 0. else 28. in
+  let msg_h = float nlines *. line_h in
+  let box_w = 520. in
+  let box_h = edge +. title_h +. 8. +. face +. 12. +. sub_h +. 8. +. msg_h +. 16. +. btn_h +. edge in
+  let box = rect ((vw -. box_w) /. 2.) ((vh -. box_h) /. 2.) box_w box_h in
+  paper box;
+  on_click box (fun () -> ());
+  text ~font:paper_font ~size:22. ~color:ink (box.x +. 40.) (box.y +. 22.) title;
+  draw_face portrait (rect (box.x +. ((box.w -. face) /. 2.)) (box.y +. edge +. title_h) face face);
+  let y = ref (box.y +. edge +. title_h +. face +. 12.) in
+  if subtitle <> "" then (
+    text_c ~font:paper_font ~size:type_size ~color:ink box !y subtitle;
+    y := !y +. sub_h);
+  y := !y +. 8.;
+  List.iteri
+    (fun i l ->
+      if i < nlines then
+        text_c ~font:paper_font ~size:type_size ~color:ink (rect box.x !y box.w 0.)
+          (!y +. (float i *. line_h))
+          l)
+    lines;
+  paper_btn_row ~size:16. ~cx:(box.x +. (box.w /. 2.)) ~y:(box.y +. box.h -. edge -. btn_h) buttons
+
+let draw_campaign_end ~node ~won ~replay ~map =
+  match node.Campaign.fight with
+  | None -> ()
+  | Some f ->
+      let buttons =
+        (if won then [] else [ (Assets.text "campaign.end.replay", replay) ])
+        @ [ (Assets.text "campaign.end.map", map) ]
+      in
+      parchment_card
+        ~title:(Assets.text (if won then "campaign.end.win.title" else "campaign.end.lose.title"))
+        ~portrait:f.portrait_id ~subtitle:(mage_line node)
+        ~message:(end_line ~node_id:node.id ~bot_id:f.bot_id ~won)
+        buttons
+
+let dlg_open = function Camp_none -> false | _ -> true
+
+let maybe_notes (camp : campaign_ui) =
+  if dlg_open camp.dlg then ()
+  else
+    try
+      let p = Prefs.load () in
+      let completed = Prefs.campaign_completed p in
+      let chapter = Campaign.chapter_of completed in
+      if
+        chapter = Campaign.Night
+        && Prefs.campaign_position p = Campaign.night_start_id
+        && not (Prefs.campaign_night_rest p)
+      then
+        camp.dlg <-
+          Camp_note
+            {
+              title = Assets.text "campaign.night.rest.title";
+              body = Assets.text "campaign.night.rest";
+              ack = (fun () -> Prefs.mark_night_rested (Prefs.load ()));
+            }
+      else
+        match List.assoc_opt "antimancer" Campaign.isolate_path with
+        | Some (only :: _)
+          when List.mem "antimancer" completed
+               && (not (List.mem only completed))
+               && not (Prefs.campaign_wake_far p) ->
+            camp.dlg <-
+              Camp_note
+                {
+                  title = Assets.text "campaign.antimancer.wake.title";
+                  body = Assets.text "campaign.antimancer.wake";
+                  ack = (fun () -> Prefs.mark_wake_far (Prefs.load ()));
+                }
+        | _ -> ()
+    with _ -> ()
+
+let new_campaign ?(from_game = false) () =
+  let completed, _ = campaign_progress () in
+  let night = if Campaign.chapter_of completed = Campaign.Night then 1. else 0. in
+  let camp =
+    {
+      dlg = Camp_none;
+      night = (if from_game then night else if night = 1. then 0. else 0.);
+      night_target = night;
+      pending_fight = None;
+      pending_epilogue = false;
+      pending_lobby = false;
+    }
+  in
+  maybe_notes camp;
+  camp
+
+let draw_campaign_intro lobby ~start =
+  click_full (fun () -> close_dialog "campaign-intro" (fun () -> lobby.show_campaign_intro <- false));
+  let box = rect 156. 80. 520. 560. in
+  paper box;
+  on_click box (fun () -> ());
+  text_c ~font:paper_font ~size:22. ~color:ink box (box.y +. 16.) (Assets.text "campaign.title");
+  let p = Prefs.load () in
+  let id = Prefs.player_portrait p in
+  draw_portrait_chooser ~x:box.x ~y:(box.y +. 56.) ~size:96. ~col_w:box.w id Table.player_portraits (fun v ->
+      Prefs.set_player_portrait (Prefs.load ()) v);
+  let lines = wrap ~font:paper_font 20. 440. (Assets.text "campaign.intro") in
+  List.iteri
+    (fun i l ->
+      if i < 8 then text_c ~font:paper_font ~size:20. ~color:ink box (box.y +. 214. +. (float i *. 26.)) l)
+    lines;
+  paper_btn_row ~size:16.
+    ~cx:(box.x +. (box.w /. 2.))
+    ~y:(box.y +. box.h -. 52.)
+    [
+      ( Assets.text "button.startcampaign",
+        fun () ->
+          drop_dialog ();
+          lobby.show_campaign_intro <- false;
+          start () );
+      ( Assets.text "button.cancel",
+        fun () -> close_dialog "campaign-intro" (fun () -> lobby.show_campaign_intro <- false) );
+    ]
+
+let draw_campaign (camp : campaign_ui) =
+  camp.night <- camp.night +. ((camp.night_target -. camp.night) *. Float.min 1. (R.get_frame_time () *. 1.6));
+  if abs_float (camp.night -. camp.night_target) < 0.002 then camp.night <- camp.night_target;
+  let completed, here = campaign_progress () in
+  let chapter = Campaign.chapter_of completed in
+  let open_ids = Campaign.available completed in
+  let pulse = 8.4 +. (sin (R.get_time () *. 4.) *. 1.6) in
+  (match texture (Assets.campaign "map") with
+  | Some t -> Fx.with_night camp.night (fun () -> cover t)
+  | None -> fill (rect 0. 0. vw vh) bg);
+  List.iter
+    (fun (e : Campaign.edge) ->
+      match (Campaign.by_id e.from, Campaign.by_id e.toward) with
+      | Some a, Some b when a.chapter = chapter && b.chapter = chapter ->
+          let via_ok = match e.via with None -> true | Some v -> List.mem v completed in
+          let lit = ((not (Campaign.is_playable a)) || List.mem a.id completed) && via_ok in
+          draw_curve a b (if lit then 3.1 else 2.2) (if lit then rgba 237 199 82 217 else rgba 46 41 31 115)
+      | _ -> ())
+    Campaign.edges;
+  List.iter
+    (fun (n : Campaign.node) ->
+      if n.chapter = chapter then (
+        let x = map_x n.x and y = map_y n.y in
+        if not (Campaign.is_playable n) then circle_at x y 5. (rgba 242 230 178 140)
+        else if List.mem n.id completed then (
+          circle_at x y 7.5 (rgba 107 82 36 230);
+          circle_at x y 4.2 (rgba 209 173 77 242))
+        else if List.mem n.id open_ids then (
+          circle_at x y (pulse +. 6.) (rgba 242 209 71 71);
+          circle_at x y pulse (rgba 250 219 87 242);
+          circle_at x y 3.4 (rgba 51 31 10 230))
+        else circle_at x y 5.5 (rgba 31 28 23 140);
+        if n.id = here then (
+          circle_at x y 12.5 (rgba 242 242 255 217);
+          circle_at x y 9.5 (rgba 38 46 71 89))))
+    Campaign.nodes;
+  (match Campaign.by_id here with
+  | None -> ()
+  | Some n ->
+      let face = rect (map_x n.x -. 14.) (map_y n.y -. 24.) 28. 28. in
+      draw_face (Prefs.player_portrait (Prefs.load ())) face);
+  List.iter
+    (fun (n : Campaign.node) ->
+      if n.chapter = chapter && Campaign.is_playable n && List.mem n.id open_ids then
+        let r = rect (map_x n.x -. hit_r) (map_y n.y -. hit_r) (hit_r *. 2.) (hit_r *. 2.) in
+        on_click r (fun () -> camp.dlg <- (if Campaign.is_fight n then Camp_fight n else Camp_meeting n)))
+    Campaign.nodes;
+  let finished = Campaign.is_finished completed in
+  let back = Assets.text "button.back" in
+  pbutton ~size:16.
+    (rect 16. 12. (paper_btn_w ~size:16. back) 26.)
+    back
+    (fun () -> camp.pending_lobby <- true);
+  let restart = Assets.text "campaign.restart" in
+  let rw = paper_btn_w ~size:16. restart in
+  pbutton ~size:16. (rect (vw -. 16. -. rw) 12. rw 26.) restart (fun () -> camp.dlg <- Camp_restart);
+  text_c ~font:bold ~size:22. ~color:fg (rect 0. 0. vw 0.) 16.
+    (Assets.text (if finished then "campaign.complete" else "campaign.title"));
+  text_c ~size:14. ~color:muted (rect 0. 0. vw 0.) 44.
+    (Assets.text (if chapter = Campaign.Night then "campaign.night" else "campaign.day"));
+  (if finished then
+     let epi = Assets.text "campaign.epilogue" in
+     let ew = paper_btn_w ~size:16. epi in
+     pbutton ~size:16.
+       (rect ((vw -. ew) /. 2.) (vh -. 48.) ew 28.)
+       epi
+       (fun () -> camp.pending_epilogue <- true));
+  run_dialog "campaign" (camp.dlg <> Camp_none) (fun () ->
+      match camp.dlg with
+      | Camp_none -> ()
+      | Camp_note n ->
+          parchment_card ~title:n.title
+            ~portrait:(Prefs.player_portrait (Prefs.load ()))
+            ~subtitle:"" ~message:n.body
+            [
+              ( Assets.text "campaign.continue",
+                fun () ->
+                  n.ack ();
+                  camp.dlg <- Camp_none );
+            ]
+      | Camp_restart ->
+          let night = chapter = Campaign.Night in
+          let buttons =
+            (if night then
+               [
+                 ( Assets.text "campaign.restart.all",
+                   fun () ->
+                     Prefs.reset_campaign (Prefs.load ());
+                     camp.dlg <- Camp_none;
+                     camp.night_target <- 0. );
+                 ( Assets.text "campaign.restart.night",
+                   fun () ->
+                     Prefs.reset_night_campaign (Prefs.load ());
+                     camp.dlg <- Camp_none;
+                     camp.night_target <- 1. );
+               ]
+             else
+               [
+                 ( Assets.text "button.yes",
+                   fun () ->
+                     Prefs.reset_campaign (Prefs.load ());
+                     camp.dlg <- Camp_none;
+                     camp.night_target <- 0. );
+               ])
+            @ [ (Assets.text "button.cancel", fun () -> camp.dlg <- Camp_none) ]
+          in
+          parchment_card ~title:(Assets.text "campaign.restart")
+            ~portrait:(Prefs.player_portrait (Prefs.load ()))
+            ~subtitle:""
+            ~message:(Assets.text (if night then "campaign.restart.choice" else "campaign.restart.confirm"))
+            buttons
+      | Camp_fight n -> (
+          match n.fight with
+          | None -> camp.dlg <- Camp_none
+          | Some f ->
+              parchment_card
+                ~title:(Assets.text ("campaign." ^ n.id ^ ".name"))
+                ~portrait:f.portrait_id ~subtitle:(mage_line n)
+                ~message:(Assets.text ("campaign." ^ n.id ^ ".message"))
+                (( Assets.text "button.fight",
+                   fun () ->
+                     camp.dlg <- Camp_none;
+                     camp.pending_fight <- Some n )
+                 ::
+                 (if debug_mode () then
+                    [
+                      ( Assets.text "button.debugwin",
+                        fun () ->
+                          Prefs.complete_campaign (Prefs.load ()) n.id;
+                          camp.dlg <- Camp_none;
+                          let completed = Prefs.campaign_completed (Prefs.load ()) in
+                          if Campaign.is_finished completed then camp.pending_epilogue <- true
+                          else if Campaign.chapter_of completed = Campaign.Night then camp.night_target <- 1.
+                      );
+                    ]
+                  else [])
+                @ [ (Assets.text "button.cancel", fun () -> camp.dlg <- Camp_none) ]))
+      | Camp_meeting n -> (
+          match n.meeting with
+          | None -> camp.dlg <- Camp_none
+          | Some m ->
+              let choices =
+                match m.choices with
+                | [] ->
+                    [
+                      ( Assets.text "campaign.continue",
+                        fun () ->
+                          Prefs.complete_campaign (Prefs.load ()) n.id;
+                          camp.dlg <- Camp_none );
+                    ]
+                | cs ->
+                    List.map
+                      (fun (c : Campaign.choice) ->
+                        ( Assets.text ("campaign." ^ n.id ^ ".choice." ^ c.id),
+                          fun () ->
+                            Prefs.complete_campaign (Prefs.load ()) ~extras:[ c.id ] n.id;
+                            camp.dlg <- Camp_none ))
+                      cs
+              in
+              parchment_card
+                ~title:(Assets.text ("campaign." ^ n.id ^ ".name"))
+                ~portrait:m.portrait_id
+                ~subtitle:(Assets.text ("campaign." ^ n.id ^ ".name"))
+                ~message:(Assets.text ("campaign." ^ n.id ^ ".message"))
+                choices)
+      | Camp_end { node; won } ->
+          draw_campaign_end ~node ~won
+            ~replay:(fun () ->
+              camp.dlg <- Camp_none;
+              camp.pending_fight <- Some node)
+            ~map:(fun () -> camp.dlg <- Camp_none))
+
+let draw_epilogue ~menu =
+  (match texture (Assets.campaign "epilogue") with Some t -> cover t | None -> fill (rect 0. 0. vw vh) bg);
+  let box = rect 120. (vh -. 240.) 592. 208. in
+  paper box;
+  let lines = wrap ~font:paper_font 20. 520. (Assets.text "campaign.epilogue") in
+  List.iteri
+    (fun i l ->
+      if i < 5 then text_c ~font:paper_font ~size:20. ~color:ink box (box.y +. 24. +. (float i *. 26.)) l)
+    lines;
+  paper_btn_row ~size:16.
+    ~cx:(box.x +. (box.w /. 2.))
+    ~y:(box.y +. box.h -. 48.)
+    [ (Assets.text "campaign.epilogue.menu", menu) ]
+
 (* --------------------------------------------------------------- game ui *)
 
 type thinking = { domain : unit Domain.t; result : (command option, exn) result option Atomic.t }
 type mode = Browse | Target of command list
 type last_played = { player : player_id; card : card option }
+type hover = Hover_card of card | Hover_house of house
+type house_dlg = { house : house; mutable scroll : float; mutable drag : bool; mutable content_h : float }
 
 type slide = {
   card : card;
@@ -868,9 +1568,11 @@ type game_ui = {
   mutable message : string;
   mutable thinking : thinking option;
   mutable last_move : float;
-  mutable hover : card option;
+  mutable hover : hover option;
   mutable hover_opp : bool;
+  mutable house_dlg : house_dlg option;
   mutable scroll_y : float;
+  mutable bg_at : float;
   mutable slides : slide list;
   mutable anim_at : float;
   (* The engine resolves a move at once; the board is replayed from the
@@ -881,12 +1583,19 @@ type game_ui = {
   mutable attacks : attack list;
   mutable focuses : focus list;
   mutable pops : pop list;
+  mutable campaign : Campaign.node option;
+  mutable campaign_recorded : bool;
+  mutable ended_at : float option;
+  (* Wall time when YOU WON / YOU LOSE may appear: after attacks and life pops. *)
+  mutable over_at : float option;
+  (* Some won: end parchment is up on the board, like Scala CampaignEndDialog. *)
+  mutable campaign_end : bool option;
 }
 
 (* Filled once the board layout helpers exist, so submit can queue slides. *)
 let board_event : (game_ui -> game_event -> unit) ref = ref (fun _ _ -> ())
 
-let new_game setup portraits =
+let new_game ?(campaign = None) setup portraits =
   let flashes = ref [] and last_played = ref None in
   let discovered = Hashtbl.create 16 in
   let ui_holder = ref None in
@@ -918,7 +1627,9 @@ let new_game setup portraits =
       last_move = R.get_time ();
       hover = None;
       hover_opp = false;
+      house_dlg = None;
       scroll_y = 0.;
+      bg_at = R.get_time ();
       slides = [];
       anim_at = 0.;
       frames = [];
@@ -927,6 +1638,11 @@ let new_game setup portraits =
       attacks = [];
       focuses = [];
       pops = [];
+      campaign;
+      campaign_recorded = false;
+      ended_at = None;
+      over_at = None;
+      campaign_end = None;
     }
   in
   ui_holder := Some ui;
@@ -1023,8 +1739,8 @@ let drive_bot ui =
 
 (* ---------------------------------------------------------------- board *)
 
-(* Scala raka is 90×102. Empty slots use the same rect; the gold well is
-   cropped/scaled to that size so it matches the creature card. *)
+(* Scala raka is 90×102. Empty slots share that hit rect; the gold well is
+   drawn at its native 81×95 so it sits inside the card, not around it. *)
 let card_w = 90.
 let card_h = 102.
 let portrait_size = 84.
@@ -1197,8 +1913,8 @@ let fx_layout ui : Fx.layout =
         { x = r.x +. (r.w /. 2.); y = r.y +. (r.h /. 2.) });
     slot_floor =
       (fun pid n ->
-        let r = slot_rect ui pid n in
-        { x = r.x +. (r.w /. 2.); y = r.y +. r.h -. 18. });
+        let well = slot_well_rect (slot_rect ui pid n) in
+        { x = well.x +. (well.w /. 2.); y = well.y +. well.h });
     flame_base =
       (fun pid n ->
         let r = slot_rect ui pid n in
@@ -1236,7 +1952,10 @@ let queue_slides ui e =
       let start = schedule ui 0.5 in
       push_slide ui ~start ~duration:0.5
         ~hides:[ (player, num) ]
-        ~from_r ~to_r ~sound:(Some "move") card cost attack life max_life
+        ~from_r ~to_r ~sound:(Some "move") card cost attack life max_life;
+      (* Keep the landed creature on the board if a later blocking focus
+         (Wolf Spider, Marine, …) delays the submit refresh. *)
+      push_frame ui ~silent:true
   | Ev_move { num; dest; player; dest_player } ->
       Option.iter
         (fun (card, cost, attack, life, max_life) ->
@@ -1244,7 +1963,8 @@ let queue_slides ui e =
           push_slide ui ~start ~duration:1.
             ~hides:[ (dest_player, dest) ]
             ~from_r:(slot_rect ui player num) ~to_r:(slot_rect ui dest_player dest) ~sound:(Some "move") card
-            cost attack life max_life)
+            cost attack life max_life;
+          push_frame ui ~silent:true)
         (face_of_slot ui player num)
   | Ev_swap { num; dest; player; dest_player } -> (
       match (face_of_slot ui player num, face_of_slot ui dest_player dest) with
@@ -1253,7 +1973,8 @@ let queue_slides ui e =
           let src = slot_rect ui player num and dst = slot_rect ui dest_player dest in
           let hides = [ (player, num); (dest_player, dest) ] in
           push_slide ui ~start ~duration:1. ~hides ~from_r:src ~to_r:dst ~sound:(Some "move") a ac aa al am;
-          push_slide ui ~start ~duration:1. ~hides ~from_r:dst ~to_r:src ~sound:None b bc ba bl bm
+          push_slide ui ~start ~duration:1. ~hides ~from_r:dst ~to_r:src ~sound:None b bc ba bl bm;
+          push_frame ui ~silent:true
       | _ -> ())
   | Ev_run_slot { num; player } ->
       let a_start = schedule ui attack_duration in
@@ -1271,7 +1992,21 @@ let queue_slides ui e =
       Option.iter (run_fx ui) (Fx.for_ability (fx_layout ui) ~kind ~player ~num ~target)
   | Ev_game_over { winner; _ } ->
       push_frame ui ~silent:true;
-      Fx.victory (fx_layout ui) ~winner ~you:(Table.seat ui.table owner = Human)
+      (* Engine already set Over; Scala waitAction holds endGame until the
+         attack finishes. Hold the banner until that timeline and the life
+         pops have played. *)
+      let after_anims = schedule ui 0. in
+      let after_pops =
+        List.fold_left
+          (fun acc p ->
+            match p.at with
+            | Player_life _ | Slot_life _ -> Float.max acc (p.p_start +. pop_duration)
+            | Mana _ -> acc)
+          after_anims ui.pops
+      in
+      if ui.anim_at < after_pops then ui.anim_at <- after_pops;
+      ui.over_at <- Some after_pops;
+      Fx.victory (fx_layout ui) ~winner ~you:(Table.seat ui.table owner = Human) ~start:after_pops
   | _ -> ()
 
 let () = board_event := queue_slides
@@ -1380,19 +2115,19 @@ let draw_slot ui pid num =
      match p.ps_slots.(num) with
      | None -> (
          match texture (Assets.slot_frame ()) with
-         | Some t -> image_slot t r
+         | Some t -> image_slot t (slot_well_rect r)
          | None ->
-             fill ~round:0.08 r panel;
-             outline ~round:0.08 r line)
+             fill ~round:0.08 (slot_well_rect r) panel;
+             outline ~round:0.08 (slot_well_rect r) line)
      | Some _ when slot_hidden ui pid num -> (
          match texture (Assets.slot_frame ()) with
-         | Some t -> image_slot t r
+         | Some t -> image_slot t (slot_well_rect r)
          | None ->
-             fill ~round:0.08 r panel;
-             outline ~round:0.08 r line)
+             fill ~round:0.08 (slot_well_rect r) panel;
+             outline ~round:0.08 (slot_well_rect r) line)
      | Some st ->
          let c = st.card.c_card in
-         if inside r then ui.hover <- Some c;
+         if inside r then ui.hover <- Some (Hover_card c);
          let life_color = if st.life < st.max_life then gold else life_ok in
          let shake_x, shake_y = Fx.slot_offset pid num in
          let r = { r with x = r.x +. shake_x; y = r.y +. attack_offset ui pid num +. shake_y } in
@@ -1445,9 +2180,7 @@ let draw_player_bar ui pid =
   | Table.Human -> ());
   let tx = x +. portrait_size +. 8. in
   let p = (view ui).players.(pid) in
-  let special = Game_record.special_name (desc ui).gd_players.(pid) in
-  text ~font:bold ~size:22. ~color:fg tx (y +. 8.) (string_of_int p.ps_life);
-  text ~size:12. ~color:muted tx (y +. 36.) (fit 12. (!lay.slot_x0 -. tx -. 8.) (cap special))
+  text ~font:bold ~size:22. ~color:fg tx (y +. 8.) (string_of_int p.ps_life)
 
 let draw_board ui =
   draw_player_bar ui opponent;
@@ -1465,13 +2198,36 @@ let draw_board ui =
 (* ----------------------------------------------------------------- hands *)
 
 let reveal_hand ui pid = Table.seat ui.table pid = Human || (both_bots ui && pid = owner)
+let house_title (h : house) = if Assets.has_key h.h_key then Assets.text h.h_key else cap h.h_name
+
+let house_blurb (h : house) =
+  let key = h.h_key ^ ".description" in
+  if Assets.has_key key then Assets.text key else ""
+
+let open_house_dlg ui (h : house) =
+  ui.house_dlg <- Some { house = h; scroll = 0.; drag = false; content_h = 0. }
+
+let card_preview_bits (c : card) =
+  let title = Printf.sprintf "%s (%d)" (Assets.card_name c) c.cost in
+  let subtitle =
+    match c.creature_body with
+    | Some b ->
+        Printf.sprintf "Life : %d  Attack : %s" b.b_life
+          (match b.b_attack.base with Some a -> string_of_int a | None -> "X")
+    | None -> "Spell"
+  in
+  let desc_text =
+    let d = Assets.describe c in
+    if d = "" || d = c.description then "" else d
+  in
+  (title, subtitle, desc_text)
 
 let draw_house_header ui pid hd col header_y =
   let x = !lay.hand_x0 +. (float col *. house_col) in
   let y = oy ui header_y in
   let p = (view ui).players.(pid) in
   let i = hd.phd_house.h_index in
-  let name = cap hd.phd_house.h_name in
+  let name = house_title hd.phd_house in
   let mana = string_of_int p.ps_houses.(i).mana in
   let pad_x = 3. in
   let max_w = house_col -. (pad_x *. 2.) in
@@ -1483,13 +2239,19 @@ let draw_house_header ui pid hd col header_y =
   in
   let size = fit 16. in
   let plate = rect x (y +. 1.) house_col (house_header_h -. 2.) in
+  let hot = inside plate in
   fill ~round:0.04 plate (rgba 10 8 5 148);
   let name_s = name ^ " " in
   let total = text_w size name_s +. text_w ~font:bold size mana in
   let tx = x +. ((house_col -. total) /. 2.) in
   let ty = y +. ((house_header_h -. size) /. 2.) -. 1. in
-  text ~size tx ty name_s;
-  text ~font:bold ~size (tx +. text_w size name_s) ty mana
+  let name_color = if hot then accent else fg in
+  text ~size ~color:name_color tx ty name_s;
+  text ~font:bold ~size (tx +. text_w size name_s) ty mana;
+  if hot then (
+    ui.hover <- Some (Hover_house hd.phd_house);
+    if pid = opponent then ui.hover_opp <- true);
+  on_click plate (fun () -> open_house_dlg ui hd.phd_house)
 
 let draw_hand_at ui pid ~cards_y ~header_y =
   let reveal_all = reveal_hand ui pid in
@@ -1515,18 +2277,16 @@ let draw_hand_at ui pid ~cards_y ~header_y =
               let active = can_choose && playable && input_ok ui in
               let is_selected = selected = Some c.key in
               let grey = reveal_all && not playable in
-              if is_selected then fill ~round:0.08 r (rgba 40 98 140 70)
-              else if active && inside r then fill ~round:0.08 r (rgba 255 255 255 28);
+              if (not is_selected) && active && inside r then fill ~round:0.08 r (rgba 255 255 255 28);
               Fx.with_grey grey (fun () ->
                   draw_card_face (desc ui) r c ~cost:(Some cd.cd_cost) ~attack:(printed_attack c)
                     ~life:(printed_life c) ~life_color:life_ok ~tint:R.Color.white);
-              if is_selected then Fx.draw_sel ~x:r.x ~y:r.y ~w:r.w ~h:r.h;
               (* Gray-out veil while another side is to move, over art and text alike. *)
               if not turn_on then fill ~round:0.08 r (rgba 168 168 178 125);
-              if is_selected then outline ~round:0.08 ~thick:3. r accent
+              if is_selected then Fx.draw_sel ~x:r.x ~y:r.y ~w:r.w ~h:r.h
               else if active && inside r then outline ~round:0.08 ~thick:2. r accent;
               if inside r then (
-                ui.hover <- Some c;
+                ui.hover <- Some (Hover_card c);
                 if pid = opponent then ui.hover_opp <- true);
               if active then on_click r (fun () -> pick_card ui cd hd)))
         hd.phd_cards)
@@ -1569,44 +2329,68 @@ let draw_hands ui =
 let preview_top ui = oy ui (if ui.hover_opp then opp_hand_y0 else hand_y)
 let last_played_rect _ui = rect 8. (vh -. last_played_h -. 8.) 180. last_played_h
 
-let draw_card_art desc r (c : card) =
+let draw_card_art r (c : card) =
   match card_texture c with Some t -> image t r | None -> fill ~round:0.04 r panel_hi
 
 let draw_preview ui =
+  let x = !lay.preview_x and w = !lay.preview_w in
+  let y = preview_top ui in
+  let pad = 8. in
   match ui.hover with
   | None -> ()
-  | Some c ->
-      let x = !lay.preview_x and w = !lay.preview_w in
-      let y = preview_top ui in
-      let art_s = if c.is_spell then 130. else 120. in
-      let title = Printf.sprintf "%s (%d)" (Assets.card_name c) c.cost in
-      let subtitle =
-        match c.creature_body with
-        | Some b ->
-            Printf.sprintf "Life : %d  Attack : %s" b.b_life
-              (match b.b_attack.base with Some a -> string_of_int a | None -> "X")
-        | None -> "Spell"
+  | Some (Hover_house h) ->
+      let title_size = 20. and desc_size = 18. in
+      let title_lh = 24. and desc_lh = 22. in
+      let title = house_title h in
+      let desc_text = house_blurb h in
+      let title_lines =
+        List.filteri (fun i _ -> i < 2) (wrap ~font:bold title_size (w -. (pad *. 2.)) title)
       in
-      let desc_text =
-        let d = Assets.describe c in
-        if d = "" || d = c.description then "" else d
+      let desc_lines =
+        if desc_text = "" then []
+        else List.filteri (fun i _ -> i < 8) (wrap desc_size (w -. (pad *. 2.)) desc_text)
       in
-      let lines = if desc_text = "" then [] else wrap 14. (w -. 16.) desc_text in
-      let text_h = 44. +. (float (min 5 (List.length lines)) *. 17.) in
-      let box_h = Float.max art_s text_h +. 16. in
+      let desc_h = if desc_lines = [] then 0. else 8. +. (float (List.length desc_lines) *. desc_lh) in
+      let box_h = pad +. (float (List.length title_lines) *. title_lh) +. desc_h +. pad in
       let box = rect x y w box_h in
       fill ~round:0.04 box (rgba 0 0 0 90);
-      let art = rect (x +. 8.) (y +. 8.) art_s art_s in
-      draw_card_art (desc ui) art c;
-      let tx = x +. 8. +. art_s +. 8. in
-      let tw = w -. art_s -. 24. in
       List.iteri
-        (fun i l -> text ~font:bold ~size:16. tx (y +. 10. +. (float i *. 18.)) l)
-        (List.filteri (fun i _ -> i < 2) (wrap ~font:bold 16. tw title));
-      text ~size:13. ~color:muted tx (y +. 50.) subtitle;
+        (fun i l -> text ~font:bold ~size:title_size (x +. pad) (y +. pad +. (float i *. title_lh)) l)
+        title_lines;
       List.iteri
-        (fun i l -> text ~size:14. (x +. 8.) (y +. 8. +. art_s +. 4. +. (float i *. 17.)) l)
-        (List.filteri (fun i _ -> i < 5) lines)
+        (fun i l ->
+          text ~size:desc_size (x +. pad)
+            (y +. pad +. (float (List.length title_lines) *. title_lh) +. 8. +. (float i *. desc_lh))
+            l)
+        desc_lines
+  | Some (Hover_card c) ->
+      let art_s = if c.is_spell then 130. else 120. in
+      let title_size = 20. and sub_size = 16. and desc_size = 18. in
+      let title_lh = 24. and desc_lh = 22. in
+      let title, subtitle, desc_text = card_preview_bits c in
+      let info_w = Float.max 80. (w -. art_s -. (pad *. 3.)) in
+      let title_lines = List.filteri (fun i _ -> i < 2) (wrap ~font:bold title_size info_w title) in
+      let desc_lines =
+        if desc_text = "" then []
+        else List.filteri (fun i _ -> i < 8) (wrap desc_size (w -. (pad *. 2.)) desc_text)
+      in
+      let info_h = (float (List.length title_lines) *. title_lh) +. 6. +. sub_size in
+      let header_h = Float.max art_s info_h in
+      let desc_h = if desc_lines = [] then 0. else 8. +. (float (List.length desc_lines) *. desc_lh) in
+      let box_h = pad +. header_h +. desc_h +. pad in
+      let box = rect x y w box_h in
+      fill ~round:0.04 box (rgba 0 0 0 90);
+      let art = rect (x +. pad) (y +. pad) art_s art_s in
+      draw_card_art art c;
+      let tx = x +. pad +. art_s +. pad in
+      List.iteri
+        (fun i l -> text ~font:bold ~size:title_size tx (y +. pad +. (float i *. title_lh)) l)
+        title_lines;
+      let sub_y = y +. pad +. (float (List.length title_lines) *. title_lh) +. 4. in
+      text ~size:sub_size ~color:muted tx sub_y subtitle;
+      List.iteri
+        (fun i l -> text ~size:desc_size (x +. pad) (y +. pad +. header_h +. 8. +. (float i *. desc_lh)) l)
+        desc_lines
 
 let draw_last_played ui =
   match !(ui.last_played) with
@@ -1617,21 +2401,163 @@ let draw_last_played ui =
       if inside r then hovering := true;
       match lp.card with
       | Some c ->
-          if inside r then ui.hover <- Some c;
+          if inside r then ui.hover <- Some (Hover_card c);
           let thumb = 40. in
-          draw_card_art (desc ui) (rect (r.x +. 6.) (r.y +. ((r.h -. thumb) /. 2.)) thumb thumb) c;
+          draw_card_art (rect (r.x +. 6.) (r.y +. ((r.h -. thumb) /. 2.)) thumb thumb) c;
           text ~size:14. ~color:fg (r.x +. 52.) (r.y +. ((r.h -. 14.) /. 2.)) "Last played"
       | None ->
           text ~size:14. ~color:muted (r.x +. 12.)
             (r.y +. ((r.h -. 14.) /. 2.))
             (Printf.sprintf "P%d passed" (lp.player + 1)))
 
+(* Scala HouseDescription: parchment list of every card in the house. *)
+let house_dlg_box = rect 56. 36. 720. 696.
+
+let house_dlg_view =
+  rect (house_dlg_box.x +. 20.) (house_dlg_box.y +. 56.) (house_dlg_box.w -. 52.) (house_dlg_box.h -. 116.)
+
+let house_dlg_bar = rect (house_dlg_view.x +. house_dlg_view.w +. 4.) house_dlg_view.y 12. house_dlg_view.h
+
+let house_scroll_by dlg wheel =
+  let max = Float.max 0. (dlg.content_h -. house_dlg_view.h) in
+  dlg.scroll <- Float.min max (Float.max 0. (dlg.scroll -. (wheel *. 48.)))
+
+let house_card_art_size (c : card) = if c.is_spell then (100., 108.) else (96., 96.)
+let house_card_title_size = 19.
+let house_card_sub_size = 16.
+let house_card_desc_size = 17.
+let house_card_title_lh = 23.
+let house_card_desc_lh = 21.
+
+let measure_house_card col_w (c : card) =
+  let title, subtitle, desc_text = card_preview_bits c in
+  let art_w, art_h = house_card_art_size c in
+  let pad = 10. in
+  let info_w = Float.max 60. (col_w -. art_w -. (pad *. 3.)) in
+  let title_lines = wrap ~font:paper_font house_card_title_size info_w title in
+  let desc_lines =
+    if desc_text = "" then [] else wrap ~font:paper_font house_card_desc_size (col_w -. (pad *. 2.)) desc_text
+  in
+  let info_h = (float (List.length title_lines) *. house_card_title_lh) +. 4. +. house_card_sub_size in
+  let header_h = Float.max art_h info_h in
+  let desc_h = if desc_lines = [] then 0. else 6. +. (float (List.length desc_lines) *. house_card_desc_lh) in
+  (title_lines, subtitle, desc_lines, art_w, art_h, pad +. header_h +. desc_h +. pad)
+
+let draw_house_card r (c : card) title_lines subtitle desc_lines art_w art_h =
+  let pad = 10. in
+  fill ~round:0.04 r (rgba 140 107 41 70);
+  outline ~round:0.04 ~thick:1. r (rgba 140 107 41 90);
+  let art = rect (r.x +. pad) (r.y +. pad) art_w art_h in
+  draw_card_art art c;
+  let tx = r.x +. pad +. art_w +. 8. in
+  List.iteri
+    (fun i l ->
+      text ~font:paper_font ~size:house_card_title_size ~color:ink tx
+        (r.y +. pad +. (float i *. house_card_title_lh))
+        l)
+    title_lines;
+  let sub_y = r.y +. pad +. (float (List.length title_lines) *. house_card_title_lh) +. 2. in
+  text ~font:paper_font ~size:house_card_sub_size ~color:ink_soft tx sub_y subtitle;
+  let header_h =
+    Float.max art_h ((float (List.length title_lines) *. house_card_title_lh) +. 4. +. house_card_sub_size)
+  in
+  List.iteri
+    (fun i l ->
+      text ~font:paper_font ~size:house_card_desc_size ~color:ink (r.x +. pad)
+        (r.y +. pad +. header_h +. 6. +. (float i *. house_card_desc_lh))
+        l)
+    desc_lines
+
+let rec house_card_pairs = function
+  | a :: b :: rest -> (Some a, Some b) :: house_card_pairs rest
+  | [ a ] -> [ (Some a, None) ]
+  | [] -> []
+
+let close_house_dlg ui = ui.house_dlg <- None
+
+let draw_house_details ui dlg =
+  click_full (fun () -> close_house_dlg ui);
+  let box = house_dlg_box in
+  paper box;
+  on_click box (fun () -> ());
+  text_c ~font:paper_font ~size:30. ~color:ink box (box.y +. 16.) (house_title dlg.house);
+  let view = house_dlg_view in
+  let col_gap = 12. in
+  let col_w = (view.w -. col_gap) /. 2. in
+  let blurb = house_blurb dlg.house in
+  let blurb_size = 18. and blurb_lh = 22. in
+  let blurb_lines = if blurb = "" then [] else wrap ~font:paper_font blurb_size view.w blurb in
+  let blurb_h = if blurb_lines = [] then 0. else (float (List.length blurb_lines) *. blurb_lh) +. 10. in
+  let cards = dlg.house.h_cards @ dlg.house.h_additional_cards in
+  let measured = List.map (fun c -> (c, measure_house_card col_w c)) cards in
+  let rows = house_card_pairs measured in
+  let row_gap = 12. in
+  let content_h =
+    List.fold_left
+      (fun acc -> function
+        | Some (_, (_, _, _, _, _, h0)), Some (_, (_, _, _, _, _, h1)) -> acc +. Float.max h0 h1 +. row_gap
+        | Some (_, (_, _, _, _, _, h0)), None -> acc +. h0 +. row_gap
+        | None, _ -> acc)
+      blurb_h rows
+  in
+  dlg.content_h <- content_h;
+  let max = Float.max 0. (content_h -. view.h) in
+  dlg.scroll <- Float.min max (Float.max 0. dlg.scroll);
+  begin_clip view;
+  let y = ref (view.y -. dlg.scroll) in
+  if blurb_lines <> [] then (
+    List.iteri
+      (fun i l -> text ~font:paper_font ~size:blurb_size ~color:ink view.x (!y +. (float i *. blurb_lh)) l)
+      blurb_lines;
+    y := !y +. blurb_h);
+  let seen (r : rect) = r.y +. r.h > view.y && r.y < view.y +. view.h in
+  let draw_one x (c, (title_lines, subtitle, desc_lines, art_w, art_h, h)) =
+    let r = rect x !y col_w h in
+    if seen r then draw_house_card r c title_lines subtitle desc_lines art_w art_h;
+    h
+  in
+  List.iter
+    (fun pair ->
+      let h =
+        match pair with
+        | Some left, Some right ->
+            Float.max (draw_one view.x left) (draw_one (view.x +. col_w +. col_gap) right)
+        | Some left, None -> draw_one view.x left
+        | None, _ -> 0.
+      in
+      y := !y +. h +. row_gap)
+    rows;
+  end_clip ();
+  if max > 0. then (
+    fill house_dlg_bar (rgba 140 107 41 90);
+    let th = Float.max 24. (view.h *. view.h /. content_h) in
+    let ty = view.y +. (dlg.scroll /. max *. (view.h -. th)) in
+    let thumb = rect house_dlg_bar.x ty house_dlg_bar.w th in
+    fill ~round:0.06 thumb (rgba 122 90 40 255);
+    if R.is_mouse_button_down R.MouseButton.Left then (
+      if dlg.drag || inside thumb then (
+        dlg.drag <- true;
+        hovering := true;
+        let _, my = mouse () in
+        let f = (my -. view.y -. (th /. 2.)) /. (view.h -. th) in
+        dlg.scroll <- Float.min max (Float.max 0. (f *. max))))
+    else dlg.drag <- false)
+  else dlg.drag <- false;
+  paper_btn_row ~size:20.
+    ~cx:(box.x +. (box.w /. 2.))
+    ~y:(box.y +. box.h -. 48.)
+    [ ("ok", fun () -> close_house_dlg ui) ]
+
+let over_ready ui = match ui.over_at with Some t -> R.get_time () >= t | None -> false
+
 let game_over_text ui =
-  match Session.status (session ui) with
-  | Over { winner = Some w; reason } ->
-      Some (Printf.sprintf "P%d (%s) wins · %s" (w + 1) (Table.seat_name (Table.seat ui.table w)) reason)
-  | Over { winner = None; reason } -> Some ("Draw · " ^ reason)
-  | To_move _ -> None
+  if not (over_ready ui) then None
+  else
+    match Session.status (session ui) with
+    | Over { winner = Some w; reason } ->
+        Some (Printf.sprintf "P%d (%s) wins · %s" (w + 1) (Table.seat_name (Table.seat ui.table w)) reason)
+    | Over { winner = None; reason } -> Some ("Draw · " ^ reason)
+    | To_move _ -> None
 
 let icon_button r name f =
   let hot = inside r in
@@ -1649,9 +2575,11 @@ let draw_menu ui ~quit ~settings ~switch ~replay ~start_new =
     [ ("quit", quit); ("settings", settings); ("switch", switch); ("restart", replay); ("new", start_new) ]
   in
   let n = float (List.length items) in
-  let bar = rect 8. 4. ((n *. icon) +. ((n -. 1.) *. gap) +. (pad *. 2.)) (icon +. (pad *. 2.)) in
-  fill ~round:0.08 bar (rgba 18 13 5 178);
-  outline ~round:0.08 ~thick:1.5 bar (rgba 107 82 31 217);
+  (* Scala actionBar sits on the board group, so the camera scroll moves it. *)
+  let bar = rect 8. (oy ui 4.) ((n *. icon) +. ((n -. 1.) *. gap) +. (pad *. 2.)) (icon +. (pad *. 2.)) in
+  (* FantasyFrame: gold rim then a lighter wash than the old 0.70 fill. *)
+  fill ~round:0.08 bar (rgba 107 82 31 140);
+  fill ~round:0.08 (rect (bar.x +. 2.) (bar.y +. 2.) (bar.w -. 4.) (bar.h -. 4.)) (rgba 18 13 5 112);
   List.iteri
     (fun i (name, f) ->
       let r = rect (bar.x +. pad +. (float i *. (icon +. gap))) (bar.y +. pad) icon icon in
@@ -1685,22 +2613,114 @@ let draw_pass ui =
 
 (* ------------------------------------------------------------- main loop *)
 
-type screen = Lobby of lobby_ui | Game of game_ui
+type screen = Lobby of lobby_ui | Campaign of campaign_ui | Game of game_ui | Epilogue
 
 let background ui =
   let house = (desc ui).gd_players.(owner).pd_houses |> fun hs -> hs.(Array.length hs - 1).phd_house in
   texture (Assets.background house)
 
+let window_title = "The Mancer's echo"
+let chrome_btn_w = 36.
+let chrome_dragging = ref false
+let chrome_bar_click = ref 0.
+
+let chrome_mouse () =
+  let m = R.get_mouse_position () in
+  (R.Vector2.x m, R.Vector2.y m)
+
+let chrome_in_bar () =
+  let _, my = chrome_mouse () in
+  my >= 0. && my < chrome_h
+
+let chrome_buttons () =
+  let sw = float (R.get_screen_width ()) in
+  let x i = sw -. (float (3 - i) *. chrome_btn_w) in
+  [ (`Min, x 0); (`Max, x 1); (`Close, x 2) ]
+
+let chrome_hit_button () =
+  if not (chrome_in_bar ()) then None
+  else
+    let mx, _ = chrome_mouse () in
+    List.find_map
+      (fun (kind, x) -> if mx >= x && mx < x +. chrome_btn_w then Some kind else None)
+      (chrome_buttons ())
+
+let handle_chrome ~quit =
+  let over = chrome_in_bar () in
+  if over then hovering := true;
+  (if R.is_mouse_button_pressed R.MouseButton.Left then
+     match chrome_hit_button () with
+     | Some `Close -> quit := true
+     | Some `Max -> if R.is_window_maximized () then R.restore_window () else R.maximize_window ()
+     | Some `Min -> R.minimize_window ()
+     | None when over ->
+         let now = R.get_time () in
+         if now -. !chrome_bar_click < 0.35 then
+           if R.is_window_maximized () then R.restore_window () else R.maximize_window ()
+         else if not (R.is_window_maximized ()) then chrome_dragging := true;
+         chrome_bar_click := now
+     | None -> ());
+  if not (R.is_mouse_button_down R.MouseButton.Left) then chrome_dragging := false;
+  if !chrome_dragging && not (R.is_window_maximized ()) then
+    let d = R.get_mouse_delta () in
+    let p = R.get_window_position () in
+    R.set_window_position
+      (int_of_float (R.Vector2.x p +. R.Vector2.x d))
+      (int_of_float (R.Vector2.y p +. R.Vector2.y d))
+
+let draw_chrome () =
+  let sw = R.get_screen_width () in
+  R.draw_rectangle 0 0 sw (int_of_float chrome_h) (rgba 12 12 12 255);
+  let fs = 13. in
+  R.draw_text_ex !regular window_title (R.Vector2.create 8. ((chrome_h -. fs) /. 2.)) fs 0. fg;
+  List.iter
+    (fun (kind, x) ->
+      let hot = chrome_hit_button () = Some kind in
+      let bg =
+        match (kind, hot) with
+        | `Close, true -> rgba 180 40 40 255
+        | _, true -> rgba 48 48 48 255
+        | _ -> rgba 12 12 12 255
+      in
+      R.draw_rectangle (int_of_float x) 0 (int_of_float chrome_btn_w) (int_of_float chrome_h) bg;
+      let cx = x +. (chrome_btn_w /. 2.) and cy = chrome_h /. 2. in
+      let ink = if hot then R.Color.white else muted in
+      match kind with
+      | `Min ->
+          R.draw_line
+            (int_of_float (cx -. 5.))
+            (int_of_float cy)
+            (int_of_float (cx +. 5.))
+            (int_of_float cy) ink
+      | `Max -> R.draw_rectangle_lines (int_of_float (cx -. 5.)) (int_of_float (cy -. 5.)) 10 10 ink
+      | `Close ->
+          R.draw_line
+            (int_of_float (cx -. 4.))
+            (int_of_float (cy -. 4.))
+            (int_of_float (cx +. 4.))
+            (int_of_float (cy +. 4.))
+            ink;
+          R.draw_line
+            (int_of_float (cx +. 4.))
+            (int_of_float (cy -. 4.))
+            (int_of_float (cx -. 4.))
+            (int_of_float (cy +. 4.))
+            ink)
+    (chrome_buttons ())
+
+(* Scala DesktopLauncher: display height − 80 so the window stays under the
+   panel instead of filling the monitor and picking up a large header. *)
 let size_window_to_monitor () =
   let mon = R.get_current_monitor () in
   let mw = R.get_monitor_width mon and mh = R.get_monitor_height mon in
   let mx = int_of_float (R.Vector2.x (R.get_monitor_position mon)) in
   let my = int_of_float (R.Vector2.y (R.get_monitor_position mon)) in
-  let h = mh in
-  let w = int_of_float (Float.round (float h *. vw /. vh)) in
-  let w, h = if w > mw then (mw, int_of_float (Float.round (float mw *. vh /. vw))) else (w, h) in
+  let inner_h = mh - 80 in
+  let w = int_of_float (Float.round (float inner_h *. vw /. vh)) in
+  let w, inner_h = if w > mw then (mw, int_of_float (Float.round (float mw *. vh /. vw))) else (w, inner_h) in
+  let h = inner_h + int_of_float chrome_h in
   R.set_window_size w h;
-  R.set_window_position (mx + ((mw - w) / 2)) my
+  R.set_window_position (mx + ((mw - w) / 2)) (my + ((mh - h) / 2))
 
 let fx_demo = ref 0
 
@@ -1738,18 +2758,25 @@ let parse_shot () =
 let () =
   let shot = parse_shot () in
   R.set_trace_log_level R.TraceLogLevel.Warning;
-  R.set_config_flags R.ConfigFlags.(window_resizable + msaa_4x_hint + vsync_hint);
-  R.init_window 832 768 "mancer";
+  (* GNOME on Wayland paints a large libdecor header even around GLFW. Prefer
+     X11 so the window stays undecorated and the thin bar is the chrome. *)
+  (match Sys.getenv_opt "WAYLAND_DISPLAY" with
+  | Some _ -> Unix.putenv "WAYLAND_DISPLAY" ""
+  | None -> ());
+  R.set_config_flags R.ConfigFlags.(window_resizable + window_undecorated + msaa_4x_hint + vsync_hint);
+  R.init_window 832 (768 + int_of_float chrome_h) window_title;
   size_window_to_monitor ();
-  R.set_window_min_size 416 384;
+  R.set_window_min_size 416 (384 + int_of_float chrome_h);
   R.set_exit_key R.Key.Null;
   R.set_target_fps 60;
   R.init_audio_device ();
   load_fonts ();
+  Fx.set_font !bold;
   Fx.load ();
   let screen = ref (Lobby (new_lobby ())) in
   let fight ?(persist = true) lobby =
     if persist then persist_duel lobby;
+    drop_dialog ();
     lobby.show_duel <- false;
     lobby.message <- "";
     let s0, s1 = lobby.duel.sides in
@@ -1769,6 +2796,17 @@ let () =
     | ui -> screen := Game ui
     | exception Failure msg -> lobby.message <- msg
   in
+  let campaign_fight node =
+    drop_dialog ();
+    let p = Prefs.load () in
+    let player_special = Table.resolve_special (fst (Prefs.setup_specials p)) in
+    let setup = Table.campaign_setup ~budget_ms:(Prefs.setup_budget p) ~player_special node in
+    let you = Prefs.player_portrait p in
+    let opp = match node.Campaign.fight with Some f -> f.portrait_id | None -> "summoner" in
+    match new_game ~campaign:(Some node) setup (you, opp) with
+    | ui -> screen := Game ui
+    | exception Failure msg -> ( match !screen with Lobby l -> l.message <- msg | _ -> ())
+  in
   let quit = ref false in
   (* A game shot skips the lobby without persisting its flags. *)
   (match shot with
@@ -1785,7 +2823,7 @@ let () =
           if sh.bots then lobby.gs.budget_ms <- 100;
           lobby.gs.seed_text <- (match sh.seed with Some n -> string_of_int n | None -> "");
           fight ~persist:false lobby
-      | Game _ -> ())
+      | _ -> ())
   | _ -> ());
   let t0 = R.get_time () in
   while not (!quit || R.window_should_close ()) do
@@ -1793,30 +2831,66 @@ let () =
     Fx.set_transform ~scale:!scale ~off_x:!off_x ~off_y:!off_y;
     pending := None;
     hovering := false;
+    handle_chrome ~quit;
     (match !screen with
     | Lobby lobby ->
+        if lobby.show_campaign then (
+          lobby.show_campaign <- false;
+          screen := Campaign (new_campaign ()));
         if lobby.show_settings then settings_seed_keys lobby.gs;
         let wheel = R.get_mouse_wheel_move () in
         if wheel <> 0. && lobby.show_settings && lobby.gs.tab = 0 && inside class_wheel then
           class_scroll_by lobby.gs wheel;
         if R.is_key_pressed R.Key.Escape then
-          if lobby.show_settings then (
-            lobby.show_settings <- false;
-            lobby.gs.seed_focus <- false)
-          else if lobby.show_duel then lobby.show_duel <- false
+          if lobby.show_campaign_intro then
+            close_dialog "campaign-intro" (fun () -> lobby.show_campaign_intro <- false)
+          else if lobby.show_settings then
+            close_dialog "settings" (fun () ->
+                lobby.show_settings <- false;
+                lobby.gs.seed_focus <- false)
+          else if lobby.show_duel then close_dialog "duel" (fun () -> lobby.show_duel <- false)
           else quit := true
         else if lobby.show_duel && R.is_key_pressed R.Key.Enter then fight lobby
-        else if (not lobby.show_duel) && not lobby.show_settings then lobby_keys lobby
+        else if (not lobby.show_duel) && (not lobby.show_settings) && not lobby.show_campaign_intro then
+          lobby_keys lobby
+    | Campaign camp ->
+        (match camp.pending_lobby with
+        | true ->
+            camp.pending_lobby <- false;
+            screen := Lobby (new_lobby ())
+        | false -> ());
+        (match camp.pending_epilogue with
+        | true ->
+            camp.pending_epilogue <- false;
+            Prefs.reset_campaign (Prefs.load ());
+            screen := Epilogue
+        | false -> ());
+        (match camp.pending_fight with
+        | Some n ->
+            camp.pending_fight <- None;
+            campaign_fight n
+        | None -> ());
+        if R.is_key_pressed R.Key.Escape then
+          if dlg_open camp.dlg then close_dialog "campaign" (fun () -> camp.dlg <- Camp_none)
+          else camp.pending_lobby <- true
+    | Epilogue -> if R.is_key_pressed R.Key.Escape then screen := Lobby (new_lobby ())
     | Game ui ->
         drive_bot ui;
         tick_slides ui;
         let wheel = R.get_mouse_wheel_move () in
         (if wheel <> 0. then
-           match ui.settings with
-           | Some gs when gs.tab = 0 && inside class_wheel -> class_scroll_by gs wheel
+           match (ui.settings, ui.house_dlg) with
+           | Some gs, _ when gs.tab = 0 && inside class_wheel -> class_scroll_by gs wheel
+           | None, Some dlg -> house_scroll_by dlg wheel
            | _ -> ui.scroll_y <- Float.min max_scroll (Float.max 0. (ui.scroll_y +. (wheel *. 48.))));
         if R.is_key_pressed R.Key.Escape then
-          match ui.settings with Some _ -> ui.settings <- None | None -> ui.mode <- Browse
+          match (ui.settings, ui.house_dlg, ui.campaign_end) with
+          | Some _, _, _ -> close_dialog "settings" (fun () -> ui.settings <- None)
+          | None, Some _, _ -> close_house_dlg ui
+          | None, None, Some _ ->
+              settle ui;
+              screen := Campaign (new_campaign ~from_game:true ())
+          | None, None, None -> ui.mode <- Browse
         else if R.is_mouse_button_pressed R.MouseButton.Right then ui.mode <- Browse;
         if R.is_key_pressed R.Key.Space && both_bots ui then ui.paused <- not ui.paused;
         if R.is_key_pressed R.Key.F8 then (
@@ -1830,41 +2904,75 @@ let () =
     (match !screen with
     | Lobby lobby ->
         draw_lobby lobby;
-        if lobby.show_duel then draw_duel lobby ~fight:(fun () -> fight lobby);
-        if lobby.show_settings then
-          draw_game_settings lobby.gs ~show_seed:true ~on_budget:ignore ~close:(fun () ->
-              lobby.show_settings <- false;
-              lobby.gs.seed_focus <- false)
-    | Game ui -> (
-        (match background ui with Some t -> cover t | None -> ());
+        run_dialog "duel" lobby.show_duel (fun () -> draw_duel lobby ~fight:(fun () -> fight lobby));
+        run_dialog "settings" lobby.show_settings (fun () ->
+            draw_game_settings lobby.gs ~show_seed:true ~on_budget:ignore ~close:(fun () ->
+                lobby.show_settings <- false;
+                lobby.gs.seed_focus <- false));
+        run_dialog "campaign-intro" lobby.show_campaign_intro (fun () ->
+            draw_campaign_intro lobby ~start:(fun () ->
+                drop_dialog ();
+                lobby.show_campaign_intro <- false;
+                screen := Campaign (new_campaign ())))
+    | Campaign camp -> draw_campaign camp
+    | Epilogue -> draw_epilogue ~menu:(fun () -> screen := Lobby (new_lobby ()))
+    | Game ui ->
+        (match background ui with
+        | Some t ->
+            let a = fade_smooth ((R.get_time () -. ui.bg_at) /. 2.6) in
+            with_alpha a (fun () -> cover t)
+        | None -> ());
         ui.hover <- None;
         ui.hover_opp <- false;
         lay := make_layout ui.table;
         (match peek_smoke_card ui with Some r -> smoke_show r | None -> smoke_hide ());
         Fx.Hover.draw ();
         (match !(ui.last_played) with
-        | Some { card = Some c; _ } when inside (last_played_rect ui) -> ui.hover <- Some c
+        | Some { card = Some c; _ } when inside (last_played_rect ui) -> ui.hover <- Some (Hover_card c)
         | _ -> ());
-        let setup_now () = { (Table.setup ui.table) with budget_ms = ui.budget_ms } in
+        (* Rematch/new/switch must pick houses from the settings dialog (or the
+           prefs it already persisted), not the single pair this fight resolved. *)
+        let chosen_specials () =
+          match ui.settings with
+          | Some gs -> gs.specials
+          | None -> ( try Prefs.setup_specials (Prefs.load ()) with _ -> ([], []))
+        in
+        let setup_now () =
+          let base = { (Table.setup ui.table) with budget_ms = ui.budget_ms } in
+          let l0, l1 = chosen_specials () in
+          let you, opp =
+            match ui.campaign with
+            | Some _ -> (Table.resolve_special l0, snd base.specials)
+            | None -> (Table.resolve_special l0, Table.resolve_special l1)
+          in
+          { base with specials = (you, opp) }
+        in
         let to_lobby () =
           settle ui;
-          screen := Lobby (new_lobby ())
+          screen :=
+            match ui.campaign with
+            | Some _ -> Campaign (new_campaign ~from_game:true ())
+            | None -> Lobby (new_lobby ())
         in
         let restart seed portraits =
           settle ui;
-          screen := Game (new_game { (setup_now ()) with seed } portraits)
+          screen := Game (new_game ~campaign:ui.campaign { (setup_now ()) with seed } portraits)
         in
         let switch () =
           let a, b = (setup_now ()).seats and sa, sb = (setup_now ()).specials and pa, pb = ui.portraits in
           settle ui;
           screen :=
-            Game (new_game { (setup_now ()) with seats = (b, a); specials = (sb, sa); seed = None } (pb, pa))
+            Game
+              (new_game ~campaign:ui.campaign
+                 { (setup_now ()) with seats = (b, a); specials = (sb, sa); seed = None }
+                 (pb, pa))
         in
         draw_board ui;
-        Fx.draw_all ~now:(R.get_time ());
         draw_pass ui;
         draw_hands ui;
         draw_slides ui;
+        (* After the cards so bolts overlay them; Raylib later-draws-win. *)
+        Fx.draw_all ~now:(R.get_time ());
         draw_pops ui;
         draw_preview ui;
         draw_last_played ui;
@@ -1874,12 +2982,48 @@ let () =
           ~switch
           ~replay:(fun () -> restart (Some (Table.seed ui.table)) ui.portraits)
           ~start_new:(fun () -> restart None ui.portraits);
-        match ui.settings with
-        | Some gs ->
-            draw_game_settings gs ~show_seed:false
-              ~on_budget:(fun ms -> ui.budget_ms <- ms)
-              ~close:(fun () -> ui.settings <- None)
-        | None -> ()));
+        (match Session.status (session ui) with
+        | Over { winner; _ } -> (
+            if over_ready ui && ui.ended_at = None then ui.ended_at <- Some (R.get_time ());
+            match ui.campaign with
+            | None -> ()
+            | Some node -> (
+                let won = winner = Some owner in
+                if (not ui.campaign_recorded) && won then (
+                  Prefs.complete_campaign (Prefs.load ()) node.id;
+                  ui.campaign_recorded <- true);
+                let pause = if won then 3. else 1.6 in
+                (match ui.ended_at with
+                | Some t when R.get_time () -. t >= pause && ui.settings = None && ui.campaign_end = None ->
+                    if won && node.id = Campaign.night_last then (
+                      settle ui;
+                      Prefs.reset_campaign (Prefs.load ());
+                      screen := Epilogue)
+                    else ui.campaign_end <- Some won
+                | _ -> ());
+                match ui.campaign_end with
+                | None -> ()
+                | Some won ->
+                    draw_campaign_end ~node ~won
+                      ~replay:(fun () ->
+                        settle ui;
+                        campaign_fight node)
+                      ~map:(fun () ->
+                        settle ui;
+                        screen := Campaign (new_campaign ~from_game:true ()))))
+        | To_move _ ->
+            ui.ended_at <- None;
+            ui.campaign_end <- None);
+        run_dialog "house" (Option.is_some ui.house_dlg) (fun () ->
+            match ui.house_dlg with Some dlg -> draw_house_details ui dlg | None -> ());
+        run_dialog "settings" (Option.is_some ui.settings) (fun () ->
+            match ui.settings with
+            | Some gs ->
+                draw_game_settings gs ~show_seed:false
+                  ~on_budget:(fun ms -> ui.budget_ms <- ms)
+                  ~close:(fun () -> ui.settings <- None)
+            | None -> ()));
+    draw_chrome ();
     R.end_drawing ();
     (match shot with
     | Some sh when R.get_time () -. t0 >= sh.wait ->
@@ -1894,7 +3038,7 @@ let () =
        leaving a game settles the search first *)
     Option.iter (fun f -> f ()) !pending
   done;
-  (match !screen with Game ui -> settle ui | Lobby _ -> ());
+  (match !screen with Game ui -> settle ui | _ -> ());
   Hashtbl.iter (fun _ s -> Option.iter R.unload_sound s) sounds;
   Fx.unload ();
   R.close_audio_device ();

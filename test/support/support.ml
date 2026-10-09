@@ -109,6 +109,13 @@ let new_game ?(mana0 = 6) ?mana ?(house = Fire.house) ?(special = Game.empty_spe
   let mk () = Game.initial_player_state m d in
   Updater.create { players = [| mk (); mk () |] } { gd_players = [| d; d |] }
 
+let new_duel ?(mana = [ 6; 4; 4; 4; 6 ]) ~special0 ~special1 () =
+  init_all_houses ();
+  let d0 = Game.make_player_desc ~special:special0 Fire.house in
+  let d1 = Game.make_player_desc ~special:special1 Fire.house in
+  let mk d = Game.initial_player_state mana d in
+  Updater.create { players = [| mk d0; mk d1 |] } { gd_players = [| d0; d1 |] }
+
 let step u f = Game.step u (fun _ -> f ())
 let player = Updater.player
 let slot u pid num = (player u pid).slots_update.slot_updates.(num)

@@ -65,10 +65,12 @@ let rec mod_damage (p : player_update) (d : damage) =
 
 module Houses = struct
   let incr_mana_all (hu : houses_update) =
-    hu.hu_value <- Array.map (fun h -> hu.hu_player.add_mana_hook h h.growth) hu.hu_value
+    hu.hu_value <- Array.map (fun h -> hu.hu_player.add_mana_hook h h.growth) hu.hu_value;
+    hu.after_update hu.hu_value
 
   let incr_mana (hu : houses_update) amount idxs =
-    List.iter (fun i -> hu.hu_value.(i) <- hu.hu_player.add_mana_hook hu.hu_value.(i) amount) idxs
+    List.iter (fun i -> hu.hu_value.(i) <- hu.hu_player.add_mana_hook hu.hu_value.(i) amount) idxs;
+    hu.after_update hu.hu_value
 
   let incr_growth (hu : houses_update) amount idxs =
     List.iter
@@ -111,6 +113,11 @@ module Slot = struct
   let get s = match s.value with Some v -> v | None -> failwith (Printf.sprintf "empty slot %d" s.num)
   let adjacent s = List.map (fun n -> s.slots.slot_updates.(n)) (adjacents s.num)
   let filled_adjacent s = List.filter (fun s -> Option.is_some s.value) (adjacent s)
+
+  let open_adjacent s =
+    List.filter
+      (fun adj -> Option.is_none adj.value && List.mem adj.num s.slots.player.pstate.ps_slot_list)
+      (adjacent s)
   let opposite s = (other_player s.slots.player).slots_update.slot_updates.(s.num)
 
   (* Scala's `write(value map f)` *)
@@ -131,7 +138,8 @@ module Slot = struct
   let add s st =
     s.value <- Some st;
     st.reaction.selected := Some s;
-    Board.react_add s.slots s
+    Board.react_add s.slots s;
+    s.slots.after_change ()
 
   let overwrite_add s st = s.add_hook st
 
@@ -162,6 +170,7 @@ module Slot = struct
         Board.react_remove s.slots s;
         st.reaction.clean_up ();
         s.value <- None;
+        s.slots.after_change ();
         st
 
   let do_priv_destroy s =
@@ -547,6 +556,7 @@ module Reaction = struct
       clean_up = ignore;
       on_protect = (fun e -> e.de_damage);
       on_death = ignore;
+      on_limbo = ignore;
     }
 
   let bound_slot r = match !(r.selected) with Some s -> s | None -> failwith "reaction not bound to a slot"
@@ -610,8 +620,9 @@ module Updater = struct
               (fun dead ->
                 emit u (Ev_die { num = dead.d_num; player = id });
                 dead.d_slot.reaction.on_my_death dead);
+            after_change = ignore;
           };
-        houses_update = { hu_player = p; hu_value = pstate.ps_houses };
+        houses_update = { hu_player = p; hu_value = pstate.ps_houses; after_update = ignore };
         house_event_listener = listener;
         stats = { nb_dead = 0; nb_summon = 0 };
         submit_command_hook = (fun c -> Player.submit_command_default p c);
@@ -748,7 +759,7 @@ let fill_empty_slots creature : card_effect =
   List.iter
     (fun num ->
       if Option.is_none p.slots_update.slot_updates.(num).value then
-        ignore (Slots.summon p.slots_update num creature))
+        Slots.add_creature p.slots_update.slot_updates.(num) creature)
     p.pstate.ps_slot_list
 
 let add_desc_mod m : card_effect = fun env -> Player.add_desc_mod (player_of_env env) m

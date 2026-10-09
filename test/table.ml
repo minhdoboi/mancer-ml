@@ -57,22 +57,21 @@ let human_choices () =
 (* The duel dialog's AI roster: faces, levels and their bots *)
 let duel_roster () =
   let opps = Table.duel_opponents in
-  check_int "six faces" 6 (List.length opps);
+  check_int "scala faces" 13 (List.length opps);
   check_bool "level order" true
-    (let sorted =
-       List.sort
-         (fun a b ->
-           compare (a.Table.opp_level, a.Table.opp_portrait) (b.Table.opp_level, b.Table.opp_portrait))
-         opps
+    (let rec nondec = function
+       | [] | [ _ ] -> true
+       | a :: b :: rest -> a.Table.opp_level <= b.Table.opp_level && nondec (b :: rest)
      in
-     opps = sorted);
+     nondec opps);
   List.iter
     (fun (o : Table.opponent) ->
-      check_bool ("face for " ^ o.Table.opp_bot) true
-        (List.mem o.Table.opp_portrait (Table.faces_for_bot o.Table.opp_bot));
+      check_bool ("kind face for " ^ o.Table.opp_kind) true
+        (List.mem o.Table.opp_portrait (Table.faces_for_bot o.Table.opp_kind));
       check_bool ("bot of " ^ o.Table.opp_portrait) true
         (Table.bot_of_portrait o.Table.opp_portrait = Some o.Table.opp_bot))
     opps;
+  check_bool "lecturer not gambler" true (not (List.mem "gambler" (Table.faces_for_bot "lecturer")));
   check_bool "unknown face" true (Table.bot_of_portrait "ember" = None);
   check_bool "unknown bot" true (Table.faces_for_bot "nope" = Table.faces_for_bot "greedy");
   check_int "twelve player faces" 12 (List.length Table.player_portraits)

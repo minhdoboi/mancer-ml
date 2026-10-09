@@ -128,11 +128,11 @@ let after_submit (me : slot_update) slot_id =
       match slot.value with
       | None -> ()
       | Some st ->
-          let open_slots = Slots.get_open me.slots in
-          if open_slots <> [] || st.card.c_card.cost * 4 >= (Slot.get me).life then (
+          let open_before = Slots.get_open me.slots in
+          if open_before <> [] || st.card.c_card.cost * 4 >= (Slot.get me).life then (
             let ctx = { ctx_player = me.slots.player.pid; ctx_card = !manipulator_ref; ctx_selected = me.num } in
             Slot.inflict me (mk_damage ~is_ability:true (4 * st.card.c_card.cost) ctx);
-            match open_slots with
+            match Slots.get_open me.slots with
             | [] -> ()
             | ns ->
                 let dest = if List.mem slot.num ns then slot.num else List.hd ns in

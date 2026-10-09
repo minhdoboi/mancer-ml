@@ -85,7 +85,7 @@ let retinue_effect : card_effect =
 
 (* true if the field mage at [mage] takes this damage instead of its target *)
 let redirects (mage : slot_update) (de : damage_event) =
-  (match mage.value with Some st -> is_card !fieldmage_ref st.card.c_card | None -> false)
+  (match mage.value with Some st -> is_card !fieldmage_ref st.card.c_card && not (is_bridled st) | None -> false)
   && de.de_damage.is_spell
   && de.de_damage.context.ctx_player <> mage.slots.player.pid
   && (not de.de_damage.redirected)

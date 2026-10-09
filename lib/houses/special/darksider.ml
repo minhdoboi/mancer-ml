@@ -159,26 +159,30 @@ let darksider_listener () =
             in
             match (warlocks, cmd.cmd_card.is_spell) with
             | w :: _, true ->
-                let amount = 3 * cmd.cmd_cost in
+                let amount = 3 * cmd.cmd_card.cost in
                 Slot.inflict w
                   (mk_damage ~is_ability:true amount
                      { ctx_player = (get ()).pid; ctx_card = !warlock_ref; ctx_selected = w.num });
                 let caster = (get ()).updater.player_updates.(cmd.cmd_player) in
                 Houses.incr_mana caster.houses_update (-cmd.cmd_cost) [ cmd.cmd_card.house_index ];
                 (true, None)
-            | _ ->
-                (* Lake observes every other opponent submit. *)
-                Array.iter
-                  (fun s ->
-                    match s.value with
-                    | Some st when is_card !lake_ref st.card.c_card -> lake_add s cmd.cmd_card
-                    | _ -> ())
-                  (get ()).slots_update.slot_updates;
-                (false, Some cmd))
+            | _ -> (false, Some cmd))
         | Some cmd -> (false, Some cmd));
     hl_init =
       (fun p ->
         player := Some p;
+        let opp = other_player p in
+        let old_sub = opp.submit_command_hook in
+        opp.submit_command_hook <-
+          (fun c ->
+            let r = old_sub c in
+            Array.iter
+              (fun s ->
+                match s.value with
+                | Some st when is_card !lake_ref st.card.c_card -> lake_add s c.cmd_card
+                | _ -> ())
+              p.slots_update.slot_updates;
+            r);
         let old = p.slots_update.on_dead_hook in
         p.slots_update.on_dead_hook <-
           (fun dead ->

@@ -70,6 +70,17 @@ val class_choice : t -> int -> string list
 val set_class_choice : t -> int -> string list -> unit
 val campaign_completed : t -> string list
 val campaign_position : t -> string
+val campaign_night_rest : t -> bool
+val campaign_wake_far : t -> bool
+
+val complete_campaign : t -> ?extras:string list -> string -> unit
+(** Adds [id] and [extras] to completed stops and moves the token to
+    {!Campaign.next_position} of [id], like [Storage.completeCampaign]. *)
+
+val reset_campaign : t -> unit
+val reset_night_campaign : t -> unit
+val mark_night_rested : t -> unit
+val mark_wake_far : t -> unit
 
 val setup_seats : t -> string * string
 (** [setup.seats] as [(p1, p2)] seat names, else [("human", "oracle")]. *)

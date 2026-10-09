@@ -30,7 +30,7 @@ type standing_game = {
 type card_rate = { card : string; house : string; plays : int; wins : int; draws : int; rate : float }
 
 val bot_ids : string list
-(** [greedy], [oracle], [lecturer]. *)
+(** [greedy], [summoner], [strategist], [lecturer], [oracle], [diviner]. *)
 
 val mover : ?stats_log:bool -> budget:int -> string -> Game.mover
 (** The bot named by [id] ([apprentice] is greedy), searching [budget] ms per move. [stats_log] (default true)

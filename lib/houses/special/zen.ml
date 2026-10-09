@@ -238,7 +238,7 @@ let cards =
     creature ~key:"zen.elementesist" ~attack:(attack 3) ~life:14 ~description:"zen.elementesist.description"
       ~run_attack:(custom_run_attack elem_attack) ();
     creature ~key:"zen.redlight" ~attack:(attack 2) ~life:14 ~description:"zen.redlight.description"
-      ~run_attack:(custom_run_attack redlight_attack) ();
+      ~run_attack:(custom_run_attack ~multi:true redlight_attack) ();
     spell ~key:"zen.focus" ~description:"zen.focus.description" ~input_spec:Select_owner_creature
       ~effects:(effects [ (Direct, focus_spell) ])
       ();

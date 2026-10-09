@@ -116,7 +116,7 @@ let antimancer_listener () =
             let r = old_submit c in
             Slots.foreach p.slots_update (fun s ->
                 match s.value with
-                | Some st when is_card !mirror_priest_ref st.card.c_card ->
+                | Some st when is_card !mirror_priest_ref st.card.c_card && not (is_bridled st) ->
                     Houses.incr_mana p.houses_update 1 [ c.cmd_card.house_index ];
                     focus_slot s
                 | _ -> ());
@@ -129,7 +129,7 @@ let antimancer_listener () =
             Slots.foreach p.slots_update (fun s ->
                 match s.value with
                 | Some st
-                  when is_card !bombardier_ref st.card.c_card
+                  when is_card !bombardier_ref st.card.c_card && not (is_bridled st)
                        && d.context.ctx_selected = s.num && d.context.ctx_player = p.pid ->
                     Slots.inflict_creatures op.slots_update d;
                     focus_slot s

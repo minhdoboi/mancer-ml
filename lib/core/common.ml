@@ -9,10 +9,17 @@ open Engine
 let attack base = { base = Some base; sources = [] }
 let mana_attack idx = { base = None; sources = [ Mana_attack idx ] }
 let add_source s src = { s with sources = s.sources @ [ src ] }
-let normal_run_attack = { can_attack = true; apply_ = Single_target }
-let multi_run_attack = { can_attack = true; apply_ = Multi_target }
-let never_run_attack = { can_attack = false; apply_ = Single_target }
-let custom_run_attack apply = { can_attack = true; apply_ = Custom apply }
+let normal_run_attack = { can_attack = true; apply_ = Single_target; is_multi_target = false }
+let multi_run_attack = { can_attack = true; apply_ = Multi_target; is_multi_target = true }
+let never_run_attack = { can_attack = false; apply_ = Single_target; is_multi_target = false }
+
+let custom_run_attack ?(multi = false) apply =
+  { can_attack = true; apply_ = Custom apply; is_multi_target = multi }
+
+let is_multi_run (ra : run_attack) = ra.is_multi_target
+let is_multi_card (c : card) = match c.creature_body with Some b -> is_multi_run b.b_run_attack | None -> false
+
+let is_bridled (st : slot_state) = match st.card.c_body.b_data with Mortal_of _ -> true | _ -> false
 
 let new_card ~key ~effects ~input_spec ~description ~is_spell ~body =
   {
@@ -71,7 +78,11 @@ let rec remove_first src = function
 let add_attack s src =
   Slot.update s (fun st ->
       if st.attack_sources.base = Some 0 then st
-      else { st with attack_sources = { st.attack_sources with sources = src :: st.attack_sources.sources } })
+      else
+        {
+          st with
+          attack_sources = { st.attack_sources with sources = st.attack_sources.sources @ [ src ] };
+        })
 
 let remove_first_attack s src =
   Slot.update s (fun st ->

@@ -113,7 +113,10 @@ let sg_reaction () =
     self_protect =
       (fun d ->
         let me = Reaction.bound_slot r in
-        if Option.is_none (Slot.opposite me).value && is_effect d then { d with amount = 0 } else d);
+        let op = other_player me.slots.player in
+        let committed_empty = Option.is_none me.slots.player.updater.state.players.(op.pid).ps_slots.(me.num) in
+        let live_empty = Option.is_none (Slot.opposite me).value in
+        if committed_empty && live_empty && is_effect d then { d with amount = 0 } else d);
   }
 
 let cards =

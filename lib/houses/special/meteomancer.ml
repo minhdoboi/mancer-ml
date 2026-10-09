@@ -89,20 +89,24 @@ let on_opponent_plays_called owner (command : command) =
   match get_called owner with
   | Some called when command.cmd_card.house_index = called ->
       let is_spell_of_called = command.cmd_card.is_spell in
-      Slots.foreach owner.slots_update (fun slot ->
-          match slot.value with
-          | Some st when is_meteo st.card.c_card -> (
-              match st.card.c_card.key with
-              | "meteomancer.thief" when is_spell_of_called ->
-                  cast_call_to_thunder owner st.card.c_card slot.num
-              | "meteomancer.extremophile" -> spawn_extremophile owner
-              | "meteomancer.prism" -> add_attack slot (Attack_func (fun a -> a + 1))
-              | "meteomancer.storm" -> storm_strike owner st.card.c_card slot.num
-              | "meteomancer.fateweaver" ->
-                  Houses.incr_mana owner.houses_update 4 [ called ];
-                  set_data owner { (get_data owner) with mt_fate = (get_data owner).mt_fate + 1 }
-              | _ -> ())
+      let filled =
+        Array.to_list owner.slots_update.slot_updates
+        |> List.filter_map (fun (s : slot_update) ->
+            match s.value with Some st when is_meteo st.card.c_card -> Some (s, st) | _ -> None)
+      in
+      List.iter
+        (fun ((slot : slot_update), st) ->
+          match st.card.c_card.key with
+          | "meteomancer.thief" when is_spell_of_called ->
+              cast_call_to_thunder owner st.card.c_card slot.num
+          | "meteomancer.extremophile" -> spawn_extremophile owner
+          | "meteomancer.prism" -> add_attack slot (Attack_func (fun a -> a + 1))
+          | "meteomancer.storm" -> storm_strike owner st.card.c_card slot.num
+          | "meteomancer.fateweaver" ->
+              Houses.incr_mana owner.houses_update 4 [ called ];
+              set_data owner { (get_data owner) with mt_fate = (get_data owner).mt_fate + 1 }
           | _ -> ())
+        filled
   | _ -> ()
 
 let set_called_on_summon p (c : command) =

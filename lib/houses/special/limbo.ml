@@ -70,19 +70,14 @@ let clean_limbo : card_effect =
 
 let run_limbo_reactions (owner : player_update) (entering : slot_update) =
   Slots.foreach owner.slots_update (fun slot ->
-      match slot.value with
-      | Some st ->
-          st.reaction.on_death
-            { d_num = entering.num; d_slot = Slot.get entering; d_player = owner; d_damage = None }
-      | None -> ())
+      match slot.value with Some st -> st.reaction.on_limbo entering | None -> ())
 
-(* [on_death] is reused as the LimboReaction callback: keepers/tower/adjudicator override it, and the
-   listener calls it when a creature enters limbo. Owner-death broadcast is not installed. *)
+(* LimboReaction.onLimbo: keepers/tower/adjudicator. Owner-death broadcast is not installed. *)
 let heaven_reaction () =
   let r = Reaction.default () in
   {
     r with
-    on_death =
+    on_limbo =
       (fun _ ->
         let me = Reaction.bound_slot r in
         let p = me.slots.player in
@@ -95,7 +90,7 @@ let hell_reaction () =
   let r = Reaction.default () in
   {
     r with
-    on_death =
+    on_limbo =
       (fun _ ->
         let me = Reaction.bound_slot r in
         let op = other_player me.slots.player in
@@ -111,10 +106,10 @@ let tower_reaction () =
   let r = Reaction.default () in
   {
     r with
-    on_death =
-      (fun dead ->
+    on_limbo =
+      (fun entering ->
         let me = Reaction.bound_slot r in
-        let idx = dead.d_slot.card.c_card.house_index in
+        let idx = (Slot.get entering).card.c_card.house_index in
         Houses.incr_mana me.slots.player.houses_update 1 [ idx ];
         Houses.incr_mana (other_player me.slots.player).houses_update (-1) [ idx ];
         focus_slot me);
@@ -124,7 +119,7 @@ let soul_reaction () =
   let r = Reaction.default () in
   {
     r with
-    on_death =
+    on_limbo =
       (fun _ ->
         let me = Reaction.bound_slot r in
         match first_special_card me.slots.player with
@@ -174,7 +169,7 @@ let limbo_listener () =
             slot.delayed_destroy_hook <-
               (fun d ->
                 match slot.value with
-                | None -> old_delayed d
+                | None -> ()
                 | Some st ->
                     if (is_card !baron_ref st.card.c_card || not (is_effect d)) && not (is_no_limbo st.data)
                     then (

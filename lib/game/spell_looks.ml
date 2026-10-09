@@ -24,7 +24,6 @@ let look style aim r g b ?(power = 1.) () = { style; aim; r; g; b; power }
 let looks =
   [
     ("earth.shower", look Stones All_slots 0.4 0.36 0.3 ());
-    ("earth.therapy", look Sprout Own_life 0.2 0.75 0.2 ());
     ("earth.fury", look Eyes Own_life 1. 0.55 0.05 ());
     ("water.meditate", look Rise Own_life 0.35 0.7 1. ());
     ("Conscription", look Rise Own_life 0.95 0.8 0.35 ());
@@ -112,6 +111,7 @@ let custom =
     "fire.inferno";
     "disciples.madden";
     "earth.care";
+    "earth.therapy";
     "faerie.fire";
     "water.shower";
     "junk.poison";

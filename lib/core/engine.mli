@@ -39,6 +39,7 @@ module Slot : sig
 
   val adjacent : slot_update -> slot_update list
   val filled_adjacent : slot_update -> slot_update list
+  val open_adjacent : slot_update -> slot_update list
   val opposite : slot_update -> slot_update
   val update : slot_update -> (slot_state -> slot_state) -> unit
   val toggle : slot_update -> int -> unit

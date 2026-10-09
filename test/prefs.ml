@@ -70,6 +70,25 @@ let clamp_and_fallback () =
       check_bool "known bot" true
         (Prefs.parse_seat ~allowed:[ "oracle" ] ~fallback:`Human "oracle" = `Bot "oracle"))
 
+let campaign_progress () =
+  with_temp (fun path ->
+      Sys.remove path;
+      let p = Prefs.load ~path () in
+      Prefs.complete_campaign p ~extras:[ Campaign.go_city ] "duckwoman";
+      let q = Prefs.load ~path () in
+      Alcotest.(check (list string))
+        "completed"
+        [ "duckwoman"; Campaign.go_city ]
+        (List.sort String.compare (Prefs.campaign_completed q));
+      check_string "position" "duckwoman" (Prefs.campaign_position q);
+      Prefs.complete_campaign q "wind";
+      let r = Prefs.load ~path () in
+      check_string "night" Campaign.night_start_id (Prefs.campaign_position r);
+      Prefs.reset_night_campaign r;
+      check_bool "kept wind" true (List.mem "wind" (Prefs.campaign_completed (Prefs.load ~path ())));
+      Prefs.reset_campaign (Prefs.load ~path ());
+      check_string "reset" Campaign.day_start_id (Prefs.campaign_position (Prefs.load ~path ())))
+
 let old_singles () =
   (* Files written before multi-select keep loading as one house per side. *)
   with_temp (fun path ->
@@ -89,5 +108,6 @@ let () =
           Alcotest.test_case "old singles" `Quick old_singles;
           Alcotest.test_case "scala format" `Quick scala_format;
           Alcotest.test_case "clamp and fallback" `Quick clamp_and_fallback;
+          Alcotest.test_case "campaign progress" `Quick campaign_progress;
         ] );
     ]

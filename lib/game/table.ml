@@ -12,6 +12,8 @@ type setup = {
   budget_ms : int;
   seed : int option;
   max_turns : int;
+  starting : player_id;
+  life : int option;
 }
 
 let default_setup =
@@ -21,6 +23,8 @@ let default_setup =
     budget_ms = 1000;
     seed = None;
     max_turns = 300;
+    starting = owner;
+    life = None;
   }
 
 let seat_name = function Human -> "human" | Bot id -> id
@@ -44,23 +48,32 @@ let player_portraits =
 
 type opponent = { opp_bot : string; opp_kind : string; opp_portrait : string; opp_level : int }
 
-(* The AI faces, in level order. Only ported bots appear: greedy wears the
-   summoner faces (1), lecturer and oracle their own (4 and 5, as in Scala's
-   [AiLevel] list). *)
+(* The AI faces, in Scala [AiLevel] order. Gambler is not ported, so those
+   faces still play lecturer. *)
 let duel_opponents =
   [
-    { opp_bot = "greedy"; opp_kind = "summoner"; opp_portrait = "summoner"; opp_level = 1 };
-    { opp_bot = "greedy"; opp_kind = "summoner"; opp_portrait = "summoner-f"; opp_level = 1 };
+    { opp_bot = "summoner"; opp_kind = "summoner"; opp_portrait = "summoner"; opp_level = 1 };
+    { opp_bot = "summoner"; opp_kind = "summoner"; opp_portrait = "summoner-f"; opp_level = 1 };
+    { opp_bot = "strategist"; opp_kind = "strategist"; opp_portrait = "strategist"; opp_level = 2 };
+    { opp_bot = "strategist"; opp_kind = "strategist"; opp_portrait = "strategist-f"; opp_level = 2 };
+    { opp_bot = "strategist"; opp_kind = "strategist"; opp_portrait = "strategist-2"; opp_level = 2 };
+    { opp_bot = "lecturer"; opp_kind = "gambler"; opp_portrait = "gambler"; opp_level = 3 };
+    { opp_bot = "lecturer"; opp_kind = "gambler"; opp_portrait = "gambler-f"; opp_level = 3 };
     { opp_bot = "lecturer"; opp_kind = "lecturer"; opp_portrait = "lecturer"; opp_level = 4 };
     { opp_bot = "lecturer"; opp_kind = "lecturer"; opp_portrait = "lecturer-f"; opp_level = 4 };
     { opp_bot = "oracle"; opp_kind = "oracle"; opp_portrait = "oracle"; opp_level = 5 };
     { opp_bot = "oracle"; opp_kind = "oracle"; opp_portrait = "oracle-f"; opp_level = 5 };
+    { opp_bot = "diviner"; opp_kind = "diviner"; opp_portrait = "diviner"; opp_level = 6 };
+    { opp_bot = "diviner"; opp_kind = "diviner"; opp_portrait = "diviner-f"; opp_level = 6 };
   ]
 
-(* The faces associated with a bot id; unknown ids get greedy's. *)
+(* Kind faces first so lecturer is not mixed with the gambler stand-ins. *)
 let faces_for_bot bot =
-  match List.filter_map (fun o -> if o.opp_bot = bot then Some o.opp_portrait else None) duel_opponents with
-  | [] -> [ "summoner"; "summoner-f" ]
+  match List.filter_map (fun o -> if o.opp_kind = bot then Some o.opp_portrait else None) duel_opponents with
+  | [] -> (
+      match List.filter_map (fun o -> if o.opp_bot = bot then Some o.opp_portrait else None) duel_opponents with
+      | [] -> [ "summoner"; "summoner-f" ]
+      | faces -> faces)
   | faces -> faces
 
 let bot_of_portrait portrait =
@@ -120,6 +133,20 @@ let special_houses () =
 
 (* Like Scala resolveChoices: a side plays a random house from its checked
    set; an empty set means every ported special. Unknown names are dropped. *)
+let campaign_setup ?(budget_ms = default_setup.budget_ms) ?seed ~player_special (n : Campaign.node) =
+  match n.Campaign.fight with
+  | None -> failwith ("campaign node has no fight: " ^ n.id)
+  | Some f ->
+      {
+        default_setup with
+        seats = (Human, Bot (Campaign.play_bot f.bot_id));
+        specials = (player_special, f.house_key);
+        budget_ms;
+        seed;
+        starting = Campaign.starter_player n.id;
+        life = f.life;
+      }
+
 let resolve_special =
   let rng = Random.State.make_self_init () in
   fun names ->
@@ -150,7 +177,7 @@ let start ?on_event (setup : setup) =
   let rng = Random.State.make [| seed |] in
   let s0, s1 = setup.specials in
   let specials = (Catalog.find_special s0, Catalog.find_special s1) in
-  let p0, p1 = Shuffle.two_players ~rng ~specials Catalog.basics in
+  let p0, p1 = Shuffle.two_players ~rng ~starting:setup.starting ~specials Catalog.basics in
   let desc = { gd_players = [| p0.desc; p1.desc |] } in
   let rng_seed = Random.State.bits rng in
   let mover = function
@@ -161,7 +188,7 @@ let start ?on_event (setup : setup) =
   let mana = [| Array.to_list p0.mana; Array.to_list p1.mana |] in
   let session =
     Session.create desc ~mana0:mana.(0) ~mana1:mana.(1) ~rng:(Dice.make rng_seed) ~max_turns:setup.max_turns
-      ?on_event
+      ~starting:setup.starting ?life:setup.life ?on_event
   in
   { setup; seed; session; movers; mana; rng_seed }
 
@@ -220,7 +247,7 @@ let record t : Game_record.t =
   {
     game = Printf.sprintf "tui-%d" t.seed;
     bot_names = (name owner, name opponent);
-    starting_player = owner;
+    starting_player = t.setup.starting;
     special_names =
       (Game_record.special_name desc.gd_players.(0), Game_record.special_name desc.gd_players.(1));
     decks = desc.gd_players;

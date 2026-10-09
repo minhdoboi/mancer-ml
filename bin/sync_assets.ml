@@ -12,7 +12,8 @@ module R = Raylib
 let src = ref (Option.value (Sys.getenv_opt "FREESPECTROGDX") ~default:"../freespectrogdx")
 let out = ref "../mancer-assets"
 let ( / ) = Filename.concat
-let generated = [ "cards"; "backgrounds"; "combat"; "ui"; "portraits"; "particle"; "sounds"; "i18n" ]
+let generated =
+  [ "cards"; "backgrounds"; "combat"; "ui"; "portraits"; "particle"; "sounds"; "i18n"; "campaign" ]
 let portrait_size = 256
 
 (* ------------------------------------------------------------ files *)
@@ -193,14 +194,18 @@ let sync_cards props =
 let sync_backgrounds () =
   let dir = !src / "resources/themes/vibe/Backgrounds" in
   let bgs = index dir in
+  let names_of (h : house) =
+    let display = Assets.text h.h_name in
+    [ display; h.h_key; h.h_name ]
+  in
   List.filter_map
-    (fun (key, name) ->
-      match Hashtbl.find_opt bgs (norm name) with
+    (fun (key, names) ->
+      match List.find_map (fun n -> Hashtbl.find_opt bgs (norm n)) names with
       | Some f ->
           place f ("backgrounds" / key);
           None
       | None -> Some key)
-    (("default", "default") :: List.map (fun (h : house) -> (h.h_key, Assets.text h.h_name)) Catalog.all)
+    (("default", [ "default" ]) :: List.map (fun (h : house) -> (h.h_key, names_of h)) Catalog.all)
 
 let sync_dir ?fit from dest =
   List.iter (fun f -> if ext f = ".png" then place ?fit (from / f) (dest / stem f)) (ls from)
@@ -285,6 +290,11 @@ let () =
     [ "particle"; "smoke"; "thin" ];
   sync_dir (!src / "core/src/main/resources/data/ui") "ui";
   sync_dir ~fit:portrait_size (!src / "core/src/main/resources/data/portraits") "portraits";
+  List.iter
+    (fun n ->
+      let from = resources / "data" / "campaign" / (n ^ ".jpg") in
+      if Sys.file_exists from then place from ("campaign" / n))
+    [ "map"; "epilogue" ];
   sync_sounds ();
   sync_overrides "";
   Out_channel.with_open_text (!out / "manifest.tsv") (fun oc -> Buffer.output_buffer oc manifest);

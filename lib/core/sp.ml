@@ -191,7 +191,7 @@ and context = { ctx_player : player_id; ctx_card : card option; ctx_selected : i
    is not redirected twice (Scala's RedirectedContext) *)
 and damage = { amount : int; context : context; is_ability : bool; is_spell : bool; redirected : bool }
 and run_attack_kind = Single_target | Multi_target | Custom of (int list -> damage -> player_update -> unit)
-and run_attack = { can_attack : bool; apply_ : run_attack_kind }
+and run_attack = { can_attack : bool; apply_ : run_attack_kind; is_multi_target : bool }
 
 (* A card is the shared descriptor; a creature additionally carries the
    per-play body.  In Scala `Creature extends Card`; here the creature embeds
@@ -339,6 +339,8 @@ and reaction = {
   clean_up : unit -> unit;
   on_protect : damage_event -> damage;
   on_death : dead -> unit;
+  (* Scala LimboReaction.onLimbo: only limbo keepers implement this *)
+  on_limbo : slot_update -> unit;
 }
 
 (* The `*_hook` fields are Scala's `var` interception points: houses replace
@@ -361,9 +363,16 @@ and slots_update = {
   mutable slot_updates : slot_update array;
   mutable logs : board_event list;
   mutable on_dead_hook : dead -> unit;
+  (* Scala slots.update.after: add, remove, and move *)
+  mutable after_change : unit -> unit;
 }
 
-and houses_update = { hu_player : player_update; mutable hu_value : house_state array }
+and houses_update = {
+  hu_player : player_update;
+  mutable hu_value : house_state array;
+  (* Scala houses.update.after: fired after a full mana write *)
+  mutable after_update : house_state array -> unit;
+}
 
 and player_update = {
   pid : player_id;

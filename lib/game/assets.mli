@@ -18,6 +18,15 @@ val text : string -> string
 (** The string for an i18n key from [i18n/<lang>.properties], else the English one, else the key itself.
     Control characters become spaces. *)
 
+val has_key : string -> bool
+(** True when the key exists in the chosen or English bundle. *)
+
+val format : string -> string list -> string
+(** Replaces [{0}], [{1}], … in an i18n template (Java [MessageFormat] placeholders). *)
+
+val campaign : string -> string option
+(** Image [campaign/<name>.jpg|png] (map, epilogue). *)
+
 val clean : string -> string
 (** Control characters to spaces; terminal and font renderers choke on them. *)
 
@@ -25,10 +34,11 @@ val card_name : card -> string
 val describe : card -> string
 
 val card_art : card -> string option
-(** [cards/<key>.jpg|png]: creatures are 80x80, spells 95x103. *)
+(** [cards/<key>.jpg|png], else the English card name; creatures are 80x80, spells 95x103. *)
 
 val background : house -> string option
-(** [backgrounds/<house key>], else [backgrounds/default] (832x800). *)
+(** [backgrounds/<house key>], else the English house name (["dark priest"]), else [backgrounds/default]
+    (832x800). *)
 
 val creature_frame : unit -> string option
 (** Stone creature frame ([raka], 90x102). *)

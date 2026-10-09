@@ -39,15 +39,16 @@ let hide_card_mod (card : card) : desc_mod =
   if house.phd_house.h_index <> card.house_index then cards
   else Array.map (fun cd -> if cd.cd_card.id = card.id then { cd with cd_enabled = false } else cd) cards
 
+let colors_house_id = 23
+
 let select_colour pid (state : game_state) =
   List.init nb_slots Fun.id
   |> List.filter (fun n ->
-      match state.players.(pid).ps_slots.(n) with Some st -> st.card.c_card.house_index = 4 | None -> false)
+      match state.players.(pid).ps_slots.(n) with
+      | Some st -> st.card.c_card.house_id = colors_house_id
+      | None -> false)
 
-let is_multi (c : card) =
-  match c.creature_body with
-  | Some b -> ( match b.b_run_attack.apply_ with Multi_target -> true | _ -> false)
-  | None -> false
+let is_multi (c : card) = is_multi_card c
 
 let discolor : card_effect =
  fun env ->

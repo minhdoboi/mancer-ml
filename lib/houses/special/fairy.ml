@@ -151,8 +151,12 @@ let alko_effect : card_effect =
   let op = other_of_env env in
   let slot = p.slots_update.slot_updates.(env.env_selected) in
   let all =
-    Array.to_list op.pstate.ps_desc.init_desc.pd_houses
-    |> List.concat_map (fun h -> Array.to_list h.phd_cards |> List.map (fun cd -> cd.cd_card))
+    let pd = op.pstate.ps_desc in
+    Array.to_list pd.init_desc.pd_houses
+    |> List.concat_map (fun h ->
+        List.fold_left (fun cs m -> m h cs) h.phd_cards pd.desc_mods
+        |> Array.to_list
+        |> List.map (fun cd -> cd.cd_card))
   in
   let pool =
     match slot.value with

@@ -155,7 +155,7 @@ let render_lobby (w, _) ui =
       I.string A.(st bold ++ fg lightcyan) (clean (Assets.text "lobby.title"));
       text ~attr:dim w (Assets.text "lobby.message");
       I.void 1 1;
-      menu_row ui.row 0 ~enabled:false (Assets.text "button.campaign" ^ "  (soon)");
+      menu_row ui.row 0 ~enabled:true (Assets.text "button.campaign");
       menu_row ui.row 1 ~enabled:true (Assets.text "button.duel");
       menu_row ui.row 2 ~enabled:true (Assets.text "button.settings");
       menu_row ui.row 3 ~enabled:true (Assets.text "button.quit");
@@ -266,7 +266,10 @@ type game_ui = {
   mutable mode : mode;
   mutable paused : bool;
   mutable message : string;
+  campaign : Campaign.node option;
 }
+
+type campaign_ui = { mutable i : int; mutable message : string }
 
 let human_to_move ui =
   match Table.to_move ui.table with Some pid when Table.seat ui.table pid = Human -> Some pid | _ -> None
@@ -287,11 +290,11 @@ let selected_card ui =
     if ui.card < Array.length cards then Some (cards.(ui.card), h.(ui.col)) else None
   else None
 
-let new_game setup =
+let new_game ?(campaign = None) setup =
   let log = ref [] in
   let on_event e = Option.iter (fun l -> log := l :: !log) (Table.event_line ~name:card_name e) in
   let table = Table.start ~on_event setup in
-  { table; log; col = 0; card = 0; mode = Browse; paused = false; message = "" }
+  { table; log; col = 0; card = 0; mode = Browse; paused = false; message = ""; campaign }
 
 let fight lobby =
   persist_duel lobby;
@@ -516,9 +519,9 @@ let render_game (w, h) ui =
 
 (* ------------------------------------------------------------- actions *)
 
-let save_record ui = ui.message <- "saved " ^ Table.save ui.table ~dir:"tui-games"
+let save_record (ui : game_ui) = ui.message <- "saved " ^ Table.save ui.table ~dir:"tui-games"
 
-let guarded ui f =
+let guarded (ui : game_ui) f =
   try
     ui.message <- "";
     f ()
@@ -551,16 +554,35 @@ let move_cursor ui dcol dcard =
     let m = Array.length h.(ui.col).phd_cards in
     if m > 0 then ui.card <- (min ui.card (m - 1) + dcard + m) mod m)
 
-type screen = Lobby of lobby_ui | Duel of lobby_ui | Settings of lobby_ui | Game of game_ui | Quit
+type screen =
+  | Lobby of lobby_ui
+  | Duel of lobby_ui
+  | Settings of lobby_ui
+  | Campaign of campaign_ui
+  | Game of game_ui
+  | Quit
+
+let campaign_open () =
+  let p = Prefs.load () in
+  Campaign.available (Prefs.campaign_completed p) |> List.filter_map Campaign.by_id
+
+let new_campaign () = { i = 0; message = "" }
+
+let campaign_fight node =
+  let p = Prefs.load () in
+  let player_special = Table.resolve_special (fst (Prefs.setup_specials p)) in
+  let setup = Table.campaign_setup ~budget_ms:(Prefs.setup_budget p) ~player_special node in
+  new_game ~campaign:(Some node) setup
 
 let on_lobby_key ui = function
   | `Key (`Arrow `Up, _) ->
-      ui.row <- (if ui.row <= 1 then 3 else ui.row - 1);
+      ui.row <- (if ui.row <= 0 then 3 else ui.row - 1);
       Lobby ui
   | `Key (`Arrow `Down, _) | `Key (`Tab, _) ->
-      ui.row <- (if ui.row >= 3 then 1 else ui.row + 1);
+      ui.row <- (if ui.row >= 3 then 0 else ui.row + 1);
       Lobby ui
-  | `Key (`Enter, _) -> ( match ui.row with 1 -> Duel ui | 2 -> Settings ui | _ -> Quit)
+  | `Key (`Enter, _) -> (
+      match ui.row with 0 -> Campaign (new_campaign ()) | 1 -> Duel ui | 2 -> Settings ui | _ -> Quit)
   | `Key (`ASCII 'q', _) | `Key (`Escape, _) -> Quit
   | _ -> Lobby ui
 
@@ -615,13 +637,17 @@ let on_game_key ui ev =
   let over = Option.is_none (Table.to_move ui.table) in
   match (ui.mode, ev) with
   | _, `Key (`ASCII 'q', _) -> Quit
-  | _, `Key (`ASCII 'l', _) -> Lobby (new_lobby ())
+  | _, `Key (`ASCII 'l', _) -> (
+      match ui.campaign with Some _ -> Campaign (new_campaign ()) | None -> Lobby (new_lobby ()))
   | _, `Key (`ASCII 'w', _) ->
       guarded ui (fun () -> save_record ui);
       Game ui
   | _, `Key (`ASCII 'r', _) when over ->
-      Game (new_game (Table.setup ui.table |> fun s -> { s with seed = Some (Table.seed ui.table) }))
-  | _, `Key (`ASCII 'n', _) when over -> Game (new_game { (Table.setup ui.table) with seed = None })
+      Game
+        (new_game ~campaign:ui.campaign
+           (Table.setup ui.table |> fun s -> { s with seed = Some (Table.seed ui.table) }))
+  | _, `Key (`ASCII 'n', _) when over ->
+      Game (new_game ~campaign:ui.campaign { (Table.setup ui.table) with seed = None })
   | Target t, `Key (`Arrow (`Left | `Up), _) ->
       t.i <- (t.i + Array.length t.cmds - 1) mod Array.length t.cmds;
       Game ui
@@ -678,10 +704,72 @@ let input_ready term secs =
   | _ -> true
   | exception Unix.Unix_error (Unix.EINTR, _, _) -> false
 
+let render_campaign (w, _) ui =
+  let p = Prefs.load () in
+  let completed = Prefs.campaign_completed p in
+  let chapter = Campaign.chapter_of completed in
+  let open_ = campaign_open () in
+  let n = List.length open_ in
+  if n > 0 then ui.i <- ((ui.i mod n) + n) mod n;
+  let rows =
+    List.mapi
+      (fun i (node : Campaign.node) ->
+        let kind = if Campaign.is_fight node then "fight" else "meeting" in
+        menu_row ui.i i ~enabled:true
+          (Printf.sprintf "%s  (%s)" (Assets.text ("campaign." ^ node.id ^ ".name")) kind))
+      open_
+  in
+  I.vcat
+    ([
+       I.string A.(st bold ++ fg lightcyan)
+         (Assets.text (if Campaign.is_finished completed then "campaign.complete" else "campaign.title"));
+       I.string dim
+         (Assets.text (if chapter = Campaign.Night then "campaign.night" else "campaign.day")
+         ^ "  @ " ^ Prefs.campaign_position p);
+       I.void 1 1;
+     ]
+    @ (if rows = [] then [ I.string dim "(no open stops)" ] else rows)
+    @ [
+        I.void 1 1;
+        (if ui.message <> "" then I.string bad ui.message else I.empty);
+        text ~attr:dim w "up/down select   enter open   R reset   esc lobby";
+      ])
+  |> I.pad ~l:2 ~t:1
+
+let on_campaign_key ui = function
+  | `Key (`Arrow `Up, _) ->
+      let n = List.length (campaign_open ()) in
+      if n > 0 then ui.i <- (ui.i + n - 1) mod n;
+      Campaign ui
+  | `Key (`Arrow `Down, _) ->
+      let n = List.length (campaign_open ()) in
+      if n > 0 then ui.i <- (ui.i + 1) mod n;
+      Campaign ui
+  | `Key (`Enter, _) -> (
+      match List.nth_opt (campaign_open ()) ui.i with
+      | None -> Campaign ui
+      | Some node ->
+          if Campaign.is_fight node then
+            match campaign_fight node with game -> Game game | exception Failure msg -> (ui.message <- msg; Campaign ui)
+          else (
+            (match node.meeting with
+            | Some m -> (
+                match m.choices with
+                | [] -> Prefs.complete_campaign (Prefs.load ()) node.id
+                | c :: _ -> Prefs.complete_campaign (Prefs.load ()) ~extras:[ c.id ] node.id)
+            | None -> ());
+            Campaign ui))
+  | `Key (`ASCII 'R', _) ->
+      Prefs.reset_campaign (Prefs.load ());
+      Campaign ui
+  | `Key (`Escape, _) | `Key (`ASCII 'q', _) -> Lobby (new_lobby ())
+  | _ -> Campaign ui
+
 let render term = function
   | Lobby ui -> Term.image term (render_lobby (Term.size term) ui)
   | Duel ui -> Term.image term (render_duel (Term.size term) ui)
   | Settings ui -> Term.image term (render_settings (Term.size term) ui)
+  | Campaign ui -> Term.image term (render_campaign (Term.size term) ui)
   | Game ui -> Term.image term (render_game (Term.size term) ui)
   | Quit -> ()
 
@@ -695,7 +783,13 @@ let rec loop term screen =
         | Lobby ui -> on_lobby_key ui ev
         | Duel ui -> on_duel_key ui ev
         | Settings ui -> on_settings_key ui ev
-        | Game ui -> on_game_key ui ev
+        | Campaign ui -> on_campaign_key ui ev
+        | Game ui ->
+            (match (Session.status (Table.session ui.table), ui.campaign) with
+            | Over { winner = Some w; _ }, Some n when w = owner ->
+                Prefs.complete_campaign (Prefs.load ()) n.id
+            | _ -> ());
+            on_game_key ui ev
         | Quit -> Quit)
   in
   match screen with

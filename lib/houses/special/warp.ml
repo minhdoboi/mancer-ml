@@ -101,8 +101,7 @@ let merge_stranger (s : creature) (c : creature) : creature =
       cb with
       b_attack = sb.b_attack;
       b_life = sb.b_life;
-      b_run_attack =
-        (match cb.b_run_attack.apply_ with Multi_target -> sb.b_run_attack | _ -> cb.b_run_attack);
+      b_run_attack = (if is_multi_run cb.b_run_attack then sb.b_run_attack else cb.b_run_attack);
     }
   in
   let card =
@@ -256,11 +255,15 @@ let warp_listener () =
         Array.iter
           (fun h ->
             if h.phd_house.h_index = 4 && h.phd_house.h_key <> "warp" then
-              inner := h.phd_house.h_make_listener ())
+              match h.phd_house.h_key with
+              | "limbo" | "colors" | "soulbinder" | "reaper" -> ()
+              | _ -> inner := h.phd_house.h_make_listener ())
           p.updater.desc.gd_players.(op.pid).pd_houses;
         !inner.hl_init p;
         init_owner_death p;
-        match op.pstate.ps_data with No_player_data -> () | data -> Player.set_data p data);
+        match op.pstate.ps_data with
+        | No_player_data | Reaper_data _ -> ()
+        | data -> Player.set_data p data);
   }
 
 let errant =

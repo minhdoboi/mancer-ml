@@ -19,6 +19,9 @@ _opam/
 # tournament JSON logs
 tournament-results/
 
+# packaged zips from scripts/package.sh
+dist/
+
 # test leftovers
 *.corrected
 _coverage/

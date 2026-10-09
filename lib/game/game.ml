@@ -18,10 +18,11 @@ let init_cards ?(cost_fn = fun i -> i + 1) (h : house) =
       c.house_id <- h.h_house_id;
       c.card_index <- i)
     h.h_cards;
-  List.iter
-    (fun (c : card) ->
+  List.iteri
+    (fun i (c : card) ->
       c.house_index <- h.h_index;
-      c.house_id <- h.h_house_id)
+      c.house_id <- h.h_house_id;
+      c.card_index <- i)
     h.h_additional_cards
 
 let deck_costs = [ 1; 2; 3; 4; 5; 6 ]
@@ -66,7 +67,7 @@ let special_effects (d : player_desc) =
   | Some h -> h.phd_house.h_effects
   | None -> []
 
-let initial_player_state (mana : int list) (d : player_desc) =
+let initial_player_state ?(life = 60) (mana : int list) (d : player_desc) =
   let mana =
     match mana with
     | [ _; _; _; _ ] -> mana @ [ 2 ]
@@ -78,7 +79,7 @@ let initial_player_state (mana : int list) (d : player_desc) =
     ps_desc = { init_desc = d; desc_mods = [] };
     ps_slots = Array.make nb_slots None;
     ps_slot_list = base_slot_list;
-    ps_life = 60;
+    ps_life = life;
     ps_effects = special_effects d;
     ps_data =
       (match Array.find_opt (fun h -> h.phd_house.h_index = 4) d.pd_houses with
@@ -87,10 +88,13 @@ let initial_player_state (mana : int list) (d : player_desc) =
     ps_transitions = [];
   }
 
-let initial_game_state ?(mana0 = [ 2; 2; 2; 2 ]) ?(mana1 = [ 1; 1; 1; 1 ]) (desc : game_desc) =
+let initial_game_state ?(mana0 = [ 2; 2; 2; 2 ]) ?(mana1 = [ 1; 1; 1; 1 ]) ?life (desc : game_desc) =
   {
     players =
-      [| initial_player_state mana0 desc.gd_players.(0); initial_player_state mana1 desc.gd_players.(1) |];
+      [|
+        initial_player_state ?life mana0 desc.gd_players.(0);
+        initial_player_state ?life mana1 desc.gd_players.(1);
+      |];
   }
 
 (* ------------------------------------------------------------------ the bot *)

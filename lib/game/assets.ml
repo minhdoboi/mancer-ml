@@ -63,16 +63,58 @@ let text key =
   let find tbl = Hashtbl.find_opt (Lazy.force tbl) key in
   clean (match find chosen with Some v -> v | None -> Option.value (find english) ~default:key)
 
+let has_key key =
+  Hashtbl.mem (Lazy.force chosen) key || Hashtbl.mem (Lazy.force english) key
+
+let format tmpl args =
+  let n = List.length args in
+  let rec go i s =
+    if i >= n then s
+    else
+      let pat = "{" ^ string_of_int i ^ "}" in
+      let arg = List.nth args i in
+      let rec replace s =
+        match String.index_opt s '{' with
+        | None -> s
+        | Some j ->
+            if j + String.length pat <= String.length s && String.sub s j (String.length pat) = pat then
+              String.sub s 0 j ^ arg ^ replace (String.sub s (j + String.length pat) (String.length s - j - String.length pat))
+            else String.sub s 0 (j + 1) ^ replace (String.sub s (j + 1) (String.length s - j - 1))
+      in
+      go (i + 1) (replace s)
+  in
+  go 0 tmpl
+
 let card_name (c : card) = text c.name
 let describe (c : card) = text c.description
 let images = [ ".jpg"; ".png" ]
-let card_art (c : card) = with_ext (path [ "cards"; c.key ]) images
+
+(* Keys are alphanumerics; vibe files keep spaces ("dark priest.jpg"). *)
+let file_token s =
+  let b = Buffer.create (String.length s) in
+  String.iter
+    (fun c ->
+      match c with
+      | 'A' .. 'Z' -> Buffer.add_char b (Char.lowercase_ascii c)
+      | 'a' .. 'z' | '0' .. '9' -> Buffer.add_char b c
+      | _ -> ())
+    s;
+  Buffer.contents b
+
+let image_names primary translated =
+  let display = text translated in
+  [ primary; display; String.lowercase_ascii display; file_token display; file_token primary ]
+  |> List.map String.trim
+  |> List.filter (fun n -> n <> "")
+  |> List.sort_uniq String.compare
+
+let first_image dir names =
+  first_file (List.concat_map (fun name -> List.map (fun ext -> path [ dir; name ^ ext ]) images) names)
+
+let card_art (c : card) = first_image "cards" (image_names c.key c.name)
 
 let background (house : house) =
-  first_file
-    (List.concat_map
-       (fun name -> List.map (fun ext -> path [ "backgrounds"; name ^ ext ]) images)
-       [ house.h_key; "default" ])
+  first_image "backgrounds" (image_names house.h_key house.h_name @ [ "default" ])
 
 let png dir name = first_file [ path [ dir; name ^ ".png" ] ]
 let creature_frame () = png "combat" "raka"
@@ -80,6 +122,7 @@ let spell_frame () = png "combat" "rakaSpell"
 let slot_frame () = png "combat" "slot"
 let ui name = png "ui" name
 let portrait id = png "portraits" id
+let campaign name = first_image "campaign" [ name ]
 let particle name = png "particle" name
 let sound name = with_ext (path [ "sounds"; name ]) [ ".mp3"; ".ogg"; ".wav" ]
 

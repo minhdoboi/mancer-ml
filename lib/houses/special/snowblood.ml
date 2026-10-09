@@ -303,9 +303,10 @@ let snowblood_listener () =
                    let slot = p.slots_update.slot_updates.(num) in
                    Slots.foreach p.slots_update (fun s ->
                        match s.value with
-                       | Some st when is_card !amaterasu_ref st.card.c_card ->
+                       | Some st when is_card !amaterasu_ref st.card.c_card && not (is_bridled st) ->
                            apply_amaterasu s slot c.cmd_card.house_index
-                       | Some st when is_card !guide_ref st.card.c_card -> guide_summoned s slot
+                       | Some st when is_card !guide_ref st.card.c_card && not (is_bridled st) ->
+                           guide_summoned s slot
                        | _ -> ())
                | None -> ());
             r));

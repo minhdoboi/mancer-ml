@@ -32,3 +32,17 @@ val execute : settings -> pid:player_id -> desc:game_desc -> game_state -> comma
 
 val mover : settings -> Game.mover
 (** Snapshot [updater.state] and search. The live game is not mutated. *)
+
+type step = { cmd : command option; state : game_state; next : player_id; ended : player_id option }
+
+module Search : sig
+  type t
+
+  val create : desc:game_desc -> bot_id:player_id -> t
+  val play : t -> game_state -> player_id -> command option -> step
+  val value : t -> step -> ply:int -> float
+  val playout : t -> start:game_state -> root:command option -> reply_rank:int -> float
+  val sims : t -> int
+  val playouts : t -> int
+end
+(** One Oracle engine over a fixed [desc], for Diviner's per-world playouts. *)

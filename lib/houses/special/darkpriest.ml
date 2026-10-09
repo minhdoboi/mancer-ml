@@ -229,7 +229,8 @@ let cards =
       ~effects:(effects [ (On_turn, betray) ])
       ();
     creature ~key:"darkpriest.DarkHydra.name" ~attack:(attack 1) ~life:32
-      ~description:"darkpriest.DarkHydra.description" ~run_attack:(custom_run_attack hydra_attack) ();
+      ~description:"darkpriest.DarkHydra.description"
+      ~run_attack:(custom_run_attack ~multi:true hydra_attack) ();
     creature ~key:"darkpriest.Missionary.name" ~attack:(attack 3) ~life:36
       ~description:"darkpriest.Missionary.description" ~new_reaction:missionary_reaction
       ~effects:(effects [ (Direct, missionar) ])

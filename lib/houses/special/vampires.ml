@@ -112,7 +112,8 @@ let vampire_listener () =
                 Array.iter
                   (fun s ->
                     match s.value with
-                    | Some a when is_card !acolyte_ref a.card.c_card -> acolyte_hit s victim d
+                    | Some a when is_card !acolyte_ref a.card.c_card && not (is_bridled a) ->
+                        acolyte_hit s victim d
                     | _ -> ())
                   p.slots_update.slot_updates))
           (other_player p).slots_update.slot_updates);

@@ -61,11 +61,11 @@ let announce s =
         s.over_sent <- true;
         emit s.u (Ev_game_over { winner; reason }))
 
-let create ?mana0 ?mana1 ?rng ?(max_turns = max_int) ?(on_event = ignore) desc =
-  let u = Updater.create ?rng (Game.initial_game_state ?mana0 ?mana1 desc) desc in
+let create ?mana0 ?mana1 ?rng ?(max_turns = max_int) ?(starting = owner) ?life ?(on_event = ignore) desc =
+  let u = Updater.create ?rng (Game.initial_game_state ?mana0 ?mana1 ?life desc) desc in
   Updater.listen u on_event;
   start u;
-  let s = { u; desc; max_turns; next = owner; turns = 0; moves = []; over_sent = false } in
+  let s = { u; desc; max_turns; next = starting; turns = 0; moves = []; over_sent = false } in
   announce s;
   s
 

@@ -137,7 +137,8 @@ let cards =
       ();
     creature ~key:"dreamweaver.sword"
       ~attack:{ base = Some 4; sources = [ sword_source ] }
-      ~life:28 ~description:"dreamweaver.sword.description" ~run_attack:(custom_run_attack sword_attack) ();
+      ~life:28 ~description:"dreamweaver.sword.description"
+      ~run_attack:(custom_run_attack ~multi:true sword_attack) ();
     creature ~key:"dreamweaver.butterfly" ~attack:(attack 4) ~life:31
       ~description:"dreamweaver.butterfly.description" ~new_reaction:rainbow_reaction ();
     castle;

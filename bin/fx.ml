@@ -28,6 +28,8 @@ let set_transform ~scale:s ~off_x:ox ~off_y:oy =
   off_x := ox;
   off_y := oy
 
+let banner_font = ref (R.get_font_default ())
+let set_font f = banner_font := f
 let sx x = !off_x +. (x *. !scale)
 let sy y = !off_y +. (y *. !scale)
 let v x y = R.Vector2.create (sx x) (sy y)
@@ -151,13 +153,29 @@ let load_named name =
       Hashtbl.replace shaders name s;
       s
 
-let load () = List.iter (fun n -> ignore (load_named n)) [ "shockwave"; "sel"; "grey" ]
+let white_px : R.Texture.t option ref = ref None
+
+let white_tex () =
+  match !white_px with
+  | Some t -> t
+  | None ->
+      let img = R.gen_image_color 1 1 (rgb 1. 1. 1. 1.) in
+      let t = R.load_texture_from_image img in
+      R.unload_image img;
+      white_px := Some t;
+      t
+
+let load () =
+  ignore (white_tex ());
+  List.iter (fun n -> ignore (load_named n)) [ "shockwave"; "sel"; "grey"; "night" ]
 
 let unload () =
   Hashtbl.iter (fun _ s -> Option.iter (fun s -> R.unload_shader s.sh) s) shaders;
   Hashtbl.clear shaders;
   Hashtbl.iter (fun _ t -> Option.iter R.unload_texture t) textures;
-  Hashtbl.clear textures
+  Hashtbl.clear textures;
+  Option.iter R.unload_texture !white_px;
+  white_px := None
 
 let with_grey on f =
   match (on, load_named "grey") with
@@ -167,21 +185,43 @@ let with_grey on f =
       R.end_shader_mode ()
   | _ -> f ()
 
-let draw_sel ~x ~y ~w ~h =
-  match load_named "sel" with
-  | None -> ()
-  | Some s ->
-      let size = Float.max w h *. 1.35 in
-      let dx = x +. ((w -. size) /. 2.) and dy = y +. ((h -. size) /. 2.) in
-      set_float s "size" size;
-      set_float s "cursor" (R.get_time () *. 60.);
-      R.begin_blend_mode R.BlendMode.Additive;
+let with_night amount f =
+  match (amount > 0.01, load_named "night") with
+  | true, Some s ->
+      set_float s "u_night" amount;
       R.begin_shader_mode s.sh;
-      R.draw_rectangle_rec
-        (R.Rectangle.create (sx dx) (sy dy) (size *. !scale) (size *. !scale))
-        (rgb 1. 1. 1. 1.);
-      R.end_shader_mode ();
-      R.end_blend_mode ()
+      f ();
+      R.end_shader_mode ()
+  | _ -> f ()
+
+let draw_sel ~x ~y ~w ~h =
+  (* Scala card.selection: 200×200 mesh, offset −25, translated another −25,
+     cursor = time×10 mod 60. Normal alpha, not additive. *)
+  let pad = 50. and size = 200. in
+  let dx = x -. pad and dy = y -. pad in
+  match load_named "sel" with
+  | Some s ->
+      set_float s "size" size;
+      set_float s "cursor" (Float.rem (R.get_time () *. 10.) 60.);
+      R.begin_shader_mode s.sh;
+      let src = R.Rectangle.create 0. 0. 1. 1. in
+      let dst = R.Rectangle.create (sx dx) (sy dy) (size *. !scale) (size *. !scale) in
+      R.draw_texture_pro (white_tex ()) src dst (R.Vector2.create 0. 0.) 0. (rgb 1. 1. 1. 1.);
+      R.end_shader_mode ()
+  | None ->
+      let cx = x +. (w *. 0.5) and cy = y +. (h *. 0.5) in
+      let hw = (w *. 0.5) +. 4. and hh = (h *. 0.5) +. 4. in
+      let spin = R.get_time () *. 2.2 in
+      let n = 28 in
+      for i = 0 to n - 1 do
+        let u = (float i /. float n) +. (spin /. (Float.pi *. 2.)) in
+        let u = u -. floor u in
+        let ang = u *. Float.pi *. 2. in
+        let c, s = (cos ang, sin ang) in
+        let px = cx +. (c *. hw *. 1.05) and py = cy +. (s *. hh *. 1.05) in
+        let spoke = 0.35 +. (0.55 *. (0.5 +. (0.5 *. cos ((ang *. 8.) -. spin)))) in
+        circle px py 2.4 (rgb 0.9 0.95 1. spoke)
+      done
 
 (* ---------------------------------------------------------------- shakes *)
 
@@ -762,12 +802,19 @@ let draw_emitter e ~age ~fade =
   tick_emitter e ~age;
   match tex e.cfg.texture with
   | None ->
-      List.iter
-        (fun p ->
-          let u = clamp01 ((age -. p.born) /. p.life) in
-          let r, g, b = color_at e.cfg u in
-          circle p.px p.py (p.size *. 0.35) (rgb r g b (alpha_at e.cfg u *. fade)))
-        e.puffs
+      let paint () =
+        List.iter
+          (fun p ->
+            let u = clamp01 ((age -. p.born) /. p.life) in
+            let r, g, b = color_at e.cfg u in
+            let a = alpha_at e.cfg u *. fade in
+            if a > 0.02 then (
+              let rad = p.size *. (0.7 +. ((1. -. u) *. 0.2)) in
+              circle p.px p.py (rad *. 1.35) (rgb r g b (a *. 0.28));
+              circle p.px p.py rad (rgb r g b (a *. 0.9))))
+          e.puffs
+      in
+      if e.cfg.additive then additive paint else paint ()
   | Some tex ->
       let tw = float (R.Texture.width tex) and th = float (R.Texture.height tex) in
       let src = R.Rectangle.create 0. 0. tw th in
@@ -795,23 +842,30 @@ let spawn_particles cfg ~x ~y ~start =
 
 let nature_heal =
   {
-    duration = 1.;
-    rate = 75.;
-    life = (1., 2.);
+    duration = 0.85;
+    rate = 90.;
+    life = (0.45, 0.8);
     max_particles = 200;
-    spawn = Square (50., 50.);
+    spawn = Square (28., 22.);
     ox = 0.;
     oy = 0.;
-    speed = (30., 100.);
-    angle = (45., 135.);
+    speed = (16., 34.);
+    angle = (70., 110.);
     gravity = 0.;
     wind = (0., 0.);
-    size = (3., 7.);
+    size = (1.6, 2.8);
     colors = [ { u = 0.; r = 0.21; g = 1.; b = 0.05 } ];
     alphas = [ { u = 0.; a = 0. }; { u = 0.2; a = 1. }; { u = 0.8; a = 0.75 }; { u = 1.; a = 0. } ];
     additive = true;
-    texture = "particle";
+    texture = "";
   }
+
+let spawn_heal_motes (spots : spot list) ~start =
+  let emitters = List.map (fun p -> make_emitter nature_heal ~x:p.x ~y:p.y) spots in
+  let duration = Float.min 3. (nature_heal.duration +. snd nature_heal.life) in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.2) in
+      if fade > 0.02 then List.iter (fun e -> draw_emitter e ~age ~fade) emitters)
 
 let faerie_fire =
   {
@@ -1674,40 +1728,80 @@ let spawn_confetti (slots : spot array) ~start =
             pieces))
 
 let spawn_banner ~msg ~(at : spot) ~won ~start =
-  let duration = 2.4 in
-  mk ~start ~duration (fun ~age ->
+  mk ~start ~duration:Float.infinity (fun ~age ->
       let appear = Float.min 1. (age /. 0.12) in
       let scale_k =
         if age < 0.28 then lerp 0.2 1.7 (swing_out (age /. 0.28))
         else if age < 0.44 then lerp 1.7 1.25 (ease_out_quad ((age -. 0.28) /. 0.16))
         else 1.25
       in
-      let fade = Float.min appear (Float.min 1. ((duration -. age) /. 0.3)) in
-      if fade > 0.02 then (
-        let w = 220. *. scale_k and h = 36. *. scale_k in
-        rect (at.x -. (w *. 0.5)) (at.y -. (h *. 0.5)) w h (rgb 0.04 0.03 0.02 (0.62 *. fade));
-        let size = 18. *. scale_k *. !scale in
-        let tw = R.Vector2.x (R.measure_text_ex (R.get_font_default ()) msg size 0.) in
-        R.draw_text_ex (R.get_font_default ()) msg
+      if appear > 0.02 then (
+        let font = !banner_font in
+        let size = 22. *. scale_k *. !scale in
+        let tw = R.Vector2.x (R.measure_text_ex font msg size 0.) in
+        let pad_x = 14. *. scale_k and pad_y = 6. *. scale_k in
+        let w = (tw /. !scale) +. (pad_x *. 2.) and h = (size /. !scale) +. (pad_y *. 2.) in
+        rect (at.x -. (w *. 0.5)) (at.y -. (h *. 0.5)) w h (rgb 0.04 0.03 0.02 (0.62 *. appear));
+        R.draw_text_ex font msg
           (R.Vector2.create (sx at.x -. (tw *. 0.5)) (sy at.y -. (size *. 0.45)))
           size 0.
-          (if won then rgb 1. 0.84 0.28 fade else rgb 0.92 0.92 0.95 fade)))
+          (if won then rgb 1. 0.84 0.28 appear else rgb 0.92 0.92 0.95 appear)))
+
+(* Rounded-rect ring around the face (Scala AvatarHalo.frame), not a filled
+   disc over it. *)
+let halo_ring ~cx ~cy ~inner ~outer color =
+  if outer <= inner then ()
+  else
+    let segs = 5 in
+    let path half radius =
+      let r = Float.min radius (half *. 0.35) in
+      let n = segs * 4 in
+      let pts = Array.make n (0., 0.) in
+      let corners =
+        [|
+          (half -. r, half -. r, 0.);
+          (-.half +. r, half -. r, Float.pi *. 0.5);
+          (-.half +. r, -.half +. r, Float.pi);
+          (half -. r, -.half +. r, Float.pi *. 1.5);
+        |]
+      in
+      let k = ref 0 in
+      Array.iter
+        (fun (ox, oy, start) ->
+          for s = 0 to segs - 1 do
+            let ang = start +. (float s /. float segs *. (Float.pi *. 0.5)) in
+            pts.(!k) <- (cx +. ox +. (cos ang *. r), cy +. oy +. (sin ang *. r));
+            incr k
+          done)
+        corners;
+      pts
+    in
+    let inn = path inner (Float.min 7. (inner *. 0.35)) in
+    let out = path outer (Float.min (7. +. (outer -. inner)) (outer *. 0.35)) in
+    let n = Array.length inn in
+    for i = 0 to n - 1 do
+      let j = (i + 1) mod n in
+      let ix0, iy0 = inn.(i) and ix1, iy1 = inn.(j) in
+      let ox0, oy0 = out.(i) and ox1, oy1 = out.(j) in
+      tri ix0 iy0 ix1 iy1 ox1 oy1 color;
+      tri ix0 iy0 ox1 oy1 ox0 oy0 color
+    done
 
 let spawn_halo ~(center : spot) ~half ~start =
-  let duration = 8. in
-  mk ~start ~duration (fun ~age ->
+  mk ~start ~duration:Float.infinity (fun ~age ->
       let appear = Float.min 1. (age /. 0.28) in
       if appear > 0.02 then
         additive (fun () ->
             let pulse = 0.9 +. (0.1 *. sin (age *. 2.6)) in
-            let a = appear *. Float.min 1. ((duration -. age) /. 0.4) in
             let inner = half +. 2.5 in
-            circle center.x center.y (inner +. (15. *. pulse)) (rgb 1. 0.88 0.45 (0.14 *. a));
-            circle center.x center.y (inner +. 8.) (rgb 1. 0.95 0.7 (0.22 *. a));
-            circle center.x center.y (inner +. 3.2) (rgb 1. 1. 0.94 (0.34 *. a))))
+            let ring outer r g b al =
+              if al > 0.02 then halo_ring ~cx:center.x ~cy:center.y ~inner ~outer (rgb r g b al)
+            in
+            ring (inner +. (15. *. pulse)) 1. 0.88 0.45 (0.14 *. appear);
+            ring (inner +. 8.) 1. 0.95 0.7 (0.22 *. appear);
+            ring (inner +. 3.2) 1. 1. 0.94 (0.34 *. appear)))
 
-let victory layout ~winner ~you =
-  let now = R.get_time () in
+let victory layout ~winner ~you ~start =
   let own = slots_of owner layout.slot_center in
   let foe = slots_of opponent layout.slot_center in
   let between : spot = { x = (own.(2).x +. own.(3).x) *. 0.5; y = (own.(0).y +. foe.(0).y) *. 0.5 } in
@@ -1719,9 +1813,9 @@ let victory layout ~winner ~you =
     | Some _ when you -> "YOU LOSE"
     | Some w -> Printf.sprintf "P%d WINS" (w + 1)
   in
-  spawn (spawn_banner ~msg ~at:between ~won ~start:now);
-  Option.iter (fun w -> spawn (spawn_halo ~center:(layout.life w) ~half:42. ~start:now)) winner;
-  if won then spawn (spawn_confetti own ~start:now)
+  spawn (spawn_banner ~msg ~at:between ~won ~start);
+  Option.iter (fun w -> spawn (spawn_halo ~center:(layout.life w) ~half:42. ~start)) winner;
+  if won then spawn (spawn_confetti own ~start)
 
 (* ---------------------------------------------------------------- stage helpers *)
 
@@ -1746,7 +1840,8 @@ let look_recipe layout (c : command) look =
   let own, foe0 = own_foe layout c.cmd_player in
   let foe = if c.cmd_card.key = "disciples.wind" then oppress_foe layout c.cmd_player else foe0 in
   let foe =
-    if c.cmd_card.key = "shadowmage.spike" then slots_of (other c.cmd_player) layout.slot_floor else foe
+    if look.Spell_looks.style = Spell_looks.Spikes then slots_of (other c.cmd_player) layout.slot_floor
+    else foe
   in
   let own_life = layout.life c.cmd_player and foe_life = layout.life (other c.cmd_player) in
   let target = target_spot layout c in
@@ -1815,14 +1910,14 @@ let for_spell layout (c : command) =
       Some
         (recipe ~duration:madden_duration ~blocking:true (fun ~start ->
              spawn_madden ~foes:foe_ids ~allies:ally_ids ~eye ~start))
-  | "earth.care" ->
-      Option.map
-        (fun t ->
-          recipe
-            ~duration:(Float.min 3. (nature_heal.duration +. snd nature_heal.life))
-            ~blocking:true
-            (fun ~start -> spawn_particles nature_heal ~x:t.x ~y:t.y ~start))
-        target
+  | "earth.care" | "earth.therapy" ->
+      let life = layout.life player in
+      let spots = match (c.cmd_card.key, target) with "earth.care", Some t -> [ t; life ] | _ -> [ life ] in
+      Some
+        (recipe
+           ~duration:(Float.min 3. (nature_heal.duration +. snd nature_heal.life))
+           ~blocking:true
+           (fun ~start -> spawn_heal_motes spots ~start))
   | "faerie.fire" ->
       let p = layout.slot_center other 0 in
       Some
@@ -1988,6 +2083,7 @@ let spawn_demo layout name =
            (look Spell_looks.Ring Spell_looks.Target 0.4 0.75 1. 1.)
            ~own ~foe ~own_life ~foe_life ~target ~start:now)
   | "spikes" ->
+      let foe = slots_of opponent layout.slot_floor in
       go
         (spawn_style
            (look Spell_looks.Spikes Spell_looks.Foe_slots 0.92 0.08 0.1 1.2)
@@ -2001,7 +2097,7 @@ let spawn_demo layout name =
         (spawn_inferno ~target:bases.(2)
            ~others:(Array.append (Array.sub bases 0 2) (Array.sub bases 3 3))
            ~start:now)
-  | "heal" -> go (spawn_particles nature_heal ~x:own.(2).x ~y:own.(2).y ~start:now)
+  | "heal" -> go (spawn_heal_motes [ own.(2); own_life ] ~start:now)
   | "faerie" -> go (spawn_particles faerie_fire ~x:foe.(0).x ~y:foe.(0).y ~start:now)
   | "rain" -> go (spawn_particles acid_rain ~x:foe.(0).x ~y:foe.(0).y ~start:now)
   | "madden" ->
@@ -2015,7 +2111,7 @@ let spawn_demo layout name =
   | "bats" -> go (spawn_bats ~from_:own.(1) ~to_:own.(4) ~start:now)
   | "harvest" -> go (spawn_harvest ~from_:foe.(2) ~to_:own_life ~souls:3 ~start:now)
   | "phosphor" -> go (spawn_phosphor ~from_:own.(3) ~targets:foe ~start:now)
-  | "victory" -> victory layout ~winner:(Some owner) ~you:true
+  | "victory" -> victory layout ~winner:(Some owner) ~you:true ~start:now
   | "blackmass" -> go (spawn_black_mass ~source:own.(2) ~target:foe.(0) ~w:500. ~h:100. ~start:now)
   | "poison" -> go (spawn_poison ~own:own.(2) ~facing:foe.(2) ~smoke:[| own.(2); foe.(2) |] ~start:now)
   | "flux" -> go (spawn_green_flux ~from_:(layout.house owner 3) ~to_:own_life ~start:now)

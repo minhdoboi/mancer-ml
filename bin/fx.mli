@@ -19,6 +19,7 @@ type layout = {
 }
 
 val set_transform : scale:float -> off_x:float -> off_y:float -> unit
+val set_font : Raylib.Font.t -> unit
 val load : unit -> unit
 val unload : unit -> unit
 val spawn : t -> unit
@@ -30,8 +31,10 @@ val for_ability :
 
 val slot_offset : player_id -> int -> float * float
 val with_grey : bool -> (unit -> unit) -> unit
+val with_night : float -> (unit -> unit) -> unit
+(** Draws [f] through the campaign night shader when [amount] is above a hair. *)
 val draw_sel : x:float -> y:float -> w:float -> h:float -> unit
-val victory : layout -> winner:player_id option -> you:bool -> unit
+val victory : layout -> winner:player_id option -> you:bool -> start:float -> unit
 
 module Hover : sig
   val show : x:float -> y:float -> unit

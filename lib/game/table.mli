@@ -9,15 +9,17 @@ open Sp
 type seat = Human | Bot of string  (** A bot id from {!Tournament.bot_ids}. *)
 
 type setup = {
-  seats : seat * seat;  (** Owner (moves first, bottom of the board), then opponent. *)
+  seats : seat * seat;  (** Owner (bottom of the board), then opponent. *)
   specials : string * string;  (** Special houses, as {!Catalog.find_special} accepts them. *)
   budget_ms : int;  (** Search bots' time per move. *)
   seed : int option;  (** Deals and dice; [None] draws a fresh seed. *)
   max_turns : int;
+  starting : player_id;  (** Who takes the first turn; default [owner]. *)
+  life : int option;  (** Both players' starting life; [None] is 60. *)
 }
 
 val default_setup : setup
-(** Human vs Oracle, Troopers vs Troopers, 1000 ms, random seed, 300 turns. *)
+(** Human vs Oracle, Troopers vs Troopers, 1000 ms, random seed, 300 turns, owner starts. *)
 
 val seat_name : seat -> string
 (** ["human"] or the bot id. *)
@@ -27,7 +29,7 @@ val player_portraits : string list
 
 type opponent = { opp_bot : string; opp_kind : string; opp_portrait : string; opp_level : int }
 (** An AI face and the bot behind it, like Scala's [AiFace] over [AiLevel]. [opp_kind] is the display family
-    for [ai.<kind>] names ([greedy] wears [summoner] faces). *)
+    for [ai.<kind>] names ([gambler] faces still play [lecturer]). *)
 
 val duel_opponents : opponent list
 (** The AI faces for the duel dialog, in level order. *)
@@ -53,6 +55,9 @@ val resolve_special : string list -> string
     set is empty or unknown. *)
 
 type t
+
+val campaign_setup : ?budget_ms:int -> ?seed:int -> player_special:string -> Campaign.node -> setup
+(** Human vs the node's bot, player's special vs the fight house, with the node's starter and life. *)
 
 val start : ?on_event:(game_event -> unit) -> setup -> t
 (** Deals both decks and opens the session. [on_event] is as in {!Session.create}. Raises [Failure] for an

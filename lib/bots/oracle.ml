@@ -101,6 +101,8 @@ let now_ms () = int_of_float (Unix.gettimeofday () *. 1000.)
 let cmd_label = function None -> "pass" | Some c -> command_to_string c
 
 type step = { cmd : command option; state : game_state; next : player_id; ended : player_id option }
+
+(* [step] is part of the interface (Diviner). *)
 type cand = { move : command option; screen : float; sum : float array; cnt : int array; mutable n : int }
 
 let cand_mean c =
@@ -391,3 +393,35 @@ let leaf_value ~desc ?(bot_id = owner) state =
   project ~desc ~stats ~bot_id { cmd = None; state; next = opponent; ended = None } 1
 
 let mover settings u pid = execute settings ~pid ~desc:u.desc u.state
+
+module Search = struct
+  type t = { desc : game_desc; bot_id : player_id; stats : stats }
+
+  let create ~desc ~bot_id = { desc; bot_id; stats = make_stats () }
+  let play t state pid cmd = play ~desc:t.desc ~stats:t.stats state pid cmd
+  let value t step ~ply = project ~desc:t.desc ~stats:t.stats ~bot_id:t.bot_id step ply
+  let sims t = t.stats.sims
+  let playouts t = t.stats.playouts
+
+  let playout t ~start ~root ~reply_rank =
+    t.stats.playouts <- t.stats.playouts + 1;
+    let step = ref (play t start t.bot_id root) in
+    let ply = ref 1 in
+    let opponent_replied = ref false in
+    while Option.is_none !step.ended && !ply <= !Params.horizon do
+      let pid = !step.next in
+      let state = !step.state in
+      let steps = List.map (fun c -> play t state pid c) (base_moves ~desc:t.desc pid state) in
+      let scored = List.map (fun s -> (s, signed ~bot_id:t.bot_id (value t s ~ply:(!ply + 1)) pid)) steps in
+      step :=
+        if pid <> t.bot_id && not !opponent_replied then (
+          opponent_replied := true;
+          nth_best scored reply_rank)
+        else fst (max_by snd scored);
+      incr ply
+    done;
+    Option.iter
+      (fun p -> if p = t.bot_id then t.stats.wins <- t.stats.wins + 1 else t.stats.losses <- t.stats.losses + 1)
+      !step.ended;
+    value t !step ~ply:!ply
+end

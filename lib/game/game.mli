@@ -14,11 +14,12 @@ val empty_special : house
 val make_player_desc : ?special:house -> house -> player_desc
 (** One basic house plus a special (defaults to {!empty_special}). *)
 
-val initial_player_state : int list -> player_desc -> player_state
+val initial_player_state : ?life:int -> int list -> player_desc -> player_state
 (** [initial_player_state mana desc]: four mana values get a special of 2 appended; five values are used
-    as-is. Raises [Invalid_argument] for any other length. *)
+    as-is. [life] defaults to 60. Raises [Invalid_argument] for any other length. *)
 
-val initial_game_state : ?mana0:int list -> ?mana1:int list -> game_desc -> game_state
+val initial_game_state : ?mana0:int list -> ?mana1:int list -> ?life:int -> game_desc -> game_state
+(** [life] is applied to both players, like a campaign [Fight.life]; default 60. *)
 
 (** {1 Bot} *)
 

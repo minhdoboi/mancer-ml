@@ -15,7 +15,11 @@ let hide_special_creature_mod : desc_mod =
   if house.phd_house.h_index <> 4 then cards
   else Array.map (fun cd -> if cd.cd_card.is_spell then cd else { cd with cd_enabled = false }) cards
 
-let set_souls p souls = Player.set_data p (Soulbinder_data (List.sort_uniq compare souls))
+let set_souls p souls =
+  match p.pstate.ps_data with
+  | Soulbinder_data _ -> Player.set_data p (Soulbinder_data (List.sort_uniq compare souls))
+  | _ -> ()
+
 let add_soul p x = if List.mem x (get_souls p) then () else set_souls p (x :: get_souls p)
 
 let add_soul_random (p : player_update) =
@@ -116,7 +120,7 @@ let cards =
                  let souls = get_souls (player_of_env env) in
                  List.find_opt
                    (fun s -> Option.is_none s.value && not (List.mem s.num souls))
-                   (Slot.adjacent slot)
+                   (Slot.open_adjacent slot)
                  |> Option.iter (fun s -> add_soul (player_of_env env) s.num) );
            ])
       ();

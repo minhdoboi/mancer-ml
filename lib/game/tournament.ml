@@ -374,19 +374,37 @@ let write_summary path stats elos (cards : card_rate list) special_names =
 
 let ordered_pair first second game_index = if game_index mod 2 = 0 then (first, second) else (second, first)
 
-type bot_kind = Greedy | Oracle | Lecturer
+type bot_kind = Greedy | Summoner | Strategist | Oracle | Lecturer | Diviner
 
 let bot_kind = function
-  | "greedy" | "apprentice" -> Greedy
+  | "greedy" -> Greedy
+  | "apprentice" -> Lecturer
+  | "summoner" -> Summoner
+  | "strategist" -> Strategist
   | "oracle" -> Oracle
-  | "lecturer" -> Lecturer
-  | id -> failwith ("unknown bot '" ^ id ^ "' (want greedy, oracle or lecturer)")
+  | "lecturer" | "gambler" -> Lecturer
+  | "diviner" -> Diviner
+  | id ->
+      failwith
+        ("unknown bot '" ^ id ^ "' (want greedy, summoner, strategist, lecturer, oracle or diviner)")
 
-let bot_ids = [ "greedy"; "oracle"; "lecturer" ]
+let bot_ids = [ "greedy"; "summoner"; "strategist"; "lecturer"; "oracle"; "diviner" ]
 
 let make_mover ?(stats_log = true) kind budget =
   match kind with
   | Greedy -> Game.greedy_mover
+  | Summoner ->
+      let s = Summoner.default_settings () in
+      s.duration <- budget;
+      s.logging <- false;
+      s.stats_log <- stats_log;
+      Summoner.mover s
+  | Strategist ->
+      let s = Strategist.default_settings () in
+      s.duration <- budget;
+      s.logging <- false;
+      s.stats_log <- stats_log;
+      Strategist.mover s
   | Oracle ->
       let s = Oracle.default_settings () in
       s.duration <- budget;
@@ -399,6 +417,12 @@ let make_mover ?(stats_log = true) kind budget =
       s.logging <- false;
       s.stats_log <- stats_log;
       Lecturer.mover s
+  | Diviner ->
+      let s = Diviner.default_settings () in
+      s.duration <- budget;
+      s.logging <- false;
+      s.stats_log <- stats_log;
+      Diviner.mover s
 
 let mover ?stats_log ~budget id = make_mover ?stats_log (bot_kind id) budget
 

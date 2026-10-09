@@ -279,8 +279,40 @@ let campaign_completed t = match get t key_campaign_completed with None -> [] | 
 
 let campaign_position t =
   match get t key_campaign_position with
-  | Some v when String.trim v <> "" -> String.trim v
+  | Some v when Option.is_some (Campaign.by_id (String.trim v)) -> String.trim v
   | _ -> default_campaign_position
+
+let campaign_night_rest t = match get t key_campaign_night_rest with Some v -> String.trim v = "true" | None -> false
+let campaign_wake_far t = match get t key_campaign_wake_far with Some v -> String.trim v = "true" | None -> false
+
+let persist_campaign t completed position night_rest wake_far =
+  persist t
+    [
+      (key_campaign_completed, String.concat "," (List.sort String.compare completed));
+      (key_campaign_position, position);
+      (key_campaign_night_rest, string_of_bool night_rest);
+      (key_campaign_wake_far, string_of_bool wake_far);
+    ]
+
+let complete_campaign t ?(extras = []) id =
+  let completed =
+    let add acc x = if List.mem x acc then acc else x :: acc in
+    List.fold_left add (campaign_completed t) (id :: extras)
+  in
+  persist t
+    [
+      (key_campaign_completed, String.concat "," (List.sort String.compare completed));
+      (key_campaign_position, Campaign.next_position id);
+    ]
+
+let reset_campaign t =
+  persist_campaign t [] Campaign.day_start_id false false
+
+let reset_night_campaign t =
+  persist_campaign t (Campaign.day_progress (campaign_completed t)) Campaign.night_start_id false false
+
+let mark_night_rested t = persist t [ (key_campaign_night_rest, "true") ]
+let mark_wake_far t = persist t [ (key_campaign_wake_far, "true") ]
 
 (* --- OCaml setup screens ---------------------------------------------- *)
 

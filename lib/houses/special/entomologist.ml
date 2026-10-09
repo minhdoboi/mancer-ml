@@ -9,7 +9,10 @@ let giant_ant_ref : card option ref = ref None
 let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 let targeting_of (p : player_update) = match p.pstate.ps_data with Player_targeting t -> t | _ -> None
-let set_target p t = Player.set_data p (Player_targeting t)
+let tracks_target p = match p.pstate.ps_data with Player_targeting _ -> true | _ -> false
+
+let set_target p t =
+  match p.pstate.ps_data with Player_targeting _ -> Player.set_data p (Player_targeting t) | _ -> ()
 
 let recover_target (p : player_update) =
   Slots.foreach p.slots_update (fun s -> Slot.set_target s [ s.num ]);
@@ -21,7 +24,11 @@ let change_target : card_effect =
   let target = Slot.get (other_of_env env).slots_update.slot_updates.(env.env_selected) in
   set_target p (Some target.slot_id);
   Slots.foreach p.slots_update (fun s -> Slot.set_target s [ env.env_selected ]);
-  Player.add_effect p (On_end_turn, one_time_player_effect (fun e -> recover_target (player_of_env e)))
+  Player.add_effect p
+    ( On_end_turn,
+      one_time_player_effect (fun e ->
+          let pl = player_of_env e in
+          if (not (tracks_target pl)) || targeting_of pl <> None then recover_target pl) )
 
 let drone =
   creature ~key:"entomologist.drone" ~attack:(attack 2) ~life:14 ~description:"entomologist.drone.description"

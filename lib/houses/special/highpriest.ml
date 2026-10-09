@@ -318,36 +318,22 @@ let hp_listener () =
     hl_init =
       (fun p ->
         init_any_death p;
-        if p.pstate.ps_desc.init_desc.pd_houses |> Array.exists (fun h -> h.phd_house.h_key = "highpriest") then
-          Array.iter
-            (fun (slot : slot_update) ->
-              let old = slot.add_hook in
-              slot.add_hook <-
-                (fun st ->
-                  old st;
-                  choose_path p);
-              let old_r = slot.remove_hook in
-              slot.remove_hook <-
-                (fun d ->
-                  let st = old_r d in
-                  choose_path p;
-                  st))
-            p.slots_update.slot_updates;
+        if p.pstate.ps_desc.init_desc.pd_houses |> Array.exists (fun h -> h.phd_house.h_key = "highpriest")
+        then (
+          let old_slots = p.slots_update.after_change in
+          p.slots_update.after_change <-
+            (fun () ->
+              old_slots ();
+              choose_path p));
         let op = other_player p in
-        let old_mana = op.add_mana_hook in
-        op.add_mana_hook <-
-          (fun h amount ->
-            let h' = old_mana h amount in
-            let houses = Array.copy op.houses_update.hu_value in
-            (match
-               Array.find_index (fun x -> x == h)
-                 op.houses_update.hu_value
-             with
-            | Some i -> houses.(i) <- h'
-            | None -> ());
+        let old_houses = op.houses_update.after_update in
+        op.houses_update.after_update <-
+          (fun houses ->
+            old_houses houses;
             Slots.foreach p.slots_update (fun s ->
-                match s.value with Some st when is_card !babi_ref st.card.c_card -> react_babi_mana houses s | _ -> ());
-            h');
+                match s.value with
+                | Some st when is_card !babi_ref st.card.c_card -> react_babi_mana houses s
+                | _ -> ()));
         let old_sub = op.submit_command_hook in
         op.submit_command_hook <-
           (fun c ->
@@ -438,7 +424,8 @@ let cards =
     creature ~key:"highpriest.Sacredscarab" ~attack:(attack 3) ~life:11
       ~description:"highpriest.Sacredscarab.description" ~new_reaction:scarab_reaction ();
     creature ~key:"highpriest.sunpriest" ~attack:(attack 2) ~life:16
-      ~description:"highpriest.sunpriest.description" ~run_attack:(custom_run_attack sun_priest_attack) ();
+      ~description:"highpriest.sunpriest.description"
+      ~run_attack:(custom_run_attack ~multi:true sun_priest_attack) ();
     apis;
     creature ~key:"highpriest.Bennu" ~attack:(attack 5) ~life:21 ~description:"highpriest.Bennu.description"
       ~new_reaction:bennu_reaction ();

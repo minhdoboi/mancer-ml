@@ -54,6 +54,31 @@
  (libraries mancer alcotest))
 
 (test
+ (name campaign)
+ (modules campaign)
+ (libraries mancer alcotest))
+
+(test
+ (name heuris)
+ (modules heuris)
+ (libraries mancer support alcotest))
+
+(test
+ (name test_summoner)
+ (modules test_summoner)
+ (libraries mancer support alcotest))
+
+(test
+ (name test_strategist)
+ (modules test_strategist)
+ (libraries mancer alcotest))
+
+(test
+ (name test_diviner)
+ (modules test_diviner)
+ (libraries mancer support alcotest))
+
+(test
  (name spell_looks)
  (modules spell_looks)
  (libraries mancer support alcotest))
@@ -91,4 +116,9 @@
 (test
  (name houses_g)
  (modules houses_g)
+ (libraries mancer support alcotest))
+
+(test
+ (name port_fixes)
+ (modules port_fixes)
  (libraries mancer support alcotest))

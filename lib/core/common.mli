@@ -14,7 +14,10 @@ val add_source : attack_sources -> attack_source -> attack_sources
 val normal_run_attack : run_attack
 val multi_run_attack : run_attack
 val never_run_attack : run_attack
-val custom_run_attack : (int list -> damage -> player_update -> unit) -> run_attack
+val custom_run_attack : ?multi:bool -> (int list -> damage -> player_update -> unit) -> run_attack
+val is_multi_run : run_attack -> bool
+val is_multi_card : card -> bool
+val is_bridled : slot_state -> bool
 
 val creature :
   key:string ->

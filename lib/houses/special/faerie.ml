@@ -44,7 +44,7 @@ let cloud : card_effect =
       List.iter
         (fun num ->
           if Option.is_none (player_of_env env).slots_update.slot_updates.(num).value then
-            ignore (Slots.summon (player_of_env env).slots_update num (make_creature rabble)))
+            Slots.add_creature (player_of_env env).slots_update.slot_updates.(num) (make_creature rabble))
         (player_of_env env).pstate.ps_slot_list
 
 let piper : card_effect =
@@ -118,29 +118,27 @@ let unicorn_reaction () =
   }
 
 let faerie_listener () =
-  let player = ref None in
-  let get () = match !player with Some p -> p | None -> failwith "faerie listener not inited" in
   {
     hl_on_death = (fun () -> true);
     hl_mod = Fun.id;
-    hl_intercept_submit =
-      (fun c ->
-        (match c with
-        | Some cmd when cmd.cmd_player = (get ()).pid && cmd.cmd_card.house_index = 4 ->
-            Array.iter
-              (fun s ->
-                match s.value with
-                | Some st when match !ring_ref with Some r -> st.card.c_card.id = r.id | None -> false ->
-                    let bonus = ring_bonus s.num in
-                    add_attack s bonus;
-                    Player.add_effect (get ()) (On_end_turn, one_time_player_effect (remove_bonus bonus))
-                | _ -> ())
-              (get ()).slots_update.slot_updates
-        | _ -> ());
-        (false, c));
+    hl_intercept_submit = (fun c -> (false, c));
     hl_init =
       (fun p ->
-        player := Some p;
+        let old_sub = p.submit_command_hook in
+        p.submit_command_hook <-
+          (fun c ->
+            let r = old_sub c in
+            if c.cmd_card.house_index = 4 then
+              Array.iter
+                (fun s ->
+                  match s.value with
+                  | Some st when match !ring_ref with Some r -> st.card.c_card.id = r.id | None -> false ->
+                      let bonus = ring_bonus s.num in
+                      add_attack s bonus;
+                      Player.add_effect p (On_end_turn, one_time_player_effect (remove_bonus bonus))
+                  | _ -> ())
+                p.slots_update.slot_updates;
+            r);
         let opp = p.updater.player_updates.(other p.pid) in
         Array.iter
           (fun slot ->
