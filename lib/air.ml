@@ -86,6 +86,8 @@ let house =
     h_cards = cards;
     h_index = 2;
     h_effects = [];
-    h_house_id = 0;
+    h_house_id = 3;
     h_additional_cards = [];
+    h_make_listener = (fun () -> default_listener);
+    h_data = No_player_data;
   }

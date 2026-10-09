@@ -213,6 +213,211 @@ let special_deck_has_one_card_per_quarter () =
     [ "Conscription"; "Barracks"; "Goliath"; "NuclearMissile" ]
     (Array.to_list d.pd_houses.(1).phd_cards |> List.map (fun cd -> cd.cd_card.key))
 
+let extra_sum u pid num =
+  match (slot u pid num).value with
+  | Some st ->
+      List.fold_left (fun a -> function Extra_attacks n -> a + n | _ -> a) 0 st.attack_sources.sources
+  | None -> 0
+
+let has_aging u pid num =
+  match (slot u pid num).value with
+  | Some st -> List.exists (function Aging_malus -> true | _ -> false) st.attack_sources.sources
+  | None -> false
+
+let stunned u pid num = match (slot u pid num).value with Some st -> has_flag st stun_flag | None -> false
+
+(* -------------------------------------------------------------------- zen *)
+
+let zen_costs () =
+  init_all_houses ();
+  check_int "inertia costs 8" 8 (card_by_key "zen.inertia").cost;
+  check_int "matter costs 8" 8 (card_by_key "zen.matter").cost
+
+let inertia_spawns_matter () =
+  let u = new_game ~mana0:10 ~special:Zen.house () in
+  place u 0 "fire.goblin" 3;
+  play u 0 "zen.inertia" ~input:(Some 2) ~cost:8;
+  Alcotest.(check (option string)) "inertia" (Some "zen.inertia") (occupant u 0 2);
+  Alcotest.(check (option string)) "matter to the right" (Some "zen.matter") (occupant u 0 4);
+  check_int "matter life" 33 (life_at u 0 4);
+  check_int "goblin stays" 16 (life_at u 0 3)
+
+let inertia_no_matter_when_right_full () =
+  let u = new_game ~mana0:10 ~special:Zen.house () in
+  List.iter (fun n -> place u 0 "fire.goblin" n) [ 1; 2; 3; 4; 5 ];
+  play u 0 "zen.inertia" ~input:(Some 0) ~cost:8;
+  Alcotest.(check (option string)) "inertia" (Some "zen.inertia") (occupant u 0 0);
+  check_bool "no matter" false
+    (List.exists (fun n -> occupant u 0 n = Some "zen.matter") [ 0; 1; 2; 3; 4; 5 ])
+
+let inertia_matter_partner () =
+  let u = new_game ~special:Zen.house () in
+  place u 0 "zen.inertia" 1;
+  place u 0 "zen.matter" 2;
+  place u 0 "fire.goblin" 4;
+  place u 1 "earth.sprite" 1;
+  place u 1 "fire.goblin" 3;
+  step u (fun () ->
+      Slot.inflict (slot u 0 4)
+        (mk_damage ~is_ability:true 10 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
+  check_int "wounded goblin" 6 (life_at u 0 4);
+  step u (fun () -> Player.apply_effects (player u 0) On_turn);
+  check_int "strongest enemy hit" 13 (life_at u 1 3);
+  check_int "sprite untouched" 22 (life_at u 1 1);
+  check_int "weakest ally healed" 9 (life_at u 0 4)
+
+let fighter_heals_owner_hits () =
+  let u = new_game ~special:Zen.house () in
+  (player u 0).pstate.ps_life <- 40;
+  place u 0 "zen.fighter" 2;
+  step u (fun () ->
+      Slot.inflict (slot u 0 2)
+        (mk_damage ~is_ability:true 10 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
+  check_int "absorb 5 of 10" 17 (life_at u 0 2);
+  step u (fun () ->
+      Player.inflict (player u 0) (mk_damage 4 { ctx_player = 1; ctx_card = None; ctx_selected = 0 });
+      Player.inflict (player u 0)
+        (mk_damage ~is_spell:true 3 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
+  check_int "healed twice" 19 (life_at u 0 2);
+  check_int "player life" 33 (player_life u 0)
+
+let inertia_ignores_spells () =
+  let u = new_game ~special:Zen.house () in
+  place u 0 "zen.inertia" 2;
+  step u (fun () ->
+      Slot.inflict (slot u 0 2)
+        (mk_damage ~is_spell:true 10 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
+  check_int "spell ignored" 22 (life_at u 0 2);
+  step u (fun () ->
+      Slot.inflict (slot u 0 2)
+        (mk_damage ~is_ability:true 6 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
+  check_int "ability hits" 16 (life_at u 0 2)
+
+(* ------------------------------------------------------------------- wind *)
+
+let winged_grants_run () =
+  let u = new_game ~special:Wind.house () in
+  play u 0 "wind.WingedWarrior.name" ~input:(Some 1) ~cost:1;
+  place ~run:false u 0 "fire.goblin" 3;
+  check_bool "goblin ran" true
+    (match (slot u 0 3).value with Some st -> has_flag st run_flag | None -> false)
+
+let spirit_punishes_pass () =
+  let u = new_game ~special:Wind.house () in
+  place u 0 "wind.TheSpiritOfThunderstorm.name" 2;
+  step u (fun () -> Player.submit (player u 0) None);
+  check_int "player 3" 57 (player_life u 1)
+
+let vortex_boosts_spells () =
+  let u = new_game ~mana:[ 4; 4; 6; 4; 6 ] ~special:Wind.house () in
+  (player u 1).houses_update.hu_value.(2) <- { mana = 5; growth = 1 };
+  play u 0 "wind.EnergeticVortex.name" ~input:None ~cost:5;
+  step u (fun () ->
+      Player.inflict (player u 1)
+        (mk_damage ~is_spell:true 10 { ctx_player = 0; ctx_card = None; ctx_selected = 0 }));
+  check_int "ceil(10 * 1.5) = 15" 45 (player_life u 1)
+
+(* ------------------------------------------------------------ chronomaster *)
+
+let freeze_stuns () =
+  let u = new_game ~special:Chronomaster.house () in
+  place u 1 "fire.goblin" 2;
+  play u 0 "chronomaster.freeze" ~input:(Some 2) ~cost:1;
+  check_bool "stunned" true (stunned u 1 2)
+
+let sprites_unblockable () =
+  let u = new_game ~special:Chronomaster.house () in
+  (player u 1).pstate.ps_life <- 40;
+  place u 0 "chronomaster.sprites" 2;
+  place u 1 "fire.goblin" 2;
+  step u (fun () -> Player.run_slots (player u 0));
+  check_int "hits the player" 35 (player_life u 1);
+  check_int "goblin untouched" 16 (life_at u 1 2)
+
+let accelerate_extra_swings () =
+  let u = new_game ~special:Chronomaster.house () in
+  (player u 1).pstate.ps_life <- 40;
+  place u 0 "fire.goblin" 2;
+  play u 0 "chronomaster.accelerate" ~input:(Some 2) ~cost:3;
+  let extras = extra_sum u 0 2 in
+  check_bool "1 or 2 extras" true (extras >= 1 && extras <= 2);
+  step u (fun () -> Player.run_slots (player u 0));
+  check_int "swings" (40 - (4 * (1 + extras))) (player_life u 1)
+
+let wall_shields_player () =
+  let u = new_game ~special:Chronomaster.house () in
+  (player u 0).pstate.ps_life <- 40;
+  place u 0 "chronomaster.wall" 2;
+  place u 0 "fire.goblin" 3;
+  step u (fun () ->
+      Player.inflict (player u 0)
+        (mk_damage ~is_spell:true 10 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
+  check_int "player shielded" 40 (player_life u 0);
+  step u (fun () ->
+      Slot.inflict (slot u 0 3) (mk_damage 4 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
+  check_int "goblin still hit" 12 (life_at u 0 3)
+
+let aging_minus_three () =
+  let u = new_game ~special:Chronomaster.house () in
+  place u 1 "fire.goblin" 2;
+  play u 0 "chronomaster.aging" ~input:(Some 2) ~cost:5;
+  check_int "attack 1" 1 (attack_at u 1 2);
+  check_bool "malus" true (has_aging u 1 2)
+
+let groundhog_rewinds () =
+  let u = new_game ~mana:[ 10; 10; 10; 10; 10 ] ~special:Chronomaster.house () in
+  (player u 0).pstate.ps_life <- 40;
+  (player u 1).pstate.ps_life <- 40;
+  step u (fun () -> Player.apply_effects (player u 0) On_start);
+  place u 0 "fire.goblin" 2;
+  place u 1 "earth.sprite" 2;
+  step u (fun () -> Player.apply_effects (player u 1) On_turn);
+  step u (fun () -> Slot.destroy (slot u 0 2));
+  place u 1 "fire.goblin" 4;
+  step u (fun () -> Player.apply_effects (player u 0) On_turn);
+  check_bool "goblin gone" true (is_empty u 0 2);
+  check_bool "opp goblin" true (not (is_empty u 1 4));
+  (player u 0).pstate.ps_life <- 22;
+  (player u 1).pstate.ps_life <- 18;
+  play u 0 "chronomaster.groundhog" ~input:None ~cost:6;
+  Alcotest.(check (option string)) "goblin restored" (Some "fire.goblin") (occupant u 0 2);
+  Alcotest.(check (option string)) "sprite kept" (Some "earth.sprite") (occupant u 1 2);
+  check_bool "late goblin undone" true (is_empty u 1 4);
+  check_int "life kept" 22 (player_life u 0);
+  check_int "opp life kept" 18 (player_life u 1);
+  check_int "basics taxed" 9 (player u 0).houses_update.hu_value.(0).mana;
+  check_int "special after cost and tax" 3 (player u 0).houses_update.hu_value.(4).mana;
+  check_int "opp taxed" 9 (player u 1).houses_update.hu_value.(0).mana
+
+let queen_extra () =
+  let u = new_game ~mana0:10 ~special:Chronomaster.house () in
+  place u 0 "fire.goblin" 1;
+  play u 0 "chronomaster.queen" ~input:(Some 3) ~cost:7;
+  check_int "goblin extra" 1 (extra_sum u 0 1)
+
+let king_extra_turn () =
+  let u = new_game ~mana0:10 ~special:Chronomaster.house () in
+  play u 0 "chronomaster.king" ~input:(Some 2) ~cost:8;
+  step u (fun () -> Player.apply_effects (player u 0) On_turn);
+  check_bool "wait player" true
+    (List.exists
+       (function Wait_player (0, Some name) -> name = Chronomaster.king_phase | _ -> false)
+       (player u 0).pstate.ps_transitions)
+
+(* -------------------------------------------------------------- disciples *)
+
+let prisoner_spawns () =
+  let u = new_game ~special:Disciples.house () in
+  step u (fun () -> Player.apply_effects (player u 0) On_end_turn);
+  check_bool "a prisoner arrived" true
+    (List.exists (fun n -> occupant u 0 n = Some "disciples.prisoner") [ 0; 1; 2; 3; 4; 5 ])
+
+let liberator_enrages () =
+  let u = new_game ~mana0:10 ~special:Disciples.house () in
+  place u 0 "disciples.prisoner" 1;
+  play u 0 "disciples.liberator" ~input:(Some 3) ~cost:6;
+  Alcotest.(check (option string)) "enraged" (Some "disciples.enraged") (occupant u 0 1)
+
 let () =
   let open Alcotest in
   run "houses"
@@ -256,4 +461,33 @@ let () =
           test_case "conscription" `Quick conscription_special_mana;
           test_case "special deck" `Quick special_deck_has_one_card_per_quarter;
         ] );
+      ( "zen",
+        [
+          test_case "costs" `Quick zen_costs;
+          test_case "inertia spawns matter" `Quick inertia_spawns_matter;
+          test_case "inertia no matter" `Quick inertia_no_matter_when_right_full;
+          test_case "partner heal strike" `Quick inertia_matter_partner;
+          test_case "fighter owner hits" `Quick fighter_heals_owner_hits;
+          test_case "inertia ignores spells" `Quick inertia_ignores_spells;
+        ] );
+      ( "wind",
+        [
+          test_case "winged run" `Quick winged_grants_run;
+          test_case "spirit pass" `Quick spirit_punishes_pass;
+          test_case "vortex spells" `Quick vortex_boosts_spells;
+        ] );
+      ( "chronomaster",
+        [
+          test_case "freeze" `Quick freeze_stuns;
+          test_case "sprites" `Quick sprites_unblockable;
+          test_case "accelerate" `Quick accelerate_extra_swings;
+          test_case "wall" `Quick wall_shields_player;
+          test_case "aging" `Quick aging_minus_three;
+          test_case "groundhog" `Quick groundhog_rewinds;
+          test_case "queen" `Quick queen_extra;
+          test_case "king" `Quick king_extra_turn;
+        ] );
+      ( "disciples",
+        [ test_case "prisoner spawn" `Quick prisoner_spawns; test_case "liberator" `Quick liberator_enrages ]
+      );
     ]

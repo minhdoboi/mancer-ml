@@ -4,14 +4,29 @@ open Mancer
 open Sp
 open Engine
 
-let all_houses = [ Fire.house; Water.house; Air.house; Earth.house; Troopers.house ]
+let all_houses =
+  [
+    Fire.house;
+    Water.house;
+    Air.house;
+    Earth.house;
+    Troopers.house;
+    Zen.house;
+    Wind.house;
+    Chronomaster.house;
+    Disciples.house;
+  ]
 
 let init_all_houses () =
   Game.init_cards Fire.house;
   Game.init_cards Water.house;
   Game.init_cards Air.house;
   Game.init_cards Earth.house;
-  Game.init_cards ~cost_fn:Troopers.conscription_cost Troopers.house
+  Game.init_cards ~cost_fn:Troopers.conscription_cost Troopers.house;
+  Game.init_cards Zen.house;
+  Game.init_cards Wind.house;
+  Game.init_cards Chronomaster.house;
+  Game.init_cards Disciples.house
 
 let card_by_key key =
   all_houses
@@ -21,9 +36,9 @@ let card_by_key key =
   | Some c -> c
   | None -> failwith ("unknown card " ^ key)
 
-let new_game ?(mana0 = 6) ?mana ?(house = Fire.house) () =
+let new_game ?(mana0 = 6) ?mana ?(house = Fire.house) ?(special = Game.empty_special) () =
   init_all_houses ();
-  let d = Game.make_player_desc house in
+  let d = Game.make_player_desc ~special house in
   let m = match mana with Some xs -> xs | None -> [ mana0; 4; 4; 4 ] in
   let mk () = Game.initial_player_state m d in
   Updater.create { players = [| mk (); mk () |] } { gd_players = [| d; d |] }

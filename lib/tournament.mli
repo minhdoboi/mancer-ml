@@ -15,6 +15,7 @@ type args = {
   min_plays_set : bool;
   seed : int option;
   verbose : bool;
+  special : string;
 }
 
 type standing_game = {

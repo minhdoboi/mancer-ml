@@ -51,6 +51,8 @@ let get_mana env house_index = (player_of_env env).pstate.ps_houses.(house_index
 let rec mod_damage (p : player_update) (d : damage) =
   if d.context.ctx_player = p.pid then mod_damage (other_player p) d
   else if d.is_spell then
+    let attacker = p.updater.player_updates.(d.context.ctx_player) in
+    let d = attacker.house_event_listener.hl_mod d in
     Array.fold_left
       (fun acc s ->
         match s.value with
@@ -115,6 +117,8 @@ module Slot = struct
   let update s f = s.value <- Option.map f s.value
   let toggle s flag = update s (fun x -> { x with status = x.status lor flag })
   let toggle_off s flag = update s (fun x -> { x with status = x.status land lnot flag })
+  let set_data s d = update s (fun x -> { x with data = d })
+  let set_target s t = update s (fun x -> { x with target = t })
 
   let toggle_run s =
     match s.value with
@@ -135,6 +139,7 @@ module Slot = struct
   let heal s amount = match s.value with Some x when x.life > 0 -> x.reaction.heal s amount | _ -> ()
   let inflict s d = Option.iter (fun x -> x.reaction.inflict s (mod_damage s.slots.player d)) s.value
   let destroy s = Option.iter (fun x -> x.reaction.destroy s) s.value
+  let stun s = Option.iter (fun x -> x.reaction.stun s) s.value
 
   (* -- default actions (CardSpec.scala:189-192) *)
   let do_heal s amount = update s (fun x -> { x with life = min x.card.c_body.b_life (x.life + amount) })
@@ -180,8 +185,10 @@ module Slot = struct
   let damage_slot s d =
     Option.iter
       (fun st ->
-        (* /!\ self_protect may have a side effect *)
-        let d = st.reaction.self_protect d in
+        (* /!\ self_protect may have a side effect; protect_hook is Scala's
+           SlotUpdate.protect decorator (LostChurch wraps it). *)
+        let d = s.protect_hook (st.reaction.self_protect d) in
+        let st = match s.value with Some x -> x | None -> st in
         let amount =
           match state_inflict st d with
           | None ->
@@ -216,7 +223,8 @@ module Slots = struct
         | Attack_slot_state_func f -> f acc slot
         (* CardSpec.scala:297 — attack is a function of the owner's house mana *)
         | Mana_attack idx -> acc + su.player.pstate.ps_houses.(idx).mana
-        | Extra_attacks _ -> acc)
+        | Extra_attacks _ -> acc
+        | Aging_malus -> acc - 3)
       (Option.value src.base ~default:0) src.sources
 
   let current_attack slot st = fold_attack slot.slots slot st.attack_sources
@@ -269,6 +277,29 @@ module Slots = struct
 
   (* SlotUpdate.add(card: Creature): place without going through summon (no onSummon). *)
   let add_creature slot creature = Slot.overwrite_add slot (build_slot_state slot creature)
+
+  let priv_move st (dest : slot_update) =
+    let st = { st with target = [ dest.num ]; attack = fold_attack dest.slots dest st.attack_sources } in
+    st.reaction.selected := Some dest;
+    Slot.overwrite_add dest st
+
+  let swap slot dest_slot =
+    let removed = Slot.remove slot None in
+    let removed2 = Slot.remove dest_slot None in
+    priv_move removed dest_slot;
+    priv_move removed2 slot
+
+  let move ?dest_player (su : slots_update) num dest =
+    let dest_p = Option.value dest_player ~default:su.player in
+    if List.mem dest dest_p.pstate.ps_slot_list then
+      match su.slot_updates.(num).value with
+      | None -> ()
+      | Some _ ->
+          let dest_slot = dest_p.slots_update.slot_updates.(dest) in
+          if Option.is_some dest_slot.value then swap su.slot_updates.(num) dest_slot
+          else
+            let removed = Slot.remove su.slot_updates.(num) None in
+            priv_move removed dest_slot
 end
 
 (* ----------------------------------------------------------------- player *)
@@ -324,24 +355,34 @@ module Player = struct
     if Option.is_none p.updater.ended && p.pstate.ps_life > 0 then
       p.pstate.ps_life <- p.pstate.ps_life + amount
 
+  let add_desc_mod p m = p.pstate.ps_desc.desc_mods <- p.pstate.ps_desc.desc_mods @ [ m ]
+
+  let remove_desc_mod p m =
+    p.pstate.ps_desc.desc_mods <- List.filter (fun x -> x != m) p.pstate.ps_desc.desc_mods
+
+  let set_data p d = p.pstate.ps_data <- d
+
   (* SingleTargetAttack / MultiTargetAttack (CardSpec.scala:230-264) *)
   let run_attack p st d =
     let op = other_player p in
     match st.card.c_body.b_run_attack.apply_ with
+    | Custom f -> f st.target d p
     | Multi_target ->
         inflict op d;
         Slots.inflict_creatures op.slots_update d
     | Single_target ->
-        let hits =
-          List.filter
-            (fun num ->
-              let s = op.slots_update.slot_updates.(num) in
-              let filled = Option.is_some s.value in
-              if filled then Slot.damage_slot s d;
-              filled)
-            st.target
-        in
-        if List.length hits < List.length st.target then inflict op d
+        if st.target = [] then inflict op d
+        else
+          let hits =
+            List.filter
+              (fun num ->
+                let s = op.slots_update.slot_updates.(num) in
+                let filled = Option.is_some s.value in
+                if filled then Slot.damage_slot s d;
+                filled)
+              st.target
+          in
+          if List.length hits < List.length st.target then inflict op d
 
   let run_slot_once p num st =
     let ctx = { ctx_player = p.pid; ctx_card = Some st.card.c_card; ctx_selected = num } in
@@ -454,11 +495,6 @@ module Player = struct
           | false, _ -> c)
     in
     Option.iter (fun cmd -> ignore (submit_command p cmd)) c
-
-  let add_desc_mod p m = p.pstate.ps_desc.desc_mods <- p.pstate.ps_desc.desc_mods @ [ m ]
-
-  let remove_desc_mod p m =
-    p.pstate.ps_desc.desc_mods <- List.filter (fun x -> x != m) p.pstate.ps_desc.desc_mods
 end
 
 (* --------------------------------------------------------------- reaction *)
@@ -526,15 +562,18 @@ module Updater = struct
         on_damage_hook = (fun st d -> st.reaction.on_my_damage d);
         remove_hook = (fun d -> Slot.remove s d);
         delayed_destroy_hook = (fun d -> Slot.delayed_destroy s d);
+        protect_hook = Fun.id;
       }
     in
     s
 
-  let default_listener =
-    { hl_on_death = (fun () -> true); hl_mod = Fun.id; hl_intercept_submit = (fun c -> (false, c)) }
-
   let make_player u id =
     let pstate = u.state.players.(id) in
+    let listener =
+      match Array.find_opt (fun h -> h.phd_house.h_index = 4) u.desc.gd_players.(id).pd_houses with
+      | Some h -> h.phd_house.h_make_listener ()
+      | None -> default_listener
+    in
     let rec p =
       {
         pid = id;
@@ -549,7 +588,7 @@ module Updater = struct
             on_dead_hook = (fun dead -> dead.d_slot.reaction.on_my_death dead);
           };
         houses_update = { hu_player = p; hu_value = pstate.ps_houses };
-        house_event_listener = default_listener;
+        house_event_listener = listener;
         stats = { nb_dead = 0; nb_summon = 0 };
         submit_command_hook = (fun _ -> None);
         on_player_damage_hook = ignore;
@@ -584,6 +623,7 @@ module Updater = struct
     let state = copy_game_state state in
     let u = { state; desc; player_updates = [||]; ended = None; focus_hook = (fun _ _ _ -> ()) } in
     u.player_updates <- Array.init 2 (make_player u);
+    Array.iter (fun p -> p.house_event_listener.hl_init p) u.player_updates;
     Array.iter load_player u.player_updates;
     u
 

@@ -2,8 +2,9 @@
 
 Feasibility prototype for porting `freespectrogdx` (Scala 3 + libGDX) to OCaml.
 
-**Status:** the game engine, the four basic houses, Troopers, and the deck
-builder are ported. `test/` covers house mechanics and shuffle constraints.
+**Status:** the game engine, the four basic houses, Troopers, Zen, Wind,
+Chronomaster, Disciples, and the deck builder are ported. `test/` covers house
+mechanics and shuffle constraints.
 `bin/main.ml` deals two legal decks and plays them headlessly.
 
 ```sh
@@ -14,6 +15,7 @@ dune promote                       # accept a reviewed expect-test diff
 dune exec ./bin/main.exe           # 20 greedy-vs-greedy games; writes tournament-results/<ts>/
 dune exec ./bin/main.exe -- -v     # first game with an event trace
 dune exec ./bin/main.exe -- --bots greedy,oracle --games 4 --budget 200 --seed 1
+dune exec ./bin/main.exe -- --special zen --games 4 --seed 1
 dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
 ```
 
@@ -31,6 +33,10 @@ dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
 | `house/Air.scala` | `lib/air.ml` |
 | `house/Earth.scala` | `lib/earth.ml` |
 | `house/Troopers.scala` | `lib/troopers.ml` |
+| `house/Zen.scala` | `lib/zen.ml` |
+| `house/MasterOfWind.scala` | `lib/wind.ml` |
+| `house/Chronomaster.scala` | `lib/chronomaster.ml` |
+| `house/LostChurch.scala` | `lib/disciples.ml` |
 | `CardShuffle.scala` | `lib/shuffle.ml` |
 | `Tournament.scala` (HeadlessGame) | `lib/game.ml` |
 | `GameRecord.scala` | `lib/game_record.ml` |
@@ -148,8 +154,9 @@ fixtures both share. A rules change shows up as an expect diff: review it, then
 
 ## What is not ported
 
-- **39 of 44 houses.** Fire, Water, Air, Earth and Troopers are in; the other
-  specials are not.
+- **35 of 44 houses.** Fire, Water, Air, Earth, Troopers, Zen, Wind,
+  Chronomaster and Disciples are in; the other specials are not. Tournament
+  `--special` selects one of those (default Troopers).
 - **Most bots.** Summoner, Strategist, Gambler and Diviner are not
   ported. The greedy bot in `game.ml` picks the cheapest legal card into the
   frontmost open slot. Oracle (`lib/oracle.ml`) is the sequential-halving
@@ -166,7 +173,9 @@ fixtures both share. A rules change shows up as an expect diff: review it, then
 the requested bots, and writes `game-NNN.json` plus `summary.json` (W/L/D and
 Elo, K=16) under `tournament-results/<timestamp>/`. Default is greedy vs
 greedy. `--bots greedy,oracle,lecturer` is the interesting matchup; `--budget` is the
-search bots' milliseconds per move (default 1000, same as Scala).
+search bots' milliseconds per move (default 1000, same as Scala). `--special`
+picks the special house for both players (`Troopers`, `zen`, `wind`,
+`chronomaster`, `disciples`).
 
 The greedy bot always takes the cheapest legal card, so greedy-vs-greedy win
 counts are not a balance signal. Oracle vs greedy is.

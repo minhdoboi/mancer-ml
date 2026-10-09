@@ -14,6 +14,7 @@ val add_source : attack_sources -> attack_source -> attack_sources
 val normal_run_attack : run_attack
 val multi_run_attack : run_attack
 val never_run_attack : run_attack
+val custom_run_attack : (int list -> damage -> player_update -> unit) -> run_attack
 
 val creature :
   key:string ->
@@ -43,6 +44,19 @@ val add_attack : slot_update -> attack_source -> unit
 (** No-op on creatures whose printed attack is 0, as in Scala. *)
 
 val remove_first_attack : slot_update -> attack_source -> unit
+val remove_any_attack : slot_update -> attack_source -> unit
+val has_source : slot_update -> (attack_source -> bool) -> bool
+val slot_interval : int -> int -> int list
+val reduce_filled : slots_update -> (slot_update -> slot_update -> slot_update) -> slot_update option
+val lowest_life : slot_update -> slot_update -> slot_update
+val strongest : slot_update -> slot_update -> slot_update
+val nearest_empty : int -> player_update -> int option
+val non_special : player_id -> game_state -> int list
+val countdown : int -> card_effect -> card_effect
+val ability : from_card:card -> to_card:card -> desc_mod
+val incr_basic_cost_mod : desc_mod
+val incr_fire_cost_mod : desc_mod
+val hide_basic_mod : desc_mod
 
 (** {1 Reactions} *)
 

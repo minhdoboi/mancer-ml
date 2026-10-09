@@ -45,6 +45,8 @@ module Slot : sig
   val toggle : slot_update -> int -> unit
   val toggle_off : slot_update -> int -> unit
   val toggle_run : slot_update -> unit
+  val set_data : slot_update -> slot_data -> unit
+  val set_target : slot_update -> int list -> unit
   val is_runnable : slot_state -> bool
   val overwrite_add : slot_update -> slot_state -> unit
 
@@ -57,6 +59,7 @@ module Slot : sig
   (** Applies the player damage mod, then the reaction's [inflict]. *)
 
   val destroy : slot_update -> unit
+  val stun : slot_update -> unit
 
   (** {2 Default actions}
       What {!Reaction.default} does. Calling these directly bypasses the reaction. *)
@@ -85,6 +88,7 @@ module Slots : sig
 
   val toggle_run : slots_update -> unit
   val heal_creatures : slots_update -> int -> unit
+  val find : slots_update -> (slot_state -> bool) -> slot_update option
   val find_card : slots_update -> card -> slot_update option
   val find_slot_id : slots_update -> int -> slot_update option
   val finish_dead : slots_update -> dead -> unit
@@ -92,6 +96,9 @@ module Slots : sig
   val add_creature : slot_update -> creature -> unit
   (** Places [creature] in the slot without {!summon} (no [on_summon]). Used by spawn effects such as Phoenix
       and forest spider. *)
+
+  val move : ?dest_player:player_update -> slots_update -> int -> int -> unit
+  (** [SlotsUpdate.move]: relocate a creature, swapping if the destination is occupied. *)
 end
 
 (** PlayerUpdate *)
@@ -119,6 +126,7 @@ module Player : sig
   val submit : player_update -> command option -> unit
   val add_desc_mod : player_update -> desc_mod -> unit
   val remove_desc_mod : player_update -> desc_mod -> unit
+  val set_data : player_update -> player_data -> unit
 end
 
 module Reaction : sig

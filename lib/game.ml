@@ -48,6 +48,8 @@ let empty_special =
     h_effects = [];
     h_house_id = 0;
     h_additional_cards = [];
+    h_make_listener = (fun () -> default_listener);
+    h_data = No_player_data;
   }
 
 let make_player_desc ?(special = empty_special) (h : house) =
@@ -78,7 +80,10 @@ let initial_player_state (mana : int list) (d : player_desc) =
     ps_slot_list = base_slot_list;
     ps_life = 60;
     ps_effects = special_effects d;
-    ps_data = No_player_data;
+    ps_data =
+      (match Array.find_opt (fun h -> h.phd_house.h_index = 4) d.pd_houses with
+      | Some h -> h.phd_house.h_data
+      | None -> No_player_data);
     ps_transitions = [];
   }
 

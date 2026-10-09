@@ -47,7 +47,28 @@ and mod_ = Spell_mod of (int -> int)
 (* Per-slot and per-player card state.  Scala stores `AnyRef` here
    (CardSpec.scala:98, State.scala:45). *)
 and slot_data = No_data | Targeting of int option | Custom of string
-and player_data = No_player_data | Player_targeting of int option
+
+and slot_snap = {
+  ss_num : int;
+  ss_card : creature;
+  ss_life : int;
+  ss_max_life : int;
+  ss_status : int;
+  ss_attack_sources : attack_sources;
+  ss_target : int list;
+  ss_data : slot_data;
+}
+
+and board_snap = { bs_owner : slot_snap list; bs_opp : slot_snap list }
+and wind_state = { winged : bool; vortex : bool }
+and chrono_data = { previous : board_snap option; current : board_snap option }
+
+and player_data =
+  | No_player_data
+  | Player_targeting of int option
+  | Zen_cocoons of int list
+  | Wind_state of wind_state
+  | Chrono_data of chrono_data
 
 and input_spec =
   | No_input
@@ -69,11 +90,12 @@ and attack_source =
   | Attack_slot_state_func of (int -> slot_update -> int)
   | Extra_attacks of int
   | Mana_attack of int
+  | Aging_malus
 
 and attack_sources = { base : int option; sources : attack_source list }
 and context = { ctx_player : player_id; ctx_card : card option; ctx_selected : int }
 and damage = { amount : int; context : context; is_ability : bool; is_spell : bool }
-and run_attack_kind = Single_target | Multi_target
+and run_attack_kind = Single_target | Multi_target | Custom of (int list -> damage -> player_update -> unit)
 and run_attack = { can_attack : bool; apply_ : run_attack_kind }
 
 (* A card is the shared descriptor; a creature additionally carries the
@@ -142,6 +164,8 @@ and house = {
   h_effects : (phase * card_effect) list;
   mutable h_house_id : int;
   mutable h_additional_cards : card list;
+  h_make_listener : unit -> house_event_listener;
+  h_data : player_data;
 }
 
 and player_house_desc = { phd_house : house; phd_cards : card_desc array }
@@ -184,6 +208,7 @@ and house_event_listener = {
   hl_on_death : unit -> bool;
   hl_mod : damage -> damage;
   hl_intercept_submit : command option -> bool * command option;
+  hl_init : player_update -> unit;
 }
 
 and card_effect = env -> unit
@@ -232,6 +257,7 @@ and slot_update = {
   mutable on_damage_hook : slot_state -> damage -> unit;
   mutable remove_hook : dead option -> slot_state;
   mutable delayed_destroy_hook : damage -> unit;
+  mutable protect_hook : damage -> damage;
 }
 
 and slots_update = {
@@ -270,6 +296,16 @@ and updater = {
 (* ---------------------------------------------------------------- helpers *)
 
 let no_selection = -1
+
+let default_listener =
+  {
+    hl_on_death = (fun () -> true);
+    hl_mod = Fun.id;
+    hl_intercept_submit = (fun c -> (false, c));
+    hl_init = ignore;
+  }
+
+let empty_board_snap = { bs_owner = []; bs_opp = [] }
 
 let effect_at (e : phase_effects) = function
   | Direct -> e.direct
