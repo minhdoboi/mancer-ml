@@ -37,7 +37,7 @@ val greedy_mover : mover
 
 type sim = { state : game_state; next : player_id; ended : player_id option }
 
-val simulate : ?rng:Random.State.t -> game_desc -> game_state -> player_id -> command option -> sim
+val simulate : ?rng:Dice.t -> game_desc -> game_state -> player_id -> command option -> sim
 (** [BotSimulator.simulateCommand]: apply [cmd], then the end-turn chain unless a [Wait_player] transition
     hands over. The live game is not touched. Random effects draw from [rng], by default a self-seeded stream
     shared by all simulations and separate from any live game's. *)
@@ -52,11 +52,11 @@ val step : updater -> (updater -> unit) -> unit
 val play_game :
   ?mana0:int list ->
   ?mana1:int list ->
-  ?rng:Random.State.t ->
+  ?rng:Dice.t ->
   ?bots:mover * mover ->
   game_desc ->
   max_turns:int ->
   verbose:bool ->
   result
 (** HeadlessGame's turn loop. [bots] defaults to greedy vs greedy. [rng] feeds random card effects (see
-    {!Engine.Updater.create}). *)
+    {!Engine.Updater.create}). Shuffle deals stay on [Random.State]; only in-game dice use [Dice]. *)

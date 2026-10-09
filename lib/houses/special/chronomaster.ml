@@ -57,7 +57,7 @@ let freeze_effect : card_effect =
 let accelerate_effect : card_effect =
  fun env ->
   let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
-  let times = Random.State.int env.env_updater.rng 2 + 2 in
+  let times = Dice.int env.env_updater.rng 2 + 2 in
   grant_extra slot (times - 1);
   Player.add_effect (player_of_env env) (On_end_turn, one_time_player_effect clear_extra_attacks)
 

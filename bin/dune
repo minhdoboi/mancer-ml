@@ -1,3 +1,14 @@
 (executable
  (name main)
+ (modules main)
  (libraries mancer))
+
+(executable
+ (name replay)
+ (modules replay)
+ (libraries mancer))
+
+(executable
+ (name compare_engines)
+ (modules compare_engines)
+ (libraries mancer unix))

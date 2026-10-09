@@ -147,10 +147,10 @@ val copy_game_state : game_state -> game_state
 
 (** GameStateUpdater *)
 module Updater : sig
-  val create : ?rng:Random.State.t -> game_state -> game_desc -> updater
+  val create : ?rng:Dice.t -> game_state -> game_desc -> updater
   (** Copies [state] and rebuilds the update graph, rebinding each occupant to a fresh reaction. The original
       snapshot is left untouched, which is what lets the oracle simulate from a live position. [rng] feeds
-      random card effects; it defaults to a fixed seed. *)
+      random card effects ([java.util.Random] LCG); it defaults to seed 0. *)
 
   val player : updater -> player_id -> player_update
   val ended : updater -> player_id option

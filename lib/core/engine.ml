@@ -622,7 +622,7 @@ module Updater = struct
             p.slots_update.slot_updates.(i).value <- Some (bind_slot p.slots_update.slot_updates.(i) st))
       p.pstate.ps_slots
 
-  let create ?(rng = Random.State.make [| 0 |]) state desc =
+  let create ?(rng = Dice.make 0) state desc =
     let state = copy_game_state state in
     let u = { state; desc; player_updates = [||]; ended = None; focus_hook = (fun _ _ _ -> ()); rng } in
     u.player_updates <- Array.init 2 (make_player u);

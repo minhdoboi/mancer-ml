@@ -27,3 +27,13 @@
  (name test_lecturer)
  (modules test_lecturer)
  (libraries mancer support alcotest))
+
+(test
+ (name dice)
+ (modules dice)
+ (libraries mancer alcotest))
+
+(test
+ (name replay)
+ (modules replay)
+ (libraries mancer support alcotest))

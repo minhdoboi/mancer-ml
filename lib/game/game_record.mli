@@ -20,6 +20,26 @@ type t = {
   starting_player : player_id;
   special_names : string * string;
   decks : player_desc array;
+  mana : int list array;
+  rng_seed : int;
+  winner_bot : string option;
+  winner_player : player_id option;
+  draw : bool;
+  turns : int;
+  reason : string;
+  moves : move list;
+}
+
+type raw_deck = (string * string list) list
+
+type parsed = {
+  game : string;
+  bot_names : string * string;
+  starting_player : player_id;
+  special_names : string * string;
+  decks : raw_deck array;
+  mana : int list array;
+  rng_seed : int;
   winner_bot : string option;
   winner_player : player_id option;
   draw : bool;
@@ -33,3 +53,4 @@ val special_name : player_desc -> string
 val winner_class : t -> string option
 val move_of : t:int -> player:player_id -> command option -> game_state -> game_desc -> move
 val to_json : t -> string
+val of_json : string -> parsed

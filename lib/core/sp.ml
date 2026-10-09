@@ -291,8 +291,9 @@ and updater = {
   mutable player_updates : player_update array;
   mutable ended : player_id option;
   mutable focus_hook : int -> player_id -> bool -> unit;
-  (* Scala's updater.randLogs: card effects draw from here, never from the global Random *)
-  rng : Random.State.t;
+  (* Scala's updater.randLogs: card effects draw from here, never from the global Random.
+     This is a java.util.Random LCG so a seeded OCaml game and a Scala replay share dice. *)
+  rng : Dice.t;
 }
 
 (* ---------------------------------------------------------------- helpers *)

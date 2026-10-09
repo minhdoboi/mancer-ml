@@ -17,6 +17,7 @@ dune exec ./bin/main.exe -- -v     # first game with an event trace
 dune exec ./bin/main.exe -- --bots greedy,oracle --games 4 --budget 200 --seed 1
 dune exec ./bin/main.exe -- --special zen --games 4 --seed 1
 dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
+dune exec ./bin/compare_engines.exe -- --seed 1 --special zen --turns 80
 ```
 
 ## What is ported
@@ -40,6 +41,7 @@ dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
 | `CardShuffle.scala` | `lib/game/shuffle.ml` |
 | `Tournament.scala` (HeadlessGame) | `lib/game/game.ml` |
 | `GameRecord.scala` | `lib/game/game_record.ml` |
+| `Replay.scala` | `lib/game/replay.ml` |
 | `Tournament.scala` (CLI, Elo, JSON logs) | `lib/game/tournament.ml` |
 | `bot/oracle/OracleBot.scala` | `lib/bots/oracle.ml` |
 | `bot/lecturer/LecturerBot.scala` | `lib/bots/lecturer.ml` |
@@ -182,3 +184,29 @@ counts are not a balance signal. Oracle vs greedy is.
 
 Tests that need a fixed hand still use `Game.make_player_desc`, which keeps the
 old cost-slice (and one special card per quarter).
+
+## Cross-engine harness
+
+Hand-written house tests missed real bugs. `compare_engines` plays one recorded
+game in both engines and reports the first turn where the boards differ.
+
+Game JSON now carries opening `mana` and `rngSeed`. In-game dice use a
+`java.util.Random` LCG (`lib/core/dice.ml`, Scala `GameStateUpdater.rng`) so
+both sides draw the same integers. Shuffle deals stay on OCaml `Random.State`.
+
+```sh
+# generate a greedy-vs-greedy game, replay it in OCaml and Scala
+dune exec ./bin/compare_engines.exe -- --seed 1 --special zen --turns 80
+
+# replay an existing tournament file (needs mana + rngSeed)
+dune exec ./bin/compare_engines.exe -- --game tournament-results/<ts>/game-001.json
+
+# keep the JSON and both snapshot dumps
+dune exec ./bin/compare_engines.exe -- --seed 1 --special disciples --keep /tmp/mancer-diff
+
+# Scala replay only (from the freespectrogdx repo)
+./gradlew :core:replay -Ptargs="--in /tmp/game.json --out /tmp/scala.json"
+```
+
+`--scala` defaults to `../freespectrogdx` (or `$FREESPECTROGDX`). New houses
+should pass this before they rely on tests written from reading the Scala.
