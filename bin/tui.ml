@@ -9,56 +9,9 @@ open Sp
 
 (* ------------------------------------------------------------- card text *)
 
-(* Card descriptions are i18n keys; the English text lives in the Scala repo.
-   Without it the key is shown. *)
-let i18n : (string, string) Hashtbl.t =
-  let tbl = Hashtbl.create 512 in
-  let root = Option.value (Sys.getenv_opt "FREESPECTROGDX") ~default:"../freespectrogdx" in
-  let path = Filename.concat root "core/src/main/resources/i18n.properties" in
-  let unescape v =
-    let b = Buffer.create (String.length v) in
-    let n = String.length v in
-    let rec go i =
-      if i < n then
-        if v.[i] = '\\' && i + 1 < n then (
-          match v.[i + 1] with
-          | 'u' when i + 5 < n -> (
-              match int_of_string_opt ("0x" ^ String.sub v (i + 2) 4) with
-              | Some cp when Uchar.is_valid cp ->
-                  Buffer.add_utf_8_uchar b (Uchar.of_int cp);
-                  go (i + 6)
-              | _ -> go (i + 2))
-          | 'n' | 't' ->
-              Buffer.add_char b ' ';
-              go (i + 2)
-          | c ->
-              Buffer.add_char b c;
-              go (i + 2))
-        else (
-          Buffer.add_char b v.[i];
-          go (i + 1))
-    in
-    go 0;
-    Buffer.contents b
-  in
-  (try
-     In_channel.with_open_text path (fun ic ->
-         In_channel.input_lines ic
-         |> List.iter (fun line ->
-             match String.index_opt line '=' with
-             | Some i when line <> "" && line.[0] <> '#' ->
-                 Hashtbl.replace tbl
-                   (String.trim (String.sub line 0 i))
-                   (unescape (String.sub line (i + 1) (String.length line - i - 1)))
-             | _ -> ()))
-   with Sys_error _ -> ());
-  tbl
-
-(* I.string rejects control characters *)
-let clean s = String.map (fun c -> if Char.code c < 32 || c = '\127' then ' ' else c) s
-let tr key = clean (Option.value (Hashtbl.find_opt i18n key) ~default:key)
-let card_name (c : card) = tr c.name
-let describe (c : card) = tr c.description
+let clean = Assets.clean
+let card_name = Assets.card_name
+let describe = Assets.describe
 
 let wrap width text =
   let words = String.split_on_char ' ' text |> List.filter (( <> ) "") in
@@ -421,14 +374,7 @@ let render_game (w, h) ui =
 
 (* ------------------------------------------------------------- actions *)
 
-let save_record ui =
-  let dir = "tui-games" in
-  if not (Sys.file_exists dir) then Sys.mkdir dir 0o755;
-  let path =
-    Filename.concat dir (Printf.sprintf "game-%d-%.0f.json" (Table.seed ui.table) (Unix.gettimeofday ()))
-  in
-  Out_channel.with_open_text path (fun oc -> output_string oc (Game_record.to_json (Table.record ui.table)));
-  ui.message <- "saved " ^ path
+let save_record ui = ui.message <- "saved " ^ Table.save ui.table ~dir:"tui-games"
 
 let guarded ui f =
   try

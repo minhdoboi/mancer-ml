@@ -26,3 +26,4 @@ bisect*.coverage
 
 .DS_Store
 tui-games/
+gui-games/

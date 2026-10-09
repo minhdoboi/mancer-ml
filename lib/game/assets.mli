@@ -1,0 +1,51 @@
+(** Card text and art for front ends, from the mancer-assets checkout.
+
+    The checkout is [$MANCER_ASSETS], else [assets/] (a git submodule); [bin/sync_assets.ml] builds it from
+    the Scala repo. Without it, text falls back to the i18n keys ([fire.wall]) and art to [None]. *)
+
+open Sp
+
+val root : unit -> string
+
+val load_properties : string -> (string, string) Hashtbl.t
+(** A Java [.properties] file as key → value, [\uXXXX] escapes decoded; empty if the file is missing. *)
+
+val lang : unit -> string
+(** [$MANCER_LANG] ([fr], [es], [ru], [vi]), else [en]. *)
+
+val text : string -> string
+(** The string for an i18n key from [i18n/<lang>.properties], else the English one, else the key itself.
+    Control characters become spaces. *)
+
+val clean : string -> string
+(** Control characters to spaces; terminal and font renderers choke on them. *)
+
+val card_name : card -> string
+val describe : card -> string
+
+val card_art : card -> string option
+(** [cards/<key>.jpg|png]: creatures are 80x80, spells 95x103. *)
+
+val background : house -> string option
+(** [backgrounds/<house key>], else [backgrounds/default] (832x800). *)
+
+val creature_frame : unit -> string option
+(** Stone creature frame ([raka], 90x102). *)
+
+val spell_frame : unit -> string option
+(** Stone spell frame ([rakaSpell], 94x104). *)
+
+val slot_frame : unit -> string option
+(** Empty board-slot frame ([slot]). *)
+
+val ui : string -> string option
+(** Command-bar icon [ui/<name>.png] (quit, settings, play, …). *)
+
+val portrait : string -> string option
+(** Face [portraits/<id>.png]. *)
+
+val particle : string -> string option
+(** Particle sprite ([smoke], …). *)
+
+val sound : string -> string option
+(** Clip for a Scala [sounds] key ([move], [meditate], …) or a card sound ([flamewave]). *)

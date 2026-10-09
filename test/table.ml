@@ -34,7 +34,7 @@ let seed_replays () =
 (* A human seat is played through choices; play_bot refuses it *)
 let human_choices () =
   let t = Table.start { Table.default_setup with seats = (Table.Human, greedy); seed = Some 1 } in
-  Alcotest.check_raises "human to move" (Invalid_argument "Table.play_bot: a human is to move") (fun () ->
+  Alcotest.check_raises "human to move" (Invalid_argument "Table.bot_command: a human is to move") (fun () ->
       Table.play_bot t);
   let playable =
     Table.hand t owner

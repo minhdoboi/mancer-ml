@@ -17,3 +17,13 @@
  (name tui)
  (modules tui)
  (libraries mancer notty notty.unix unix))
+
+(executable
+ (name gui)
+ (modules gui)
+ (libraries mancer raylib ctypes))
+
+(executable
+ (name sync_assets)
+ (modules sync_assets)
+ (libraries mancer raylib ctypes str unix))

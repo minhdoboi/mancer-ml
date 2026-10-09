@@ -9,7 +9,7 @@ mechanics and shuffle constraints.
 
 ```sh
 eval $(opam env --switch=mancer)   # OCaml 5.2.0 + dune 3.24.2
-opam install notty                 # terminal UI only
+opam install notty raylib          # terminal UI, raylib UI
 dune build
 dune test                          # Alcotest suites + expect tests
 dune promote                       # accept a reviewed expect-test diff
@@ -20,6 +20,8 @@ dune exec ./bin/main.exe -- --special zen --games 4 --seed 1
 dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
 dune exec ./bin/compare_engines.exe -- --seed 1 --special zen --turns 80
 dune exec ./bin/tui.exe            # play or watch a game in the terminal
+dune exec ./bin/gui.exe            # the same in a raylib window, with card art
+dune exec ./bin/sync_assets.exe    # rebuild ../mancer-assets from ../freespectrogdx
 ```
 
 ## What is ported
@@ -152,8 +154,9 @@ built on it.
 
 `table.mli` sits on top of the session for front ends: two seats (human or a bot
 id), seeded deals, bot dispatch, the legal targets for each card, log lines and the
-game record. `bin/tui.ml` is a [notty](https://github.com/pqwy/notty) front end on
-it; a graphical one (raylib) would reuse `Table` and only redo the drawing.
+game record. `assets.mli` finds card text and art in the assets checkout. `bin/tui.ml`
+([notty](https://github.com/pqwy/notty)) and `bin/gui.ml` (raylib) are front ends
+on both and only differ in drawing and input.
 
 `engine.ml` is a sequence of modules in dependency order (`Houses`, `Slot`,
 `Slots`, `Player`, `Reaction`, `Updater`) followed by the card effect
@@ -212,10 +215,33 @@ highlighted slot (arrows or 0-5) and enter again; `p` passes. `w` saves the game
 to `tui-games/` in the tournament format, so it feeds `replay.exe` and
 `compare_engines`. After a game, `r` replays the same seed and `n` deals again.
 
-Card names and descriptions come from `core/src/main/resources/i18n.properties`
-in the Scala repo (`../freespectrogdx` or `$FREESPECTROGDX`); without it the UI
-shows i18n keys. Bots print stats to stdout, so the UI sends stdout to
+Card names and descriptions come from `i18n/<lang>.properties` in the assets
+checkout (see below), with `$MANCER_LANG` (`fr`, `es`, `ru`, `vi`; default `en`)
+falling back to English per key; without it the UI shows i18n keys. Bots print stats to stdout, so the UI sends stdout to
 `/dev/null` and draws on a duplicate of the terminal descriptor.
+
+## Raylib UI
+
+`dune exec ./bin/gui.exe` has the same setup as the terminal UI, with clickable
+seats and special houses. Click a lit card to play it; when it needs a target the
+legal slots light up, and right click or Esc cancels. Hovering a card shows its
+text. Saved games go to `gui-games/`. The window scales a fixed 1440x900 layout.
+
+Art, sounds and text come from the
+[mancer-assets](https://github.com/minhdoboi/mancer-assets) submodule at `assets/`
+(`git submodule update --init`, or point `$MANCER_ASSETS` at another checkout).
+Files are keyed for direct lookup: `cards/<card key>.jpg`,
+`backgrounds/<house key>.jpg`, `sounds/<sound key>.mp3`. `bin/sync_assets.ml`
+rebuilds it from the Scala repo, like `resources/pack_atlas.py` without the
+libGDX packing: vibe card art first, then `resources/Images/Cards`, matched by
+English name ignoring case and apostrophes. TGAs become PNGs and portraits are
+cut to 256². It fails listing any card without art, and `manifest.tsv` records
+each file's source. Hand-made files go in the checkout's `overrides/` and are
+copied over the result, so keep hand edits there: `sync_assets` wipes the
+generated folders. `scripts/push_assets.sh "message"` commits what changed in
+`assets/`, pushes it, and stages the new submodule pointer here. Bots search on a second domain so
+the window keeps drawing; their move is submitted on the main one, and leaving a
+game waits for a running search to finish.
 
 ## Cross-engine harness
 

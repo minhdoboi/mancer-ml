@@ -55,15 +55,22 @@ val choices : t -> card -> command list
 val target_side : command -> player_id option
 (** Whose slot [cmd_input] names, or [None] for a card without input. *)
 
+val bot_command : t -> command option
+(** Asks the bot to move for its seat, without submitting; a bot with no playable card passes. The search only
+    reads the live game, so it may run on another domain while the UI draws, as long as nothing submits
+    meanwhile. Raises [Invalid_argument] when the game is over or a human is to move. *)
+
 val play_bot : t -> unit
-(** Asks the bot to move for its seat and submits the move; a bot with no playable card passes. Raises
-    [Invalid_argument] when the game is over or a human is to move. *)
+(** [submit t (bot_command t)]. *)
 
 val submit : t -> command option -> unit
 (** {!Session.submit}. *)
 
 val record : t -> Game_record.t
 (** The game so far in the tournament JSON format, for [Replay] and [compare_engines]. *)
+
+val save : t -> dir:string -> string
+(** Writes {!record} to [dir/game-<seed>-<time>.json], creating [dir], and returns the path. *)
 
 val event_line : ?name:(card -> string) -> game_event -> string option
 (** A one-line description for a game log; [None] for events not worth a line ([Ev_refresh], [Ev_focus]).

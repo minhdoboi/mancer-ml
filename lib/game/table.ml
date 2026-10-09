@@ -95,16 +95,18 @@ let target_side (c : command) =
 
 let submit t cmd = Session.submit t.session cmd
 
-let play_bot t =
+let bot_command t =
   match to_move t with
-  | None -> invalid_arg "Table.play_bot: the game is over"
+  | None -> invalid_arg "Table.bot_command: the game is over"
   | Some pid -> (
       match t.movers.(pid) with
-      | None -> invalid_arg "Table.play_bot: a human is to move"
+      | None -> invalid_arg "Table.bot_command: a human is to move"
       | Some mover ->
           let u = Session.updater t.session in
           let p = Engine.Updater.player u pid in
-          submit t (if is_disabled p.pstate then None else mover u pid))
+          if is_disabled p.pstate then None else mover u pid)
+
+let play_bot t = submit t (bot_command t)
 
 let record t : Game_record.t =
   let desc = Session.desc t.session in
@@ -158,3 +160,9 @@ let event_line ?(name = fun (c : card) -> c.name) =
   | Ev_game_over { winner = Some w; reason } -> Some (Printf.sprintf "== %s wins (%s)" (p w) reason)
   | Ev_game_over { winner = None; reason } -> Some (Printf.sprintf "== draw (%s)" reason)
   | Ev_spell_played _ | Ev_run_slot _ | Ev_focus _ | Ev_refresh _ -> None
+
+let save t ~dir =
+  if not (Sys.file_exists dir) then Sys.mkdir dir 0o755;
+  let path = Filename.concat dir (Printf.sprintf "game-%d-%.0f.json" t.seed (Unix.gettimeofday ())) in
+  Out_channel.with_open_text path (fun oc -> output_string oc (Game_record.to_json (record t)));
+  path
