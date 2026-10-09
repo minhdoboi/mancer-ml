@@ -12,6 +12,12 @@ let owner_has env (card : card) = Option.is_some (Slots.find_card (player_of_env
 let cocoons p = match p.pstate.ps_data with Zen_cocoons xs -> xs | _ -> []
 let set_cocoons p xs = Player.set_data p (Zen_cocoons xs)
 
+(* triggerAbility(ZenSpark(...)): a bolt from the selected slot to [s] *)
+let spark env (s : slot_update) =
+  emit env.env_updater
+    (Ev_ability
+       { kind = "zen.spark"; player = env.env_player; num = env.env_selected; target = Some (s.slots.player.pid, s.num) })
+
 let elem_attack target d player =
   match target with
   | [] -> ()
@@ -88,7 +94,9 @@ let matter_strike : card_effect =
   match !inertia_ref with
   | Some inertia when owner_has env inertia ->
       Option.iter
-        (fun s -> Slot.inflict s (mk_damage ~is_ability:true 3 (ctx_of_env env)))
+        (fun s ->
+          spark env s;
+          Slot.inflict s (mk_damage ~is_ability:true 3 (ctx_of_env env)))
         (reduce_filled (other_of_env env).slots_update strongest)
   | _ -> ()
 
@@ -111,7 +119,9 @@ let zen_effect : card_effect =
 let dreamer_shock : card_effect =
  fun env ->
   Option.iter
-    (fun s -> Slot.inflict s (mk_damage ~is_ability:true 4 (ctx_of_env env)))
+    (fun s ->
+      spark env s;
+      Slot.inflict s (mk_damage ~is_ability:true 4 (ctx_of_env env)))
     (reduce_filled (other_of_env env).slots_update lowest_life)
 
 let place_cocoon : card_effect =

@@ -418,7 +418,7 @@ let play_one ~game_id ~bot_a ~bot_b ~budget ~max_turns ~verbose ~rng ~basics ~sp
   let desc = { gd_players = [| p1.desc; p2.desc |] } in
   let dice_seed = Random.State.bits rng in
   let r =
-    Game.play_game desc ~mana0:(Array.to_list p1.mana) ~mana1:(Array.to_list p2.mana)
+    Session.play_game desc ~mana0:(Array.to_list p1.mana) ~mana1:(Array.to_list p2.mana)
       ~rng:(Dice.make dice_seed) ~max_turns ~verbose
       ~bots:(make_mover kind_a budget, make_mover kind_b budget)
   in

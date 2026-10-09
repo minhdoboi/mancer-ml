@@ -37,3 +37,8 @@
  (name replay)
  (modules replay)
  (libraries mancer support alcotest))
+
+(test
+ (name session)
+ (modules session)
+ (libraries mancer support alcotest))

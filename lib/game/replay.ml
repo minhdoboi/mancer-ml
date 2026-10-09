@@ -88,31 +88,6 @@ let command_of (desc : game_desc) (m : Game_record.move) =
           cmd_flag = flag;
         }
 
-let drain u pid =
-  let rec loop pid =
-    if Option.is_some (Updater.ended u) then pid
-    else
-      let popped = ref None in
-      Game.step u (fun _ -> popped := Player.pop_transition (Updater.player u pid));
-      match !popped with
-      | Some (Wait_player (next, _)) -> next
-      | None ->
-          let p = Updater.player u pid in
-          let op = Player.other p in
-          let running () = Option.is_none (Updater.ended u) in
-          List.iter
-            (fun f -> if running () then Game.step u (fun _ -> f ()))
-            [
-              (fun () -> Player.run_slots p);
-              (fun () -> Player.apply_effects p On_end_turn);
-              (fun () -> Slots.toggle_run p.slots_update);
-              (fun () -> Player.prepare_next_turn op);
-              (fun () -> Player.apply_effects op On_turn);
-            ];
-          other pid
-  in
-  loop pid
-
 let run ?(cat = Catalog.default ()) (p : Game_record.parsed) =
   Catalog.init ();
   let desc = desc_of cat p in
@@ -121,7 +96,7 @@ let run ?(cat = Catalog.default ()) (p : Game_record.parsed) =
   let u = Updater.create ~rng:(Dice.make p.rng_seed) (Game.initial_game_state ~mana0 ~mana1 desc) desc in
   let snaps = ref [] in
   let push t player after = snaps := of_state ~t ?player ~after ~ended:(Updater.ended u) u.state :: !snaps in
-  Game.step u (fun u -> Array.iter (fun pl -> Player.apply_effects pl On_start) u.player_updates);
+  Session.start u;
   push 0 None "start";
   List.iter
     (fun (m : Game_record.move) ->
@@ -129,7 +104,7 @@ let run ?(cat = Catalog.default ()) (p : Game_record.parsed) =
         let pl = Updater.player u m.player in
         let cmd = command_of desc m in
         Game.step u (fun _ -> Player.submit pl cmd);
-        ignore (drain u m.player);
+        ignore (Session.drain u m.player);
         push m.t (Some m.player) (Option.value m.card ~default:"pass")))
     p.moves;
   List.rev !snaps
@@ -141,7 +116,7 @@ let generate ?(special = "Troopers") ?(max_turns = 80) ~seed () =
   let p1, p2 = Shuffle.two_players ~rng ~specials:(spec, spec) Catalog.basics in
   let desc = { gd_players = [| p1.desc; p2.desc |] } in
   let r =
-    Game.play_game desc ~mana0:(Array.to_list p1.mana) ~mana1:(Array.to_list p2.mana) ~rng:(Dice.make seed)
+    Session.play_game desc ~mana0:(Array.to_list p1.mana) ~mana1:(Array.to_list p2.mana) ~rng:(Dice.make seed)
       ~max_turns ~verbose:false
   in
   ({

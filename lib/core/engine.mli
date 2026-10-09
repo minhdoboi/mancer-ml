@@ -5,10 +5,9 @@
 
 open Sp
 
-val events_enabled : bool ref
-(** When set, engine events (summons, spells, focus) are printed. *)
+val emit : updater -> game_event -> unit
+(** Sends an event to the updater's listener (Scala's [updateListener]). *)
 
-val event : ('a, unit, string, unit) format4 -> 'a
 val other_player : player_update -> player_update
 
 val make_creature : card -> creature
@@ -155,6 +154,14 @@ module Updater : sig
   val player : updater -> player_id -> player_update
   val ended : updater -> player_id option
   val focus : updater -> int -> player_id -> bool -> unit
+  (** Emits {!Sp.Ev_focus}. *)
+
+  val listen : updater -> (game_event -> unit) -> unit
+  (** Replaces the listener. Updaters start with one that ignores everything, so simulations stay silent. *)
+
+  val peek : updater -> game_state
+  (** A copy of the board as it stands, safe to call from a listener mid-step: unlike {!export} it does not
+      flush pending deaths. Attack values are as of the last refresh. *)
 
   val export : updater -> game_state
   (** Flushes the live graph into an independent [game_state] copy. *)

@@ -284,13 +284,31 @@ and player_update = {
   mutable add_mana_hook : house_state -> int -> house_state;
 }
 
+(* What a UI animates. The first ten mirror Scala's UpdateListener
+   (GameUpdate.scala:56); the last three come from the turn loop. *)
+and game_event =
+  | Ev_focus of { num : int; player : player_id; blocking : bool }
+  | Ev_move of { num : int; dest : int; player : player_id; dest_player : player_id }
+  | Ev_swap of { num : int; dest : int; player : player_id; dest_player : player_id }
+  | Ev_run_slot of { num : int; player : player_id }
+  | Ev_summon of { num : int; player : player_id; creature : creature }
+  | Ev_die of { num : int; player : player_id }
+  | Ev_replaced of { num : int; player : player_id; creature : creature }
+  | Ev_refresh of { silent : bool }
+  | Ev_spell_played of command
+  | Ev_ability of { kind : string; player : player_id; num : int; target : (player_id * int) option }
+  | Ev_to_move of { t : int; player : player_id }
+  | Ev_submitted of { t : int; player : player_id; command : command option }
+  | Ev_game_over of { winner : player_id option; reason : string }
+
 and updater = {
   mutable state : game_state;
   desc : game_desc;
   (* filled right after the record is built, to close the cycle *)
   mutable player_updates : player_update array;
   mutable ended : player_id option;
-  mutable focus_hook : int -> player_id -> bool -> unit;
+  (* Scala's UpdateListener, as one typed stream; see game_event *)
+  mutable listener : game_event -> unit;
   (* Scala's updater.randLogs: card effects draw from here, never from the global Random.
      This is a java.util.Random LCG so a seeded OCaml game and a Scala replay share dice. *)
   rng : Dice.t;

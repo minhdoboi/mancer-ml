@@ -44,19 +44,5 @@ val simulate : ?rng:Dice.t -> game_desc -> game_state -> player_id -> command op
 
 (** {1 Driver} *)
 
-type result = { winner : player_id option; turns : int; reason : string; moves : Game_record.move list }
-
 val step : updater -> (updater -> unit) -> unit
 (** One engine step, published with {!Engine.Updater.lift}. *)
-
-val play_game :
-  ?mana0:int list ->
-  ?mana1:int list ->
-  ?rng:Dice.t ->
-  ?bots:mover * mover ->
-  game_desc ->
-  max_turns:int ->
-  verbose:bool ->
-  result
-(** HeadlessGame's turn loop. [bots] defaults to greedy vs greedy. [rng] feeds random card effects (see
-    {!Engine.Updater.create}). Shuffle deals stay on [Random.State]; only in-game dice use [Dice]. *)

@@ -15,8 +15,7 @@
 
 open Sp
 
-let events_enabled = ref false
-let event fmt = if !events_enabled then Printf.ksprintf print_endline fmt else Printf.ikfprintf ignore () fmt
+let emit (u : updater) e = u.listener e
 
 (* ---------------------------------------------------------------- helpers *)
 
@@ -99,7 +98,7 @@ module Board = struct
   let finish_dead (su : slots_update) dead =
     su.on_dead_hook dead;
     Option.iter
-      (fun st -> event "slot %d refilled with %s" dead.d_num st.card.c_card.name)
+      (fun st -> emit su.player.updater (Ev_replaced { num = dead.d_num; player = su.player.pid; creature = st.card }))
       su.slot_updates.(dead.d_num).value
 
   let log (su : slots_update) e = su.logs <- e :: su.logs
@@ -259,7 +258,7 @@ module Slots = struct
     (* re-read: the default on_spawn_over has just emptied the slot *)
     let summoned = Option.is_none slot.value in
     if summoned then Slot.overwrite_add slot st;
-    event "summon %d %s" num creature.c_card.name;
+    emit su.player.updater (Ev_summon { num; player = su.player.pid; creature });
     if summoned then (
       let ev = { s_num = num; s_card = creature; s_player = su.player } in
       react_summon (other_player su.player).slots_update ev;
@@ -284,6 +283,9 @@ module Slots = struct
     Slot.overwrite_add dest st
 
   let swap slot dest_slot =
+    emit slot.slots.player.updater
+      (Ev_swap
+         { num = slot.num; dest = dest_slot.num; player = slot.slots.player.pid; dest_player = dest_slot.slots.player.pid });
     let removed = Slot.remove slot None in
     let removed2 = Slot.remove dest_slot None in
     priv_move removed dest_slot;
@@ -297,9 +299,10 @@ module Slots = struct
       | Some _ ->
           let dest_slot = dest_p.slots_update.slot_updates.(dest) in
           if Option.is_some dest_slot.value then swap su.slot_updates.(num) dest_slot
-          else
+          else (
+            emit su.player.updater (Ev_move { num; dest; player = su.player.pid; dest_player = dest_p.pid });
             let removed = Slot.remove su.slot_updates.(num) None in
-            priv_move removed dest_slot
+            priv_move removed dest_slot)
 end
 
 (* ----------------------------------------------------------------- player *)
@@ -389,7 +392,9 @@ module Player = struct
 
   let run_slot_once p num st =
     let ctx = { ctx_player = p.pid; ctx_card = Some st.card.c_card; ctx_selected = num } in
-    run_attack p st (mk_damage st.attack ctx)
+    emit p.updater (Ev_run_slot { num; player = p.pid });
+    run_attack p st (mk_damage st.attack ctx);
+    emit p.updater (Ev_refresh { silent = false })
 
   let locate_slot p num id =
     refresh_slots p;
@@ -452,7 +457,8 @@ module Player = struct
           let env = mk_env p.pid p.updater in
           env.env_selected <- num;
           env.env_card <- Some st.card.c_card;
-          f env)
+          f env;
+          emit p.updater (Ev_refresh { silent = true }))
         (effect_at st.card.c_card.effects phase)
 
   (* slot effects first, then player effects (PlayerUpdate.applyEffects) *)
@@ -463,8 +469,9 @@ module Player = struct
       p.pstate.ps_effects
 
   let submit_command p (c : command) =
-    if c.cmd_card.is_spell then event "spell %s" c.cmd_card.name;
+    if c.cmd_card.is_spell then emit p.updater (Ev_spell_played c);
     Houses.incr_mana p.houses_update (-c.cmd_cost) [ c.cmd_card.house_index ];
+    emit p.updater (Ev_refresh { silent = true });
     let slot_id =
       match c.cmd_input with
       | Some num when not c.cmd_card.is_spell ->
@@ -486,6 +493,7 @@ module Player = struct
         Option.iter (fun n -> env.env_selected <- n) c.cmd_input;
         f env)
       c.cmd_card.effects.direct;
+    emit p.updater (Ev_refresh { silent = false });
     slot_id
 
   let submit p c =
@@ -588,7 +596,10 @@ module Updater = struct
             slot_updates = [||];
             logs = [];
             (* SlotsUpdate.onDead: a house replacing it decides whether onMyDeath runs *)
-            on_dead_hook = (fun dead -> dead.d_slot.reaction.on_my_death dead);
+            on_dead_hook =
+              (fun dead ->
+                emit u (Ev_die { num = dead.d_num; player = id });
+                dead.d_slot.reaction.on_my_death dead);
           };
         houses_update = { hu_player = p; hu_value = pstate.ps_houses };
         house_event_listener = listener;
@@ -624,7 +635,7 @@ module Updater = struct
 
   let create ?(rng = Dice.make 0) state desc =
     let state = copy_game_state state in
-    let u = { state; desc; player_updates = [||]; ended = None; focus_hook = (fun _ _ _ -> ()); rng } in
+    let u = { state; desc; player_updates = [||]; ended = None; listener = ignore; rng } in
     u.player_updates <- Array.init 2 (make_player u);
     Array.iter (fun p -> p.house_event_listener.hl_init p) u.player_updates;
     Array.iter load_player u.player_updates;
@@ -632,7 +643,24 @@ module Updater = struct
 
   let player u id = u.player_updates.(id)
   let ended u = u.ended
-  let focus u num pid blocking = u.focus_hook num pid blocking
+  let focus u num pid blocking = emit u (Ev_focus { num; player = pid; blocking })
+  let listen u f = u.listener <- f
+
+  (* A copy of the board as it stands mid-step, for UI refreshes. Unlike
+     export it does not flush pending deaths or re-fold attacks, so reading it
+     from a listener cannot change the game. *)
+  let peek u =
+    {
+      players =
+        Array.map
+          (fun p ->
+            {
+              (copy_player_state p.pstate) with
+              ps_slots = Array.map (fun s -> s.value) p.slots_update.slot_updates;
+              ps_houses = Array.copy p.houses_update.hu_value;
+            })
+          u.player_updates;
+    }
 
   let export u =
     copy_game_state { players = Array.map (fun p -> copy_player_state (Player.result p)) u.player_updates }
@@ -665,7 +693,7 @@ let no_effects = effects []
 
 let focus (f : card_effect) : card_effect =
  fun env ->
-  event "focus %d" env.env_selected;
+  Updater.focus env.env_updater env.env_selected env.env_player true;
   f env
 
 let damage ?(is_ability = false) ?(is_spell = false) amount : card_effect =

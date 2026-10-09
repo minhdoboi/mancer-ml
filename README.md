@@ -39,7 +39,8 @@ dune exec ./bin/compare_engines.exe -- --seed 1 --special zen --turns 80
 | `house/Chronomaster.scala` | `lib/houses/special/chronomaster.ml` |
 | `house/LostChurch.scala` | `lib/houses/special/disciples.ml` |
 | `CardShuffle.scala` | `lib/game/shuffle.ml` |
-| `Tournament.scala` (HeadlessGame) | `lib/game/game.ml` |
+| `Tournament.scala` (HeadlessGame) | `lib/game/session.ml` (turn loop), `lib/game/game.ml` (setup, bots) |
+| `update/GameUpdate.scala` (UpdateListener) | `Sp.game_event`, `Updater.listen` |
 | `GameRecord.scala` | `lib/game/game_record.ml` |
 | `Replay.scala` | `lib/game/replay.ml` |
 | `Tournament.scala` (CLI, Elo, JSON logs) | `lib/game/tournament.ml` |
@@ -137,6 +138,15 @@ the port by inspection.
 interfaces (`fire.mli`, `water.mli`, `air.mli`, `earth.mli`, `troopers.mli`)
 and `game.mli` are the public surface; `sp.ml` is types only and has no
 interface because all of it is meant to be public.
+
+`session.mli` is the API for driving a live game, from a UI or a bot loop:
+`Session.create`, `status`, `legal_commands`, `submit`, plus an `on_event`
+listener that receives every `Sp.game_event`. The engine events mirror Scala's
+`UpdateListener` (focus, move, swap, run slot, summon, die, replaced, refresh,
+spell played, ability); the session adds to-move, submitted and game-over.
+Listeners run mid-step, so they read the board with `Session.peek`, which does
+not flush pending deaths. `Session.play_game` is the headless bot-vs-bot loop
+built on it.
 
 `engine.ml` is a sequence of modules in dependency order (`Houses`, `Slot`,
 `Slots`, `Player`, `Reaction`, `Updater`) followed by the card effect

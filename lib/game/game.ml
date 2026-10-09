@@ -209,7 +209,9 @@ let available_commands (u : updater) (p : player_update) =
           | Select_target_creature | Select_target_slot ->
               List.map (fun n -> command cd (Some n)) (filled (Player.other p))
           | Select_any_creature -> List.map (fun n -> command cd (Some n)) (filled p @ filled (Player.other p))
-          | _ -> [ command cd None ]))
+          | Select_owner f -> List.map (fun n -> command cd (Some n)) (f p.pid u.state)
+          | Select_target f -> List.map (fun n -> command cd (Some n)) (f (other p.pid) u.state)
+          | No_input -> [ command cd None ]))
   |> List.stable_sort (fun a b -> compare a.cmd_cost b.cmd_cost)
 
 let bot_move u p = List.nth_opt (available_commands u p) 0
@@ -251,51 +253,5 @@ let simulate ?rng (desc : game_desc) (state : game_state) pid cmd =
 
 (* ------------------------------------------------------------------- driver *)
 
-type result = { winner : player_id option; turns : int; reason : string; moves : Game_record.move list }
-
 (* HeadlessGame's `sync`: run one engine step, then publish the state *)
 let step u f = ignore (Updater.lift u f)
-
-let play_game ?mana0 ?mana1 ?rng ?(bots = (greedy_mover, greedy_mover)) (desc : game_desc) ~max_turns ~verbose
-    =
-  events_enabled := verbose;
-  let u = Updater.create ?rng (initial_game_state ?mana0 ?mana1 desc) desc in
-  let running () = Option.is_none (Updater.ended u) in
-  let mover pid = if pid = owner then fst bots else snd bots in
-  let moves = ref [] in
-  step u (fun u -> Array.iter (fun p -> Player.apply_effects p On_start) u.player_updates);
-  (* t = turns played so far, as in HeadlessGame: at most max_turns moves *)
-  let rec loop t pid =
-    if (not (running ())) || t >= max_turns then t
-    else
-      let p = Updater.player u pid in
-      let cmd = if is_disabled p.pstate then None else mover pid u pid in
-      moves := Game_record.move_of ~t:(t + 1) ~player:pid cmd u.state desc :: !moves;
-      step u (fun _ -> Player.submit p cmd);
-      let rec drain pid =
-        if not (running ()) then pid
-        else
-          let popped = ref None in
-          step u (fun _ -> popped := Player.pop_transition (Updater.player u pid));
-          match !popped with
-          | Some (Wait_player (next, _)) -> next
-          | None ->
-              let p = Updater.player u pid in
-              let op = Player.other p in
-              List.iter
-                (fun f -> if running () then step u (fun _ -> f ()))
-                [
-                  (fun () -> Player.run_slots p);
-                  (fun () -> Player.apply_effects p On_end_turn);
-                  (fun () -> Slots.toggle_run p.slots_update);
-                  (fun () -> Player.prepare_next_turn op);
-                  (fun () -> Player.apply_effects op On_turn);
-                ];
-              other pid
-      in
-      loop (t + 1) (drain pid)
-  in
-  let turns = loop 0 owner in
-  events_enabled := false;
-  let winner = Updater.ended u in
-  { winner; turns; reason = (if Option.is_none winner then "maxTurns" else "ended"); moves = List.rev !moves }

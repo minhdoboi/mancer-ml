@@ -69,7 +69,7 @@ let%expect_test "one full turn of combat" =
 let%expect_test "headless game trace" =
   Game.init_cards Fire.house;
   let d = Game.make_player_desc Fire.house in
-  let r = Game.play_game { gd_players = [| d; d |] } ~max_turns:6 ~verbose:true in
+  let r = Session.play_game { gd_players = [| d; d |] } ~max_turns:6 ~verbose:true in
   Printf.printf "winner %s after %d turns\n"
     (match r.winner with Some p -> string_of_int p | None -> "none")
     r.turns;
@@ -79,7 +79,14 @@ let%expect_test "headless game trace" =
     summon 0 fire.goblin
     summon 1 fire.goblin
     summon 1 fire.goblin
+    focus 0
+    focus 1
     summon 2 fire.goblin
+    focus 0
+    focus 1
     summon 2 fire.goblin
+    focus 0
+    focus 1
+    focus 2
     winner none after 6 turns
     |}]
