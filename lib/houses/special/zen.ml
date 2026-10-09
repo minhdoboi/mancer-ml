@@ -120,7 +120,7 @@ let place_cocoon : card_effect =
   match Slots.get_open p.slots_update with
   | [] -> set_cocoons p []
   | opens ->
-      let num = List.nth opens (Random.int (List.length opens)) in
+      let num = List.nth opens (Random.State.int env.env_updater.rng (List.length opens)) in
       set_cocoons p [ num ]
 
 let eguard_reaction () =

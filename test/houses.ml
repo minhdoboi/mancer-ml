@@ -418,6 +418,36 @@ let liberator_enrages () =
   play u 0 "disciples.liberator" ~input:(Some 3) ~cost:6;
   Alcotest.(check (option string)) "enraged" (Some "disciples.enraged") (occupant u 0 1)
 
+(* Preacher and False Prophet both add incr_basic_cost_mod; losing one must
+   leave the other's copy in place (State.scala:112 removes one occurrence) *)
+let shared_cost_mod_survives () =
+  let u = new_game ~mana:[ 6; 4; 4; 4; 5 ] ~special:Disciples.house () in
+  let copies () =
+    List.length (List.filter (( == ) Common.incr_basic_cost_mod) (player u 0).pstate.ps_desc.desc_mods)
+  in
+  place u 0 "disciples.preacher" 1;
+  play u 0 "disciples.prophet" ~input:(Some 3) ~cost:3;
+  check_int "both sources" 2 (copies ());
+  step u (fun () -> Slot.destroy (slot u 0 1));
+  check_int "prophet's copy kept" 1 (copies ())
+
+(* ------------------------------------------------------------------ rng *)
+
+(* Card randomness draws from the updater's rng, so the global Random (which
+   bot search also uses) cannot shift a seeded game *)
+let cocoons_follow_updater_rng () =
+  let draws ~noise =
+    let u = new_game ~special:Zen.house () in
+    place u 0 "zen.mimic" 0;
+    List.init 8 (fun _ ->
+        for _ = 1 to noise do
+          ignore (Random.bits ())
+        done;
+        step u (fun () -> Player.apply_effects (player u 0) On_turn);
+        match (player u 0).pstate.ps_data with Zen_cocoons xs -> xs | _ -> [])
+  in
+  Alcotest.(check (list (list int))) "same cocoons" (draws ~noise:0) (draws ~noise:7)
+
 let () =
   let open Alcotest in
   run "houses"
@@ -488,6 +518,10 @@ let () =
           test_case "king" `Quick king_extra_turn;
         ] );
       ( "disciples",
-        [ test_case "prisoner spawn" `Quick prisoner_spawns; test_case "liberator" `Quick liberator_enrages ]
-      );
+        [
+          test_case "prisoner spawn" `Quick prisoner_spawns;
+          test_case "liberator" `Quick liberator_enrages;
+          test_case "shared cost mod" `Quick shared_cost_mod_survives;
+        ] );
+      ("rng", [ test_case "cocoons use updater rng" `Quick cocoons_follow_updater_rng ]);
     ]

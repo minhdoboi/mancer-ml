@@ -23,26 +23,26 @@ dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
 
 | Scala | OCaml |
 |---|---|
-| `State.scala` | `lib/sp.ml` |
-| `CardSpec.scala` | `lib/sp.ml` |
-| `GameCardEffect.scala` | `lib/engine.ml` (effect combinators) |
-| `update/{SlotUpdate,SlotsUpdate,PlayerUpdate,GameUpdate}.scala` | `lib/engine.ml` |
-| `house/Common.scala`, `house/package.scala` (shared helpers) | `lib/common.ml` |
-| `house/Fire.scala` | `lib/fire.ml` |
-| `house/Water.scala` | `lib/water.ml` |
-| `house/Air.scala` | `lib/air.ml` |
-| `house/Earth.scala` | `lib/earth.ml` |
-| `house/Troopers.scala` | `lib/troopers.ml` |
-| `house/Zen.scala` | `lib/zen.ml` |
-| `house/MasterOfWind.scala` | `lib/wind.ml` |
-| `house/Chronomaster.scala` | `lib/chronomaster.ml` |
-| `house/LostChurch.scala` | `lib/disciples.ml` |
-| `CardShuffle.scala` | `lib/shuffle.ml` |
-| `Tournament.scala` (HeadlessGame) | `lib/game.ml` |
-| `GameRecord.scala` | `lib/game_record.ml` |
-| `Tournament.scala` (CLI, Elo, JSON logs) | `lib/tournament.ml` |
-| `bot/oracle/OracleBot.scala` | `lib/oracle.ml` |
-| `bot/lecturer/LecturerBot.scala` | `lib/lecturer.ml` |
+| `State.scala` | `lib/core/sp.ml` |
+| `CardSpec.scala` | `lib/core/sp.ml` |
+| `GameCardEffect.scala` | `lib/core/engine.ml` (effect combinators) |
+| `update/{SlotUpdate,SlotsUpdate,PlayerUpdate,GameUpdate}.scala` | `lib/core/engine.ml` |
+| `house/Common.scala`, `house/package.scala` (shared helpers) | `lib/core/common.ml` |
+| `house/Fire.scala` | `lib/houses/basic/fire.ml` |
+| `house/Water.scala` | `lib/houses/basic/water.ml` |
+| `house/Air.scala` | `lib/houses/basic/air.ml` |
+| `house/Earth.scala` | `lib/houses/basic/earth.ml` |
+| `house/Troopers.scala` | `lib/houses/special/troopers.ml` |
+| `house/Zen.scala` | `lib/houses/special/zen.ml` |
+| `house/MasterOfWind.scala` | `lib/houses/special/wind.ml` |
+| `house/Chronomaster.scala` | `lib/houses/special/chronomaster.ml` |
+| `house/LostChurch.scala` | `lib/houses/special/disciples.ml` |
+| `CardShuffle.scala` | `lib/game/shuffle.ml` |
+| `Tournament.scala` (HeadlessGame) | `lib/game/game.ml` |
+| `GameRecord.scala` | `lib/game/game_record.ml` |
+| `Tournament.scala` (CLI, Elo, JSON logs) | `lib/game/tournament.ml` |
+| `bot/oracle/OracleBot.scala` | `lib/bots/oracle.ml` |
+| `bot/lecturer/LecturerBot.scala` | `lib/bots/lecturer.ml` |
 
 ## How the Scala translated
 
@@ -159,9 +159,9 @@ fixtures both share. A rules change shows up as an expect diff: review it, then
   `--special` selects one of those (default Troopers).
 - **Most bots.** Summoner, Strategist, Gambler and Diviner are not
   ported. The greedy bot in `game.ml` picks the cheapest legal card into the
-  frontmost open slot. Oracle (`lib/oracle.ml`) is the sequential-halving
+  frontmost open slot. Oracle (`lib/bots/oracle.ml`) is the sequential-halving
   rollout bot from Scala; it searches with perfect information of both decks
-  (Scala's Choco card-guesser is not ported). Lecturer (`lib/lecturer.ml`) is
+  (Scala's Choco card-guesser is not ported). Lecturer (`lib/bots/lecturer.ml`) is
   the UCT tree search, reworked: per-player (negamax) node values, Oracle's
   eval as expansion priors and leaf score, depth 4 instead of 2. Tune with
   `LECTURER_OPTS=exploration=0.7,maxDepth=4,...`.

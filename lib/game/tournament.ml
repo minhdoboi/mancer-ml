@@ -417,7 +417,7 @@ let play_one ~game_id ~bot_a ~bot_b ~budget ~max_turns ~verbose ~rng ~basics ~sp
   let p1, p2 = Shuffle.two_players ~rng ~specials:(special, special) basics in
   let desc = { gd_players = [| p1.desc; p2.desc |] } in
   let r =
-    Game.play_game desc ~mana0:(Array.to_list p1.mana) ~mana1:(Array.to_list p2.mana) ~max_turns ~verbose
+    Game.play_game desc ~mana0:(Array.to_list p1.mana) ~mana1:(Array.to_list p2.mana) ~rng ~max_turns ~verbose
       ~bots:(make_mover kind_a budget, make_mover kind_b budget)
   in
   let winner_bot = match r.winner with Some 0 -> Some bot_a | Some _ -> Some bot_b | None -> None in

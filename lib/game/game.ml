@@ -222,8 +222,13 @@ let greedy_mover u pid = bot_move u (Updater.player u pid)
    WaitPlayer transition hands over. *)
 type sim = { state : game_state; next : player_id; ended : player_id option }
 
-let simulate (desc : game_desc) (state : game_state) pid cmd =
-  let u = Updater.create state desc in
+(* Simulations draw their own dice so that bot search never consumes the live
+   game's rng: a seeded game replays the same whatever the search budget. *)
+let sim_rng = lazy (Random.State.make_self_init ())
+
+let simulate ?rng (desc : game_desc) (state : game_state) pid cmd =
+  let rng = match rng with Some r -> r | None -> Lazy.force sim_rng in
+  let u = Updater.create ~rng state desc in
   let next = ref (other pid) in
   let _, state =
     Updater.lift u (fun u ->
@@ -251,9 +256,9 @@ type result = { winner : player_id option; turns : int; reason : string; moves :
 (* HeadlessGame's `sync`: run one engine step, then publish the state *)
 let step u f = ignore (Updater.lift u f)
 
-let play_game ?mana0 ?mana1 ?(bots = (greedy_mover, greedy_mover)) (desc : game_desc) ~max_turns ~verbose =
+let play_game ?mana0 ?mana1 ?rng ?(bots = (greedy_mover, greedy_mover)) (desc : game_desc) ~max_turns ~verbose =
   events_enabled := verbose;
-  let u = Updater.create (initial_game_state ?mana0 ?mana1 desc) desc in
+  let u = Updater.create ?rng (initial_game_state ?mana0 ?mana1 desc) desc in
   let running () = Option.is_none (Updater.ended u) in
   let mover pid = if pid = owner then fst bots else snd bots in
   let moves = ref [] in

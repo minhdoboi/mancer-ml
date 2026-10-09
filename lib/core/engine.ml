@@ -357,8 +357,11 @@ module Player = struct
 
   let add_desc_mod p m = p.pstate.ps_desc.desc_mods <- p.pstate.ps_desc.desc_mods @ [ m ]
 
+  (* PlayerState.remove (State.scala:112): only the first occurrence, so a mod
+     added by two cards survives until both are gone *)
   let remove_desc_mod p m =
-    p.pstate.ps_desc.desc_mods <- List.filter (fun x -> x != m) p.pstate.ps_desc.desc_mods
+    let rec drop = function [] -> [] | x :: xs when x == m -> xs | x :: xs -> x :: drop xs in
+    p.pstate.ps_desc.desc_mods <- drop p.pstate.ps_desc.desc_mods
 
   let set_data p d = p.pstate.ps_data <- d
 
@@ -619,9 +622,9 @@ module Updater = struct
             p.slots_update.slot_updates.(i).value <- Some (bind_slot p.slots_update.slot_updates.(i) st))
       p.pstate.ps_slots
 
-  let create state desc =
+  let create ?(rng = Random.State.make [| 0 |]) state desc =
     let state = copy_game_state state in
-    let u = { state; desc; player_updates = [||]; ended = None; focus_hook = (fun _ _ _ -> ()) } in
+    let u = { state; desc; player_updates = [||]; ended = None; focus_hook = (fun _ _ _ -> ()); rng } in
     u.player_updates <- Array.init 2 (make_player u);
     Array.iter (fun p -> p.house_event_listener.hl_init p) u.player_updates;
     Array.iter load_player u.player_updates;

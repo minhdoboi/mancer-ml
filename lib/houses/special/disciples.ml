@@ -42,7 +42,7 @@ let spawn_prisoner : card_effect =
       match Slots.get_open p.slots_update with
       | [] -> ()
       | opens ->
-          let slot = p.slots_update.slot_updates.(List.nth opens (Random.int (List.length opens))) in
+          let slot = p.slots_update.slot_updates.(List.nth opens (Random.State.int env.env_updater.rng (List.length opens))) in
           Slots.add_creature slot (make_creature prisoner);
           (match !preacher_ref with
           | Some preacher when Option.is_some (Slots.find_card p.slots_update preacher) ->
