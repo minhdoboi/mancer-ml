@@ -11,13 +11,13 @@ let is_monster (c : card) = match !monster_ref with Some m -> c.id = m.id | None
 
 let tangle : card_effect =
  fun env ->
-  let mine = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let mine = own_slot_of_env env in
   let opp = Slot.opposite mine in
   match opp.value with
   | None -> ()
   | Some st ->
       let amount = st.attack in
-      Slot.inflict opp (mk_damage ~is_spell:true amount (ctx_of_env env));
+      Slot.inflict opp (spell_damage env amount);
       if Option.is_some mine.value then Slot.heal mine amount
 
 let devour : card_effect =
@@ -38,11 +38,18 @@ let pollinate : card_effect =
   | None -> ()
   | Some st ->
       let cost = st.card.c_card.cost in
-      (match List.find_opt (fun (c : card) -> c.cost = cost - 3) !cards_ref with
-      | Some c when not c.is_spell ->
+      let best =
+        List.fold_left
+          (fun acc (c : card) ->
+            if c.is_spell || c.cost > cost - 3 then acc
+            else match acc with Some (a : card) when a.cost >= c.cost -> acc | _ -> Some c)
+          None !cards_ref
+      in
+      (match best with
+      | Some c ->
           Slot.destroy slot;
           ignore (Slots.summon p.slots_update env.env_selected (make_creature c))
-      | _ -> ());
+      | None -> ());
       Player.heal p cost
 
 let fiery_flower : card_effect =
@@ -58,8 +65,7 @@ let fiery_flower : card_effect =
   | Some slot ->
       Updater.focus env.env_updater env.env_selected env.env_player true;
       let life = (Slot.get slot).life in
-      Slot.inflict slot
-        (mk_damage ~is_ability:true (int_of_float (ceil (float_of_int life /. 2.))) (ctx_of_env env)));
+      Slot.inflict slot (ability_damage env (int_of_float (ceil (float_of_int life /. 2.)))));
   Houses.incr_mana (player_of_env env).houses_update 1 [ 0 ]
 
 let flower_direct : card_effect =
@@ -101,16 +107,12 @@ let drake_reaction () =
         let me = Reaction.bound_slot r in
         if
           e.s_player.pid = me.slots.player.pid && e.s_num <> me.num && is_sower e.s_card.c_card
-          &&
-          match me.value with
-          | Some st -> has_flag st run_flag
-          | None -> false
+          && match me.value with Some st -> has_flag st run_flag | None -> false
         then (
           Updater.focus me.slots.player.updater me.num me.slots.player.pid true;
           match nearest_empty me.num me.slots.player with
           | None -> ()
-          | Some pos ->
-              Slots.add_creature me.slots.slot_updates.(pos) (make_creature e.s_card.c_card)));
+          | Some pos -> Slots.add_creature me.slots.slot_updates.(pos) (make_creature e.s_card.c_card)));
   }
 
 let cards =
@@ -142,15 +144,4 @@ let () =
   monster_ref := Some (List.nth cards 2);
   cards_ref := cards
 
-let house =
-  {
-    h_key = "sower";
-    h_name = "sower";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = house_id;
-    h_additional_cards = [];
-    h_make_listener = (fun () -> default_listener);
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"sower" ~id:house_id cards

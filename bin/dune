@@ -20,8 +20,8 @@
 
 (executable
  (name gui)
- (modules gui fx)
- (libraries mancer raylib ctypes))
+ (modules gui)
+ (libraries mancer mancer_gui raylib ctypes))
 
 (executable
  (name sync_assets)

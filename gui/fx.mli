@@ -16,6 +16,10 @@ type layout = {
   occupied : player_id -> int list;
   scarecrow : player_id -> int option;
   source_of : command -> spot option;
+  slot_house : Mancer.Sp.player_id -> int -> int option;
+  slot_life : Mancer.Sp.player_id -> int -> int option;
+  slot_card : Mancer.Sp.player_id -> int -> string option;
+  house_cards : Mancer.Sp.player_id -> int -> spot list;
 }
 
 val set_transform : scale:float -> off_x:float -> off_y:float -> unit
@@ -24,6 +28,11 @@ val load : unit -> unit
 val unload : unit -> unit
 val spawn : t -> unit
 val draw_all : now:float -> unit
+
+val set_scroll : float -> unit
+(** The board's current vertical scroll; effects follow it from where they spawned. *)
+val clear : unit -> unit
+(** Drops every overlay effect and shake, e.g. when a rematch starts. *)
 val for_spell : layout -> command -> recipe option
 
 val for_ability :
@@ -31,8 +40,10 @@ val for_ability :
 
 val slot_offset : player_id -> int -> float * float
 val with_grey : bool -> (unit -> unit) -> unit
+
 val with_night : float -> (unit -> unit) -> unit
 (** Draws [f] through the campaign night shader when [amount] is above a hair. *)
+
 val draw_sel : x:float -> y:float -> w:float -> h:float -> unit
 val victory : layout -> winner:player_id option -> you:bool -> start:float -> unit
 

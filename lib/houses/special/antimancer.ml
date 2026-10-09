@@ -4,13 +4,11 @@ open Sp
 open Engine
 open Common
 
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let cost_fn i = i + 2
 let retaliator_ref : card option ref = ref None
 let bombardier_ref : card option ref = ref None
 let mirror_priest_ref : card option ref = ref None
 let angry_mob_ref : card option ref = ref None
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 
 (* Spell: an angry mob in every empty slot that faces an empty slot *)
 let resist : card_effect =
@@ -30,7 +28,7 @@ let bribe : card_effect =
   match Dice.shuffle env.env_updater.rng (Slots.get_open p.slots_update) with
   | [] -> ()
   | num :: _ ->
-      let opp = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+      let opp = opp_slot_of_env env in
       Option.iter
         (fun (st : slot_state) ->
           Slot.destroy opp;
@@ -45,7 +43,7 @@ let cost7_or_less pid (state : game_state) =
 let voodoo : card_effect =
  fun env ->
   let op = other_of_env env in
-  let d = mk_damage ~is_ability:true 1 (ctx_of_env env) in
+  let d = ability_damage env 1 in
   let filled = ref 0 in
   Slots.foreach op.slots_update (fun s ->
       incr filled;
@@ -129,7 +127,8 @@ let antimancer_listener () =
             Slots.foreach p.slots_update (fun s ->
                 match s.value with
                 | Some st
-                  when is_card !bombardier_ref st.card.c_card && not (is_bridled st)
+                  when is_card !bombardier_ref st.card.c_card
+                       && (not (is_bridled st))
                        && d.context.ctx_selected = s.num && d.context.ctx_player = p.pid ->
                     Slots.inflict_creatures op.slots_update d;
                     focus_slot s
@@ -177,14 +176,4 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "antimancer";
-    h_name = "antimancer";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 18;
-    h_additional_cards = [ angry_mob ];
-    h_make_listener = antimancer_listener;
-    h_data = No_player_data;
-  }
+  special_house ~key:"antimancer" ~id:18 ~additional_cards:[ angry_mob ] ~listener:antimancer_listener cards

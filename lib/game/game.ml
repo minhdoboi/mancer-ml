@@ -26,7 +26,7 @@ let init_cards ?(cost_fn = fun i -> i + 1) (h : house) =
     h.h_additional_cards
 
 let deck_costs = [ 1; 2; 3; 4; 5; 6 ]
-let is_special (h : house) = h.h_index = 4
+let is_special (h : house) = h.h_index = special_house_index
 
 (* CardShuffle's HModel picks one special card from each quarter of the
    house; we take the first of each quarter until the deck builder is ported *)
@@ -45,7 +45,7 @@ let empty_special =
     h_key = "none";
     h_name = "none";
     h_cards = [];
-    h_index = 4;
+    h_index = special_house_index;
     h_effects = [];
     h_house_id = 0;
     h_additional_cards = [];
@@ -63,7 +63,7 @@ let make_player_desc ?(special = empty_special) (h : house) =
   }
 
 let special_effects (d : player_desc) =
-  match Array.find_opt (fun h -> h.phd_house.h_index = 4) d.pd_houses with
+  match Array.find_opt (fun h -> h.phd_house.h_index = special_house_index) d.pd_houses with
   | Some h -> h.phd_house.h_effects
   | None -> []
 
@@ -82,7 +82,7 @@ let initial_player_state ?(life = 60) (mana : int list) (d : player_desc) =
     ps_life = life;
     ps_effects = special_effects d;
     ps_data =
-      (match Array.find_opt (fun h -> h.phd_house.h_index = 4) d.pd_houses with
+      (match Array.find_opt (fun h -> h.phd_house.h_index = special_house_index) d.pd_houses with
       | Some h -> h.phd_house.h_data
       | None -> No_player_data);
     ps_transitions = [];
@@ -123,10 +123,13 @@ let commands_for pid (state : game_state) (cd : card_desc) =
   | Select_owner_creature -> List.map (fun n -> command (Some n)) (filled_nums p)
   | Select_target f -> List.map (fun n -> command (Some n)) (f (other pid) state)
   | Select_target_slot -> List.map (fun n -> command (Some n)) (open_nums op)
-  | Select_target_creature -> List.map (fun n -> command (Some n)) (filled_nums op)
+  (* Scala Board/Bot: a hidden Shade Stalker cannot be targeted. *)
+  | Select_target_creature -> List.map (fun n -> command (Some n)) (Shadowmage.visible_creatures op)
   | Select_any_creature ->
       List.map (fun n -> command (Some n)) (filled_nums p)
-      @ List.map (fun n -> command ~flag:(Some Target_other) (Some n)) (filled_nums op)
+      @ List.map
+          (fun n -> command ~flag:(Some Target_other) (Some n))
+          (Shadowmage.visible_creatures op)
 
 let place_rank ~enemy (cmd : command) =
   match cmd.cmd_input with
@@ -141,9 +144,9 @@ let place_rank ~enemy (cmd : command) =
           (0, life, num)
       | _ -> (0, num, 0))
 
-let order_moves ~enemy commands =
+let group_by_card commands =
   let tbl = Hashtbl.create 16 in
-  let cards = ref [] in
+  let ids = ref [] in
   List.iter
     (fun c ->
       let id = c.cmd_card.id in
@@ -151,24 +154,26 @@ let order_moves ~enemy commands =
       | Some xs -> Hashtbl.replace tbl id (c :: xs)
       | None ->
           Hashtbl.add tbl id [ c ];
-          cards := c.cmd_card :: !cards)
+          ids := id :: !ids)
     commands;
-  let groups =
-    List.rev !cards
-    |> List.map (fun card ->
-        let cs = List.rev (Hashtbl.find tbl card.id) in
-        List.stable_sort (fun a b -> compare (place_rank ~enemy a) (place_rank ~enemy b)) cs)
-    |> List.sort (fun a b ->
-        let ca = (List.hd a).cmd_card and cb = (List.hd b).cmd_card in
-        let c = compare cb.cost ca.cost in
-        if c <> 0 then c else compare ca.id cb.id)
+  List.rev_map (fun id -> List.rev (Hashtbl.find tbl id)) !ids
+
+let interleave groups =
+  let rec go acc gs =
+    match List.filter_map (function x :: xs -> Some (x, xs) | [] -> None) gs with
+    | [] -> List.rev acc
+    | heads -> go (List.rev_append (List.map fst heads) acc) (List.map snd heads)
   in
-  let rec round acc gs =
-    match List.filter (fun g -> g <> []) gs with
-    | [] -> acc
-    | keep -> round (acc @ List.map List.hd keep) (List.map List.tl keep)
-  in
-  round [] groups
+  go [] groups
+
+let order_moves ~enemy commands =
+  group_by_card commands
+  |> List.map (List.stable_sort (fun a b -> compare (place_rank ~enemy a) (place_rank ~enemy b)))
+  |> List.sort (fun a b ->
+      let ca = (List.hd a).cmd_card and cb = (List.hd b).cmd_card in
+      let c = compare cb.cost ca.cost in
+      if c <> 0 then c else compare ca.id cb.id)
+  |> interleave
 
 let player_houses pid (desc : game_desc) (state : game_state) =
   let d = desc.gd_players.(pid) in
@@ -208,7 +213,8 @@ let available_commands (u : updater) (p : player_update) =
     | [] -> Array.to_list u.desc.gd_players.(p.pid).pd_houses
     | mods ->
         Array.to_list u.desc.gd_players.(p.pid).pd_houses
-        |> List.map (fun h -> { h with phd_cards = List.fold_left (fun cards m -> m h cards) h.phd_cards mods })
+        |> List.map (fun h ->
+            { h with phd_cards = List.fold_left (fun cards m -> m h cards) h.phd_cards mods })
   in
   let command ?(flag = None) cd input =
     { cmd_player = p.pid; cmd_card = cd.cd_card; cmd_input = input; cmd_cost = cd.cd_cost; cmd_flag = flag }
@@ -222,16 +228,24 @@ let available_commands (u : updater) (p : player_update) =
             Array.to_list pl.slots_update.slot_updates
             |> List.filter_map (fun s -> if Option.is_some s.value then Some s.num else None)
           in
+          (* Scala Board/Bot: a hidden Shade Stalker cannot be targeted. *)
+          let visible_foes =
+            Array.to_list (Player.other p).slots_update.slot_updates
+            |> List.filter_map (fun s ->
+                match s.value with
+                | Some st when st.data <> Stealthed -> Some s.num
+                | _ -> None)
+          in
           match cd.cd_card.input_spec with
           | Select_owner_slot -> List.map (fun n -> command cd (Some n)) open_slots
           | Select_owner_creature -> List.map (fun n -> command cd (Some n)) (filled p)
-          | Select_target_creature -> List.map (fun n -> command cd (Some n)) (filled (Player.other p))
+          | Select_target_creature -> List.map (fun n -> command cd (Some n)) visible_foes
           | Select_target_slot ->
               (* Bot.scala:229: the opponent's open slots *)
               List.map (fun n -> command cd (Some n)) (Slots.get_open (Player.other p).slots_update)
           | Select_any_creature ->
               List.map (fun n -> command cd (Some n)) (filled p)
-              @ List.map (fun n -> command ~flag:(Some Target_other) cd (Some n)) (filled (Player.other p))
+              @ List.map (fun n -> command ~flag:(Some Target_other) cd (Some n)) visible_foes
           | Select_owner f -> List.map (fun n -> command cd (Some n)) (f p.pid u.state)
           | Select_target f -> List.map (fun n -> command cd (Some n)) (f (other p.pid) u.state)
           | No_input -> [ command cd None ])

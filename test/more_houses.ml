@@ -411,6 +411,14 @@ let schizo_silences_opposite () =
   check_bool "released" false (is_bridled u 1 0);
   check_string "still there" "fire.wall" (Option.get (occupant u 1 0))
 
+let schizo_does_not_trigger_bennu () =
+  let u = new_duel ~special0:Warp.house ~special1:Highpriest.house () in
+  place u 1 "highpriest.Bennu" 0;
+  place u 0 "warp.schizo" 0;
+  check_string "still bennu" "highpriest.Bennu" (Option.get (occupant u 1 0));
+  check_bool "silenced" true (is_bridled u 1 0);
+  check_int "schizo not hit by the dying attack" 22 (life_at u 0 0)
+
 let stranger_copies_power () =
   let u = new_game ~mana:all_mana ~special:Warp.house () in
   place u 0 "warp.stranger" 0;
@@ -426,6 +434,18 @@ let stranger_merges () =
   check_bool "with the opposite effects" true (st.card.c_card.effects == opp.effects);
   check_int "attack is still the stranger's" 10 st.attack;
   check_int "life is the stranger's" 30 st.life
+
+(* The merge destroys the Stranger and drops the merged creature into its slot: a
+   new occupant needs a new slot id, or the Stranger's death fade keeps hiding it *)
+let stranger_merge_makes_a_new_occupant () =
+  let u = new_game ~mana:all_mana ~special:Warp.house () in
+  place u 1 "fire.monk" 0;
+  place u 0 "warp.stranger" 0;
+  let before = (Option.get (slot u 0 0).value).slot_id in
+  step u (fun () -> Player.apply_effects (player u 0) Direct);
+  let st = Option.get (slot u 0 0).value in
+  check_string "merged" "warp.stranger" st.card.c_card.key;
+  check_bool "new occupant" true (st.slot_id <> before)
 
 let photographer_replaces_neighbour () =
   let u = new_game ~special:Warp.house () in
@@ -617,8 +637,10 @@ let () =
           test_case "queen" `Quick queen_silences_for_two_turns;
           test_case "cloak" `Quick cloak_adds_the_creature;
           test_case "schizo" `Quick schizo_silences_opposite;
+          test_case "schizo bennu" `Quick schizo_does_not_trigger_bennu;
           test_case "stranger power" `Quick stranger_copies_power;
           test_case "stranger merge" `Quick stranger_merges;
+          test_case "stranger merge occupant" `Quick stranger_merge_makes_a_new_occupant;
           test_case "photographer" `Quick photographer_replaces_neighbour;
           test_case "photographer far" `Quick photographer_ignores_far_deaths;
           test_case "errant" `Quick errant_hides_after_a_kill;

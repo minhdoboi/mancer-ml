@@ -10,7 +10,6 @@ open Engine
 open Common
 
 let photographer_ref : card option ref = ref None
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 
 (* --------------------------------------------------------- silenced cards *)
 
@@ -66,7 +65,7 @@ let quake : card_effect =
   Slots.foreach op.slots_update (fun slot ->
       let h = (Slot.get slot).card.c_card.house_index in
       let amount = abs (mine.(h).mana - op.houses_update.hu_value.(h).mana) in
-      Slot.inflict slot (mk_damage ~is_spell:true amount (ctx_of_env env)))
+      Slot.inflict slot (spell_damage env amount))
 
 let ram : card_effect =
  fun env ->
@@ -83,7 +82,7 @@ let queen : card_effect =
  fun env ->
   let op = other_of_env env in
   Slots.foreach op.slots_update (fun slot -> bridle (slot.remove_hook None) slot);
-  Slots.inflict_creatures op.slots_update (mk_damage ~is_ability:true 4 (ctx_of_env env));
+  Slots.inflict_creatures op.slots_update (ability_damage env 4);
   Player.add_effect (player_of_env env)
     (On_end_turn, countdown 2 (fun env -> Slots.foreach (other_of_env env).slots_update unbridle))
 
@@ -117,7 +116,7 @@ let merge_stranger (s : creature) (c : creature) : creature =
 
 let merge : card_effect =
  fun env ->
-  let slot = slot_of_env env in
+  let slot = own_slot_of_env env in
   Option.iter
     (fun (opp : slot_state) ->
       let s = Slot.get slot in
@@ -128,6 +127,9 @@ let merge : card_effect =
         {
           s with
           card = merged;
+          (* Scala reuses [s.id]; here the id is also what the board keys its
+             death fade on, so the new occupant needs a fresh one *)
+          slot_id = fresh_slot_id ();
           attack_sources = b.b_attack;
           reaction = merged.c_body.b_new_reaction ();
           data = merged.c_body.b_data;
@@ -144,7 +146,7 @@ let cloak_source =
 
 let cloak_mana : card_effect =
  fun env ->
-  match (slot_of_env env).value with
+  match (own_slot_of_env env).value with
   | Some { data = Cloaked c; _ } ->
       Houses.incr_mana (player_of_env env).houses_update 2 [ c.card.c_card.house_index ]
   | _ -> ()
@@ -254,16 +256,14 @@ let warp_listener () =
         let op = other_player p in
         Array.iter
           (fun h ->
-            if h.phd_house.h_index = 4 && h.phd_house.h_key <> "warp" then
+            if h.phd_house.h_index = special_house_index && h.phd_house.h_key <> "warp" then
               match h.phd_house.h_key with
               | "limbo" | "colors" | "soulbinder" | "reaper" -> ()
               | _ -> inner := h.phd_house.h_make_listener ())
           p.updater.desc.gd_players.(op.pid).pd_houses;
         !inner.hl_init p;
         init_owner_death p;
-        match op.pstate.ps_data with
-        | No_player_data | Reaper_data _ -> ()
-        | data -> Player.set_data p data);
+        match op.pstate.ps_data with No_player_data | Reaper_data _ -> () | data -> Player.set_data p data);
   }
 
 let errant =
@@ -301,15 +301,4 @@ let cards =
       ();
   ]
 
-let house =
-  {
-    h_key = "warp";
-    h_name = "warp";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 15;
-    h_additional_cards = [];
-    h_make_listener = warp_listener;
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"warp" ~id:15 ~listener:warp_listener cards

@@ -6,27 +6,34 @@ open Engine
 open Common
 
 let house_id = 37
-let empty_wolf = { wo_protection = 0; wo_fury = None; wo_bonus = 0; wo_hunting = 0; wo_mates = []; wo_shadows = []; wo_enhanced = [] }
+
+let empty_wolf =
+  {
+    wo_protection = 0;
+    wo_fury = None;
+    wo_bonus = 0;
+    wo_hunting = 0;
+    wo_mates = [];
+    wo_shadows = [];
+    wo_enhanced = [];
+  }
+
 let get_wolf p = match p.pstate.ps_data with Wolf_data d -> d | _ -> empty_wolf
 let set_wolf p d = Player.set_data p (Wolf_data d)
 let update_wolf p f = set_wolf p (f (get_wolf p))
 let add_num xs n = if List.mem n xs then xs else n :: xs
 let rem_num xs n = List.filter (( <> ) n) xs
-
 let wolf_ref : card option ref = ref None
 let protector_ref : card option ref = ref None
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let is_wolf c = is_card !wolf_ref c
 let is_protector c = is_card !protector_ref c
-
 let wolf_attack_bonus = Attack_state_func (fun a p -> a + (get_wolf p).wo_bonus)
-
 let hunt_bonus = Attack_func (fun a -> a + 2)
 let one_attack_bonus = Attack_func (fun a -> a + 1)
 
 let wolf_mod : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index < 4 then cards
+  if house.phd_house.h_index < special_house_index then cards
   else
     match !wolf_ref with
     | None -> cards
@@ -37,7 +44,7 @@ let wolf_mod : desc_mod =
 
 let decr_special_cost_mod : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index < 4 then cards
+  if house.phd_house.h_index < special_house_index then cards
   else Array.map (fun c -> { c with cd_cost = max 0 (c.cd_cost - 1) }) cards
 
 let max_attack (p : player_update) default =
@@ -104,9 +111,7 @@ let hunter_reaction () =
     r with
     on_add =
       (fun slot ->
-        match slot.value with
-        | Some st when is_wolf st.card.c_card -> add_attack slot hunt_bonus
-        | _ -> ());
+        match slot.value with Some st when is_wolf st.card.c_card -> add_attack slot hunt_bonus | _ -> ());
     on_remove =
       (fun slot ->
         match slot.value with
@@ -115,7 +120,9 @@ let hunter_reaction () =
     on_my_remove =
       (fun dead ->
         let me = Reaction.bound_slot r in
-        Option.iter (fun s -> remove_first_attack s hunt_bonus) (Slots.find_card me.slots (Option.get !wolf_ref));
+        Option.iter
+          (fun s -> remove_first_attack s hunt_bonus)
+          (Slots.find_card me.slots (Option.get !wolf_ref));
         Option.iter (fun d -> update_wolf d.d_player (fun w -> { w with wo_hunting = w.wo_hunting - 1 })) dead);
   }
 
@@ -150,8 +157,9 @@ let mate_reaction () =
   }
 
 let wolf =
-  creature ~key:"shaman.ghost" ~attack:{ base = Some 2; sources = [ wolf_attack_bonus ] } ~life:18
-    ~description:"shaman.ghost.description" ~new_reaction:wolf_reaction
+  creature ~key:"shaman.ghost"
+    ~attack:{ base = Some 2; sources = [ wolf_attack_bonus ] }
+    ~life:18 ~description:"shaman.ghost.description" ~new_reaction:wolf_reaction
     ~run_attack:(custom_run_attack wolf_attack)
     ~effects:
       (effects
@@ -170,9 +178,7 @@ let () =
 let shadow_attack =
   Attack_state_func
     (fun a p ->
-      match Slots.find_card p.slots_update wolf with
-      | Some s -> a + (Slot.get s).attack - 2
-      | None -> a)
+      match Slots.find_card p.slots_update wolf with Some s -> a + (Slot.get s).attack - 2 | None -> a)
 
 let init_wolf : card_effect =
  fun env ->
@@ -205,7 +211,7 @@ let rage : card_effect =
           let n = match List.assoc_opt id w.wo_enhanced with Some x -> x + 1 | None -> 1 in
           { w with wo_enhanced = (id, n) :: List.remove_assoc id w.wo_enhanced });
       add_attack s one_attack_bonus)
-    (Slot.filled_adjacent (player_of_env env).slots_update.slot_updates.(env.env_selected))
+    (Slot.filled_adjacent (own_slot_of_env env))
 
 let full_moon : card_effect =
  fun env ->
@@ -216,7 +222,8 @@ let full_moon : card_effect =
     (Slots.find_card p.slots_update wolf);
   Player.heal p 8
 
-let remove_fury : card_effect = fun env -> update_wolf (player_of_env env) (fun w -> { w with wo_fury = None })
+let remove_fury : card_effect =
+ fun env -> update_wolf (player_of_env env) (fun w -> { w with wo_fury = None })
 
 let phantom_fury : card_effect =
  fun env ->
@@ -244,7 +251,7 @@ let shade : card_effect =
 let mate : card_effect =
  fun env ->
   let p = player_of_env env in
-  Player.inflict (other_of_env env) (mk_damage ~is_ability:true 8 (ctx_of_env env));
+  Player.inflict (other_of_env env) (ability_damage env 8);
   update_wolf p (fun w -> { w with wo_mates = add_num w.wo_mates env.env_selected });
   Player.add_desc_mod p decr_special_cost_mod
 
@@ -296,7 +303,9 @@ let cards =
     creature ~key:"shaman.rage" ~attack:(attack 2) ~life:10 ~description:"shaman.rage.description"
       ~effects:(effects [ (Direct, rage) ])
       ();
-    spell ~key:"shaman.moon" ~description:"shaman.moon.description" ~effects:(effects [ (Direct, full_moon) ]) ();
+    spell ~key:"shaman.moon" ~description:"shaman.moon.description"
+      ~effects:(effects [ (Direct, full_moon) ])
+      ();
     spell ~key:"shaman.fury" ~description:"shaman.fury.description"
       ~effects:(effects [ (Direct, phantom_fury) ])
       ();
@@ -306,8 +315,9 @@ let cards =
       ~new_reaction:hunter_reaction
       ~effects:(effects [ (Direct, hunt) ])
       ();
-    creature ~key:"shaman.shadow" ~attack:{ base = Some 4; sources = [ shadow_attack ] } ~life:45
-      ~description:"shaman.shadow.description" ~new_reaction:shadow_reaction
+    creature ~key:"shaman.shadow"
+      ~attack:{ base = Some 4; sources = [ shadow_attack ] }
+      ~life:45 ~description:"shaman.shadow.description" ~new_reaction:shadow_reaction
       ~run_attack:(custom_run_attack wolf_attack)
       ~effects:(effects [ (Direct, shade) ])
       ();
@@ -320,14 +330,6 @@ let cards =
 let () = protector_ref := Some (List.nth cards 4)
 
 let house =
-  {
-    h_key = "shaman";
-    h_name = "shaman";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [ (On_start, init_wolf) ];
-    h_house_id = house_id;
-    h_additional_cards = [ wolf ];
-    h_make_listener = shaman_listener;
-    h_data = Wolf_data empty_wolf;
-  }
+  special_house ~key:"shaman" ~id:house_id
+    ~effects:[ (On_start, init_wolf) ]
+    ~additional_cards:[ wolf ] ~listener:shaman_listener ~data:(Wolf_data empty_wolf) cards

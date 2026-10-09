@@ -39,9 +39,7 @@ type plan = {
 
 let contains t sub =
   let n = String.length t and m = String.length sub in
-  let rec go i =
-    if i + m > n then false else if String.sub t i m = sub then true else go (i + 1)
-  in
+  let rec go i = if i + m > n then false else if String.sub t i m = sub then true else go (i + 1) in
   if m = 0 then true else go 0
 
 let hits t words = List.fold_left (fun n w -> if contains t w then n + 1 else n) 0 words
@@ -49,7 +47,7 @@ let hits t words = List.fold_left (fun n w -> if contains t w then n + 1 else n)
 let numbers t =
   let n = String.length t in
   let rec go i acc cur =
-    if i >= n then (match cur with Some x -> List.rev (x :: acc) | None -> List.rev acc)
+    if i >= n then match cur with Some x -> List.rev (x :: acc) | None -> List.rev acc
     else
       match t.[i] with
       | '0' .. '9' as c ->
@@ -60,8 +58,7 @@ let numbers t =
   go 0 [] None
 
 let number_bonus t words =
-  if hits t words = 0 then 0.
-  else min 0.6 (float_of_int (List.fold_left max 0 (numbers t)) /. 30.)
+  if hits t words = 0 then 0. else min 0.6 (float_of_int (List.fold_left max 0 (numbers t)) /. 30.)
 
 let capped x maxv = min maxv (max 0. x)
 
@@ -83,8 +80,8 @@ let score_creature (p : profile) t =
   let presence =
     capped (float_of_int (p.attack + p.life) /. float_of_int ((5 * p.cost) + 5)) 1.2
     +. capped (float_of_int (hits t [ "summon"; "spawn"; "reborn"; "rebirth" ]) *. 0.5) 1.
-    +. (if contains t "immune" || contains t "invulnerab" || contains t "absorb" || contains t "redirect"
-        then 0.3
+    +. (if contains t "immune" || contains t "invulnerab" || contains t "absorb" || contains t "redirect" then
+          0.3
         else 0.)
     +. (if p.invincible then 0.3 else 0.)
     +. if p.altar then 0.4 else 0.
@@ -144,7 +141,9 @@ let profile_of (c : card) =
       }
 
 let score_card c text = score_profile (profile_of c) text
-let weighted (r : roles) (w : weights) = (r.heal *. w.heal) +. (r.damage *. w.damage) +. (r.presence *. w.presence) +. (r.mana *. w.mana)
+
+let weighted (r : roles) (w : weights) =
+  (r.heal *. w.heal) +. (r.damage *. w.damage) +. (r.presence *. w.presence) +. (r.mana *. w.mana)
 
 module Params = struct
   let cost_tie_break = 0.05
@@ -201,7 +200,8 @@ let for_tempo_plan t confidence =
     max_depth = (if tc < Params.tempo_low then Params.depth_value else Params.depth_tempo);
     branch_top_k =
       int_of_float
-        (Float.round (mix Params.width_value ((Params.width_value +. Params.width_tempo) /. 2.) Params.width_tempo));
+        (Float.round
+           (mix Params.width_value ((Params.width_value +. Params.width_tempo) /. 2.) Params.width_tempo));
     focus;
   }
 
@@ -217,12 +217,15 @@ let arms t confidence =
 let tempo_of r = (r.damage *. 0.6) -. (r.heal *. 0.4) -. (r.mana *. 0.5) -. (r.presence *. 0.2)
 
 let read_tempo ~house ~known =
-  let avg rs = if rs = [] then 0. else List.fold_left (fun a r -> a +. tempo_of r) 0. rs /. float_of_int (List.length rs) in
+  let avg rs =
+    if rs = [] then 0. else List.fold_left (fun a r -> a +. tempo_of r) 0. rs /. float_of_int (List.length rs)
+  in
   let house_score = avg house and known_score = avg known in
   let known_weight = min 1. (float_of_int (List.length known) /. 4.) in
   let blended = (house_score *. (1. -. (0.5 *. known_weight))) +. (known_score *. (0.5 *. known_weight)) in
   let tempo =
-    max 0. (min 1. ((blended -. Params.value_threshold) /. (Params.tempo_threshold -. Params.value_threshold)))
+    max 0.
+      (min 1. ((blended -. Params.value_threshold) /. (Params.tempo_threshold -. Params.value_threshold)))
   in
   let confidence = min 1. (0.55 +. (0.1 *. float_of_int (List.length known))) in
   (tempo, confidence)
@@ -252,38 +255,21 @@ let bandit_bonus b arm =
 
 let now_ms () = int_of_float (Unix.gettimeofday () *. 1000.)
 let synergy_of w bot_id state = Heuris.synergy ~weights:(w.heal, w.damage, w.presence, w.mana) ~bot_id state
-
-let text_of c = try Assets.describe c with _ -> c.name
+let text_of state pid = Assets.describe ~state ~player:pid
 
 let order_strategic moves plan role_of =
-  let score (c : command) = weighted (role_of c.cmd_card) plan.weights +. (Params.cost_tie_break *. float_of_int c.cmd_card.cost) in
-  let tbl = Hashtbl.create 16 in
-  let cards = ref [] in
-  List.iter
-    (fun (c : command) ->
-      match Hashtbl.find_opt tbl c.cmd_card.id with
-      | Some xs -> Hashtbl.replace tbl c.cmd_card.id (c :: xs)
-      | None ->
-          Hashtbl.add tbl c.cmd_card.id [ c ];
-          cards := c.cmd_card :: !cards)
-    moves;
-  let groups =
-    List.rev !cards
-    |> List.map (fun card -> List.rev (Hashtbl.find tbl card.id))
-    |> List.sort (fun a b ->
-        let ca = List.hd a and cb = List.hd b in
-        let c = compare (score cb) (score ca) in
-        if c <> 0 then c
-        else
-          let d = compare cb.cmd_card.cost ca.cmd_card.cost in
-          if d <> 0 then d else compare ca.cmd_card.id cb.cmd_card.id)
+  let score (c : command) =
+    weighted (role_of c.cmd_card) plan.weights +. (Params.cost_tie_break *. float_of_int c.cmd_card.cost)
   in
-  let rec round acc gs =
-    match List.filter (fun g -> g <> []) gs with
-    | [] -> acc
-    | keep -> round (acc @ List.map List.hd keep) (List.map List.tl keep)
-  in
-  round [] groups
+  Game.group_by_card moves
+  |> List.sort (fun a b ->
+      let ca = List.hd a and cb = List.hd b in
+      let c = compare (score cb) (score ca) in
+      if c <> 0 then c
+      else
+        let d = compare cb.cmd_card.cost ca.cmd_card.cost in
+        if d <> 0 then d else compare ca.cmd_card.id cb.cmd_card.id)
+  |> Game.interleave
 
 type node = {
   mutable pending : command option list;
@@ -319,9 +305,7 @@ let rec pull ~bot_id n =
 
 let score_leaf ~bot_id ~plan ~start_syn ~heuris n parents =
   let raw =
-    match n.ended with
-    | Some p -> if p = bot_id then 1. else -1.
-    | None -> heuris n.from n.player_id
+    match n.ended with Some p -> if p = bot_id then 1. else -1. | None -> heuris n.from n.player_id
   in
   let reward = raw *. (plan.gamma ** float_of_int n.depth) in
   n.scored <- true;
@@ -350,8 +334,7 @@ let fill ~desc ~plan ~role_of n =
     n.pending <- List.map (fun c -> Some c) first @ (None :: List.map (fun c -> Some c) rest);
     n.survey <- min (n_cards + 1) (plan.branch_top_k + 1))
 
-let rec max_by f = function [] -> invalid_arg "empty" | x :: xs -> List.fold_left (fun a b -> if f b > f a then b else a) x xs
-
+let max_by = Util.max_by
 let needs n = n.pending <> [] && Option.is_none n.ended && n.value > -1.
 
 let search settings ~pid ~desc start plan role_of =
@@ -416,7 +399,9 @@ let search settings ~pid ~desc start plan role_of =
         let floor =
           List.filter (fun t -> not (needs t)) trees |> List.fold_left (fun m t -> max m t.value) (-1.1)
         in
-        match List.filter (fun t -> t.value >= floor) open_ with [] -> None | live -> Some (max_by (fun t -> t.value) live)
+        match List.filter (fun t -> t.value >= floor) open_ with
+        | [] -> None
+        | live -> Some (max_by (fun t -> t.value) live)
   in
   let rec focus n parents =
     if Option.is_some n.ended || n.depth >= plan.max_depth then if n.scored then None else Some (n, parents)
@@ -437,9 +422,7 @@ let search settings ~pid ~desc start plan role_of =
       | _ -> ()
   in
   loop ();
-  match root.children with
-  | [] -> None
-  | kids -> (max_by (fun c -> c.value) kids).command
+  match root.children with [] -> None | kids -> (max_by (fun c -> c.value) kids).command
 
 let probe ~desc ~pid start plan role_of =
   let moves = order_strategic (Game.legal_commands pid desc start) plan role_of in
@@ -457,7 +440,8 @@ let probe ~desc ~pid start plan role_of =
         max best v)
       neg_infinity top
 
-let is_fresh st = Array.for_all (fun p -> p.ps_life = 60 && Array.for_all Option.is_none p.ps_slots) st.players
+let is_fresh st =
+  Array.for_all (fun p -> p.ps_life = 60 && Array.for_all Option.is_none p.ps_slots) st.players
 
 let baseline ~bot_id state =
   (0.7 *. Heuris.of_state ~bot_id ~to_move:bot_id state)
@@ -473,22 +457,28 @@ let execute_with settings ~bandit ~pending ~pid ~desc start =
     (match !pending with Some (arm, prev) -> bandit_update bandit arm (base -. prev) | None -> ());
     let special = start.players.(other pid).ps_desc.init_desc.pd_houses.(4).phd_house in
     let house_roles =
-      (special.h_cards @ special.h_additional_cards) |> List.map (fun c -> score_card c (text_of c))
+      special.h_cards @ special.h_additional_cards |> List.map (fun c -> score_card c (text_of start pid c))
     in
     let tempo, confidence = read_tempo ~house:house_roles ~known:[] in
-    let role_of c = score_card c (text_of c) in
+    let role_of c = score_card c (text_of start pid c) in
     let arm_plans = arms tempo confidence in
     let scored =
       List.mapi
         (fun a p ->
           let probe_v = probe ~desc ~pid start p role_of in
           let score =
-            (Params.bandit_alpha *. probe_v) +. ((1. -. Params.bandit_alpha) *. bandit.values.(a)) +. bandit_bonus bandit a
+            (Params.bandit_alpha *. probe_v)
+            +. ((1. -. Params.bandit_alpha) *. bandit.values.(a))
+            +. bandit_bonus bandit a
           in
           (p, a, score))
         arm_plans
     in
-    let win_plan, win_arm, _ = List.fold_left (fun ((_, _, s) as acc) ((_, _, s2) as x) -> if s2 > s then x else acc) (List.hd scored) (List.tl scored) in
+    let win_plan, win_arm, _ =
+      List.fold_left
+        (fun ((_, _, s) as acc) ((_, _, s2) as x) -> if s2 > s then x else acc)
+        (List.hd scored) (List.tl scored)
+    in
     pending := Some (win_arm, base);
     if settings.logging then
       Printf.printf "strategist tempo=%.2f conf=%.2f arm=%d gamma=%.2f depth=%d width=%d\n%!" tempo confidence
@@ -500,4 +490,4 @@ let execute settings ~pid ~desc start =
 
 let mover settings =
   let bandit = bandit_make () and pending = ref None in
-  fun u pid -> execute_with settings ~bandit ~pending ~pid ~desc:u.desc u.state
+  Belief.blind (execute_with settings ~bandit ~pending)

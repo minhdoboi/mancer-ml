@@ -116,6 +116,16 @@ let titan_hits_opposite () =
   play u 0 "air.titan" ~input:(Some 1) ~cost:12;
   check_int "dragon 41 - 15" 26 (life_at u 1 1)
 
+let lightning_desc_fills_air_damage () =
+  let u = new_game ~mana:[ 4; 4; 7; 4 ] () in
+  let c = card_by_key "air.lightnin" in
+  match c.desc_args with
+  | None -> Alcotest.fail "lightning should compute [{0}] damage"
+  | Some f ->
+      Alcotest.(check (list string)) "5 + 7 air" [ "12" ] (f u.state 0);
+      let text = Assets.describe ~state:u.state ~player:0 c in
+      check_bool "placeholder filled" true (not (String.contains text '{'))
+
 (* ------------------------------------------------------------------ earth *)
 
 let hermit_earth_growth () =
@@ -412,6 +422,23 @@ let prisoner_spawns () =
   check_bool "a prisoner arrived" true
     (List.exists (fun n -> occupant u 0 n = Some "disciples.prisoner") [ 0; 1; 2; 3; 4; 5 ])
 
+let prisoner_death_drains_highest_mana () =
+  let u = new_game ~special:Disciples.house ~mana:[ 5; 4; 4; 3; 6 ] () in
+  place u 0 "disciples.prisoner" 1;
+  let mana () = Array.to_list (Array.map (fun h -> h.mana) (player u 0).houses_update.hu_value) in
+  let before = mana () in
+  step u (fun () -> Slot.destroy (slot u 0 1));
+  let after = mana () in
+  let dropped =
+    List.fold_left2
+      (fun n (i, a) (_, b) -> n + if i < 4 && a > b then 1 else 0)
+      0
+      (List.mapi (fun i x -> (i, x)) before)
+      (List.mapi (fun i x -> (i, x)) after)
+  in
+  check_int "two basics lose 1" 2 dropped;
+  check_int "special +1" (List.nth before 4 + 1) (List.nth after 4)
+
 let liberator_enrages () =
   let u = new_game ~mana0:10 ~special:Disciples.house () in
   place u 0 "disciples.prisoner" 1;
@@ -472,6 +499,7 @@ let () =
           test_case "twister" `Quick twister_destroys;
           test_case "cloud multi" `Quick cloud_is_multi;
           test_case "titan" `Quick titan_hits_opposite;
+          test_case "lightning desc" `Quick lightning_desc_fills_air_damage;
         ] );
       ( "earth",
         [
@@ -520,6 +548,7 @@ let () =
       ( "disciples",
         [
           test_case "prisoner spawn" `Quick prisoner_spawns;
+          test_case "prisoner death mana" `Quick prisoner_death_drains_highest_mana;
           test_case "liberator" `Quick liberator_enrages;
           test_case "shared cost mod" `Quick shared_cost_mod_survives;
         ] );

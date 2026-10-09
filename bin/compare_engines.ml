@@ -20,21 +20,9 @@ let default_scala () =
   | Some p -> p
   | None -> Filename.concat (Filename.dirname (mancer_root ())) "freespectrogdx"
 
-let value argv key =
-  let rec go = function a :: v :: _ when a = key -> Some v | _ :: xs -> go xs | [] -> None in
-  go (Array.to_list argv)
-
-let read_file path =
-  let ic = open_in_bin path in
-  let s = really_input_string ic (in_channel_length ic) in
-  close_in ic;
-  s
-
-let write_file path s =
-  let oc = open_out_bin path in
-  output_string oc s;
-  close_out oc
-
+let value = Util.flag_value
+let read_file = Util.read_file
+let write_file = Util.write_file
 let mkdir_p dir = if not (Sys.file_exists dir) then Unix.mkdir dir 0o755
 
 let run_scala ~scala_dir ~in_path ~out_path =

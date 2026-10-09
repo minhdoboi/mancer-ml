@@ -8,7 +8,6 @@ let wolf_ref : card option ref = ref None
 let warlock_ref : card option ref = ref None
 let knight_ref : card option ref = ref None
 let lake_ref : card option ref = ref None
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 
 (* Same as zen's elementesist: hits every enemy creature sharing the
    opposite creature's element (house index), or the player if empty. *)
@@ -97,7 +96,7 @@ let dark_mystic_reaction () =
 
 let horror : card_effect =
  fun env ->
-  let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = own_slot_of_env env in
   match (Slot.opposite slot).value with
   | None -> ()
   | Some st -> Player.add_desc_mod (other_of_env env) (destroyed_mod st.card.c_card)
@@ -190,7 +189,7 @@ let darksider_listener () =
             Array.iter
               (fun s ->
                 match s.value with
-                | Some st when s.num <> dead.d_num && st.card.c_card.house_index = 4 ->
+                | Some st when s.num <> dead.d_num && st.card.c_card.house_index = special_house_index ->
                     st.reaction.on_death dead
                 | _ -> ())
               p.slots_update.slot_updates));
@@ -239,16 +238,4 @@ let () =
   lake_ref := Some lake
 
 let cards = [ fallen; wolf_spider; black_knight; mystic; faceless; lake; warlock; dragon ]
-
-let house =
-  {
-    h_key = "darksider";
-    h_name = "darksider";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 10;
-    h_additional_cards = [];
-    h_make_listener = darksider_listener;
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"darksider" ~id:10 ~listener:darksider_listener cards

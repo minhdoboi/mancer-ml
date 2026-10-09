@@ -9,13 +9,11 @@ open Sp
 open Engine
 open Common
 
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let discolor_phase = "discolor phase"
 let violet_ref : card option ref = ref None
 let azure_ref : card option ref = ref None
 let empty_attack = { base = None; sources = [] }
 let gold_bonus = Attack_func (fun a -> a + 1)
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 let cost_fn i = match i with 0 -> 0 | 1 -> 1 | 2 | 3 -> 2 | 4 -> 3 | 5 | 6 | 7 -> 4 | n -> n
 let get_slot_x = function Color_x (x, _) -> x | _ -> 0
 let slot_x (s : slot_update) = match s.value with Some st -> get_slot_x st.data | None -> 0
@@ -25,7 +23,7 @@ let set_player p d = Player.set_data p (Color_data d)
 
 let incr_special_cost_mod x : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index <> 4 then cards
+  if house.phd_house.h_index <> special_house_index then cards
   else Array.map (fun cd -> { cd with cd_cost = cd.cd_cost + x }) cards
 
 let lower_2x_cost_mod x : desc_mod =
@@ -52,7 +50,7 @@ let is_multi (c : card) = is_multi_card c
 
 let discolor : card_effect =
  fun env ->
-  Slot.destroy (slot_of_env env);
+  Slot.destroy (own_slot_of_env env);
   Player.add_transition (player_of_env env) (Wait_player (env.env_player, Some discolor_phase))
 
 let violet_effect : card_effect =
@@ -60,8 +58,8 @@ let violet_effect : card_effect =
 
 let azure_effect : card_effect =
  fun env ->
-  let x = slot_x (slot_of_env env) in
-  let d = mk_damage ~is_ability:true 4 (ctx_of_env env) in
+  let x = slot_x (own_slot_of_env env) in
+  let d = ability_damage env 4 in
   Slots.foreach (player_of_env env).slots_update (fun slot ->
       match slot.value with
       | Some st when st.card.c_card.cost > x - 2 && st.card.c_card.cost < x + 2 -> Slot.inflict slot d
@@ -69,7 +67,7 @@ let azure_effect : card_effect =
 
 let silver : card_effect =
  fun env ->
-  let x = slot_x (slot_of_env env) in
+  let x = slot_x (own_slot_of_env env) in
   Slots.heal_creatures (player_of_env env).slots_update (x - 1);
   if x > 5 then Houses.incr_mana (player_of_env env).houses_update (-1) [ 4 ]
 
@@ -206,7 +204,7 @@ let color_listener () =
             let prev = color_player_of p.pstate.ps_data in
             set_player p { prev with cp_x = p.houses_update.hu_value.(4).mana };
             let r = old_submit c in
-            if c.cmd_card.house_index = 4 then (
+            if c.cmd_card.house_index = special_house_index then (
               let hide = hide_card_mod c.cmd_card in
               Player.add_desc_mod p hide;
               let cur = color_player_of p.pstate.ps_data in
@@ -233,7 +231,7 @@ let color_listener () =
         p.slots_update.on_dead_hook <-
           (fun dead ->
             old_dead dead;
-            if dead.d_slot.card.c_card.house_index = 4 then
+            if dead.d_slot.card.c_card.house_index = special_house_index then
               let cur = color_player_of p.pstate.ps_data in
               match List.partition (fun (id, _) -> id = dead.d_slot.card.c_card.id) cur.cp_hidden with
               | (_, m) :: rest, keep ->
@@ -289,14 +287,6 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "colors";
-    h_name = "colors";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 23;
-    h_additional_cards = [];
-    h_make_listener = color_listener;
-    h_data = Color_data { cp_x = 0; cp_hidden = [] };
-  }
+  special_house ~key:"colors" ~id:23 ~listener:color_listener
+    ~data:(Color_data { cp_x = 0; cp_hidden = [] })
+    cards

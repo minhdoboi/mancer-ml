@@ -24,6 +24,10 @@ val default_setup : setup
 val seat_name : seat -> string
 (** ["human"] or the bot id. *)
 
+val random_starter : ?rng:Random.State.t -> unit -> player_id
+(** A coin flip for who takes the first turn, like Scala's duel [Local].
+    Campaign fights keep their scripted starter instead. *)
+
 val player_portraits : string list
 (** The faces a human seat can wear (Scala [Portraits.players]). *)
 
@@ -62,6 +66,10 @@ val campaign_setup : ?budget_ms:int -> ?seed:int -> player_special:string -> Cam
 val start : ?on_event:(game_event -> unit) -> setup -> t
 (** Deals both decks and opens the session. [on_event] is as in {!Session.create}. Raises [Failure] for an
     unknown special or bot id. *)
+
+val start_swapped : ?on_event:(game_event -> unit) -> ?keep_starter:bool -> ?budget_ms:int -> t -> t
+(** Same opening hands with the two sides swapped. Seats stay; [starting] flips unless [keep_starter] is set
+    (campaign). *)
 
 val session : t -> Session.t
 val setup : t -> setup
@@ -107,3 +115,40 @@ val save : t -> dir:string -> string
 val event_line : ?name:(card -> string) -> game_event -> string option
 (** A one-line description for a game log; [None] for events not worth a line ([Ev_refresh], [Ev_focus]).
     [name] shows a card (default its [name], which is an i18n key for most houses). *)
+
+(** {1 Lobby}
+
+    Logic the terminal and raylib lobbies share. *)
+
+val budget_options : int list
+(** Bot think times offered in the settings, in ms. *)
+
+val languages : string list
+
+val faces_for_seat : seat -> string list
+(** The portraits a seat can wear: the player faces for a human, the bot's faces otherwise. *)
+
+val clamp_portrait : seat -> string -> string
+(** [id] if the seat can wear it, else the seat's first face. *)
+
+val seat_of_string : fallback:[ `Human | `Bot of string ] -> string -> seat
+(** A persisted seat name; unknown bot ids fall back. *)
+
+val duel_of_prefs : ?bot_opponent:bool -> Prefs.t -> (seat * string) * (seat * string)
+(** The saved duel as [(seat, portrait)] per side. The AI side follows its saved face and that face's bot.
+    With [~bot_opponent:true] a human fallback on the AI side becomes the oracle bot. *)
+
+val persist_duel : (seat * string) * (seat * string) -> unit
+(** Writes seats and portraits (and the AI face, when the second seat is a bot) to the prefs file. *)
+
+val human_to_move : t -> player_id option
+(** The player to move, when a human holds that seat. *)
+
+(** What a human selecting a card should see happen. *)
+type pick =
+  | Not_enough_mana
+  | No_target
+  | Play of command  (** exactly one legal command: play it, including a lone slot *)
+  | Choose of command list  (** several commands (targets or inputs) to pick from *)
+
+val pick_card : t -> card_desc -> player_house_desc -> pick

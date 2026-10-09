@@ -284,7 +284,7 @@ let fairy_listener () =
             Array.iter
               (fun s ->
                 match s.value with
-                | Some st when st.card.c_card.house_index = 4 -> st.reaction.on_death dead
+                | Some st when st.card.c_card.house_index = special_house_index -> st.reaction.on_death dead
                 | _ -> ())
               p.slots_update.slot_updates);
         (* OnOppSlotUpdate: lesovik and sirin watch opponent adds/removes. *)
@@ -375,14 +375,5 @@ let () =
 let cards = [ lesovik; kikimora; rusalka; likho; sirin; alkonost; firebird; gory ]
 
 let house =
-  {
-    h_key = "fairy";
-    h_name = "fairy";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 12;
-    h_additional_cards = [ vodyanoy; thgorynych; ohgorynych ];
-    h_make_listener = fairy_listener;
-    h_data = No_player_data;
-  }
+  special_house ~key:"fairy" ~id:12 ~additional_cards:[ vodyanoy; thgorynych; ohgorynych ]
+    ~listener:fairy_listener cards

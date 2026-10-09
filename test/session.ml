@@ -150,6 +150,48 @@ let move_event () =
   step u (fun () -> Slots.move (player u 0).slots_update 0 3);
   check_bool "move" true (List.mem (Ev_move { num = 0; dest = 3; player = 0; dest_player = 0 }) (events ()))
 
+(* Scala persistUpdater(); refresh() after runSlots: prisoner mana must appear
+   on a loud refresh, not only on the silent Ev_to_move. *)
+let prisoner_death_loud_refresh () =
+  init_all_houses ();
+  let d = Game.make_player_desc ~special:Disciples.house Fire.house in
+  let desc = { gd_players = [| d; d |] } in
+  let s_ref = ref None in
+  let loud_mana = ref [] in
+  let on_event = function
+    | Ev_refresh { silent = false } ->
+        Option.iter
+          (fun s ->
+            let hs = (Session.peek s).players.(0).ps_houses in
+            loud_mana := Array.to_list (Array.map (fun h -> h.mana) hs) :: !loud_mana)
+          !s_ref
+    | _ -> ()
+  in
+  let s = Session.create ~mana0:[ 5; 4; 4; 3; 6 ] ~mana1:[ 4; 4; 4; 4; 4 ] ~on_event desc in
+  s_ref := Some s;
+  let u = Session.updater s in
+  place u 0 "disciples.prisoner" 0;
+  place u 1 "fire.dragon" 0;
+  step u (fun () ->
+      Slot.inflict (slot u 0 0)
+        (mk_damage 2 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
+  Session.submit s None;
+  loud_mana := [];
+  Session.submit s None;
+  check_bool "prisoner died" true (is_empty u 0 0);
+  check_bool "loud refresh saw the mana loss" true
+    (List.exists
+       (fun xs ->
+         List.nth xs 4 = 7
+         &&
+         let rec sum4 i acc = function
+           | _ when i = 4 -> acc
+           | n :: rest -> sum4 (i + 1) (acc + n) rest
+           | [] -> acc
+         in
+         sum4 0 0 xs = 5 + 4 + 4 + 3 - 2)
+       !loud_mana)
+
 let summon_and_refresh () =
   let u = new_game () in
   let events = listen u in
@@ -200,6 +242,7 @@ let () =
           test_case "run slot and die" `Quick run_slot_and_die;
           test_case "move" `Quick move_event;
           test_case "summon and refresh" `Quick summon_and_refresh;
+          test_case "prisoner death mana" `Quick prisoner_death_loud_refresh;
           test_case "zen spark" `Quick zen_spark;
         ] );
     ]

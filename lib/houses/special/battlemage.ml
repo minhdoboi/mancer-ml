@@ -7,19 +7,17 @@ open Sp
 open Engine
 open Common
 
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let fieldmage_ref : card option ref = ref None
 let cavalier_ref : card option ref = ref None
 let retinue_ref : card option ref = ref None
 let retinue_phase = "retinue"
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 
 (* ---------------------------------------------------------------- desc mods *)
 
 (* NextTacticsDiscount: the next special card costs 1 less *)
 let next_tactics_discount : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index <> 4 then cards
+  if house.phd_house.h_index <> special_house_index then cards
   else Array.map (fun cd -> { cd with cd_cost = max 0 (cd.cd_cost - 1) }) cards
 
 (* BanApocalypse: no Apocalypse while a Cavalier is in play *)
@@ -57,14 +55,16 @@ let taunt : card_effect =
     (fun (s : slot_state) ->
       focus_slot slot;
       if target_other then
-        match (slot_of_env env).value with Some mine when mine.attack > s.attack -> Slot.stun slot | _ -> ()
-      else Player.inflict op (mk_damage ~is_ability:true s.attack (ctx_of_env env)))
+        match (own_slot_of_env env).value with
+        | Some mine when mine.attack > s.attack -> Slot.stun slot
+        | _ -> ()
+      else Player.inflict op (ability_damage env s.attack))
     slot.value
 
 let warcry : card_effect =
  fun env ->
   let op = other_of_env env in
-  let d = mk_damage ~is_spell:true 9 (ctx_of_env env) in
+  let d = spell_damage env 9 in
   Player.inflict op d;
   Slots.inflict_creatures op.slots_update d;
   Slots.foreach op.slots_update (fun slot -> Warp.bridle (slot.remove_hook None) slot);
@@ -85,7 +85,9 @@ let retinue_effect : card_effect =
 
 (* true if the field mage at [mage] takes this damage instead of its target *)
 let redirects (mage : slot_update) (de : damage_event) =
-  (match mage.value with Some st -> is_card !fieldmage_ref st.card.c_card && not (is_bridled st) | None -> false)
+  (match mage.value with
+    | Some st -> is_card !fieldmage_ref st.card.c_card && not (is_bridled st)
+    | None -> false)
   && de.de_damage.is_spell
   && de.de_damage.context.ctx_player <> mage.slots.player.pid
   && (not de.de_damage.redirected)
@@ -187,7 +189,7 @@ let battlemage_listener () =
         p.submit_command_hook <-
           (fun c ->
             let r = old_submit c in
-            if c.cmd_card.house_index = 4 && not (is_card !retinue_ref c.cmd_card) then
+            if c.cmd_card.house_index = special_house_index && not (is_card !retinue_ref c.cmd_card) then
               remove_all_desc_mod p next_tactics_discount;
             r));
   }
@@ -230,15 +232,4 @@ let cards =
     retinue;
   ]
 
-let house =
-  {
-    h_key = "battlemage";
-    h_name = "battlemage";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 20;
-    h_additional_cards = [];
-    h_make_listener = battlemage_listener;
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"battlemage" ~id:20 ~listener:battlemage_listener cards

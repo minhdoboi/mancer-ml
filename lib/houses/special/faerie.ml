@@ -29,7 +29,7 @@ let fire : card_effect =
  fun env ->
   let p = player_of_env env in
   let op = other_of_env env in
-  let d = mk_damage ~is_spell:true 5 (ctx_of_env env) in
+  let d = spell_damage env 5 in
   for n = 0 to nb_slots - 1 do
     if Option.is_some p.slots_update.slot_updates.(n).value then
       Slot.inflict op.slots_update.slot_updates.(n) d
@@ -128,7 +128,7 @@ let faerie_listener () =
         p.submit_command_hook <-
           (fun c ->
             let r = old_sub c in
-            if c.cmd_card.house_index = 4 then
+            if c.cmd_card.house_index = special_house_index then
               Array.iter
                 (fun s ->
                   match s.value with
@@ -202,16 +202,4 @@ let () =
   rabble.cost <- 1
 
 let cards = [ twins; faerie_fire; nightwing; ring; piper_c; cloud_c; unicorn; dragon_c ]
-
-let house =
-  {
-    h_key = "faerie";
-    h_name = "faerie";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 11;
-    h_additional_cards = [ rabble ];
-    h_make_listener = faerie_listener;
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"faerie" ~id:11 ~additional_cards:[ rabble ] ~listener:faerie_listener cards

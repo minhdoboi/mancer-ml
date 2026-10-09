@@ -122,3 +122,13 @@
  (name port_fixes)
  (modules port_fixes)
  (libraries mancer support alcotest))
+
+(test
+ (name assets)
+ (modules assets)
+ (libraries mancer alcotest))
+
+(test
+ (name command_order)
+ (modules command_order)
+ (libraries mancer support alcotest))

@@ -12,13 +12,13 @@ let shieldman_ref : card option ref = ref None
 let armour_ref : card option ref = ref None
 let berserker_ref : card option ref = ref None
 let ballista_ref : card option ref = ref None
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let is_hird_of (st : slot_state) = st.data = Hird
 let berserker_extras : (int, int ref) Hashtbl.t = Hashtbl.create 16
 
 let lower_special_cost_mod : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index = 4 then Array.map (fun c -> { c with cd_cost = max 0 (c.cd_cost - 1) }) cards
+  if house.phd_house.h_index = special_house_index then
+    Array.map (fun c -> { c with cd_cost = max 0 (c.cd_cost - 1) }) cards
   else cards
 
 let soldier_lower =
@@ -50,7 +50,8 @@ let rune_attack =
       | _ -> atk)
 
 let berserker_attack =
-  Attack_slot_state_func (fun atk slot -> match slot.value with Some st when is_hird_of st -> atk + 3 | _ -> atk)
+  Attack_slot_state_func
+    (fun atk slot -> match slot.value with Some st when is_hird_of st -> atk + 3 | _ -> atk)
 
 let soldier_effect : card_effect =
  fun env ->
@@ -118,7 +119,9 @@ let shieldman_reaction () =
                | None -> true ->
             let amount = e.de_damage.amount in
             let samount = int_of_float (ceil (float_of_int amount /. 2.)) in
-            let ctx = { ctx_player = me.slots.player.pid; ctx_card = !shieldman_ref; ctx_selected = me.num } in
+            let ctx =
+              { ctx_player = me.slots.player.pid; ctx_card = !shieldman_ref; ctx_selected = me.num }
+            in
             Slot.inflict me { e.de_damage with amount = samount; context = ctx };
             { e.de_damage with amount = amount - samount }
         | _ -> e.de_damage);
@@ -152,8 +155,8 @@ let armour_reaction () =
         match e.de_target with
         | Some num
           when (match me.value with
-               | Some st -> is_hird_of st && not (is_card !armour_ref st.card.c_card)
-               | None -> false)
+                 | Some st -> is_hird_of st && not (is_card !armour_ref st.card.c_card)
+                 | None -> false)
                && abs (me.num - num) = 1 ->
             protect_from_opp e.de_damage me.slots.slot_updates.(num)
         | _ -> e.de_damage);
@@ -177,7 +180,8 @@ let ballista_reaction () =
           Slot.inflict me (mk_damage ~is_ability:true self_amt ctx)));
   }
 
-let swing (slot : slot_update) = Option.iter (fun st -> Player.run_slot slot.slots.player slot.num st) slot.value
+let swing (slot : slot_update) =
+  Option.iter (fun st -> Player.run_slot slot.slots.player slot.num st) slot.value
 
 let on_berserker_player_damage amount (slot : slot_update) =
   match slot.value with
@@ -208,7 +212,9 @@ let berserker_reaction () =
     r with
     self_protect =
       (fun d ->
-        match (Reaction.bound_slot r).value with Some st when is_hird_of st -> { d with amount = d.amount + 3 } | _ -> d);
+        match (Reaction.bound_slot r).value with
+        | Some st when is_hird_of st -> { d with amount = d.amount + 3 }
+        | _ -> d);
     on_add =
       (fun slot ->
         let me = Reaction.bound_slot r in
@@ -216,7 +222,9 @@ let berserker_reaction () =
           Option.iter (fun st -> Hashtbl.replace berserker_extras st.slot_id (ref (-1))) me.value);
     on_my_remove =
       (fun _ ->
-        match (Reaction.bound_slot r).value with Some st -> Hashtbl.remove berserker_extras st.slot_id | None -> ());
+        match (Reaction.bound_slot r).value with
+        | Some st -> Hashtbl.remove berserker_extras st.slot_id
+        | None -> ());
   }
 
 let mountain_reaction () =
@@ -243,7 +251,9 @@ let crossbow_attack target d player =
   | num :: _ ->
       let op = other_player player in
       Player.inflict op d;
-      Option.iter (fun _ -> Slot.inflict op.slots_update.slot_updates.(num) d) op.slots_update.slot_updates.(num).value
+      Option.iter
+        (fun _ -> Slot.inflict op.slots_update.slot_updates.(num) d)
+        op.slots_update.slot_updates.(num).value
 
 let crossbow_reaction () =
   let r = Reaction.default () in
@@ -270,7 +280,7 @@ let rec set_hird (owner : player_update) (s : slot_update) b =
         else Player.remove_desc_mod owner lower_special_cost_mod
 
 and on_add (owner : player_update) (slot : slot_update) =
-  if slot.slots.player.pid = owner.pid then (
+  if slot.slots.player.pid = owner.pid then
     match slot.value with
     | Some st when is_dwarf st.card.c_card ->
         let neighbour =
@@ -284,7 +294,7 @@ and on_add (owner : player_update) (slot : slot_update) =
             false (Slot.filled_adjacent slot)
         in
         if neighbour then set_hird owner slot true
-    | _ -> ())
+    | _ -> ()
   else
     match owner.slots_update.slot_updates.(slot.num).value with
     | Some s when is_card !soldier_ref s.card.c_card && is_hird_of s ->
@@ -297,17 +307,22 @@ and on_death (owner : player_update) (dead : dead) =
         if s.num <> dead.d_num then
           match s.value with
           | Some st when is_dwarf st.card.c_card ->
-              if abs (s.num - dead.d_num) = 1 then (
-                let sym = s.num + (s.num - dead.d_num) in
-                if (not (in_slot_range sym)) || not (match owner.slots_update.slot_updates.(sym).value with Some v -> is_dwarf v.card.c_card | None -> false)
-                then set_hird owner s false);
+              (if abs (s.num - dead.d_num) = 1 then
+                 let sym = s.num + (s.num - dead.d_num) in
+                 if
+                   (not (in_slot_range sym))
+                   || not
+                        (match owner.slots_update.slot_updates.(sym).value with
+                        | Some v -> is_dwarf v.card.c_card
+                        | None -> false)
+                 then set_hird owner s false);
               st.reaction.on_death dead
           | _ -> ())
 
 let protect (owner : player_update) (slot : slot_update) d =
   Slots.foldl owner.slots_update d (fun acc s ->
       match s.value with
-      | Some st when st.card.c_card.house_index = 4 ->
+      | Some st when st.card.c_card.house_index = special_house_index ->
           st.reaction.on_protect { de_damage = acc; de_target = Some slot.num; de_player = owner }
       | _ -> acc)
 
@@ -365,12 +380,14 @@ let cards =
       ~run_attack:(custom_run_attack crossbow_attack) ~new_reaction:crossbow_reaction ();
     creature ~key:"mountainking.ArmourcladDwarf.name" ~attack:(attack 5) ~life:23
       ~description:"mountainking.ArmourcladDwarf.description" ~new_reaction:armour_reaction ();
-    creature ~key:"mountainking.Runesmith.name" ~attack:{ base = Some 6; sources = [ rune_attack ] } ~life:24
-      ~description:"mountainking.Runesmith.description" ~new_reaction:rune_reaction ();
+    creature ~key:"mountainking.Runesmith.name"
+      ~attack:{ base = Some 6; sources = [ rune_attack ] }
+      ~life:24 ~description:"mountainking.Runesmith.description" ~new_reaction:rune_reaction ();
     creature ~key:"mountainking.Ballista.name" ~attack:(attack 6) ~life:40
       ~description:"mountainking.Ballista.description" ~new_reaction:ballista_reaction ();
-    creature ~key:"mountainking.Berserker.name" ~attack:{ base = Some 6; sources = [ berserker_attack ] } ~life:40
-      ~description:"mountainking.Berserker.description" ~new_reaction:berserker_reaction ();
+    creature ~key:"mountainking.Berserker.name"
+      ~attack:{ base = Some 6; sources = [ berserker_attack ] }
+      ~life:40 ~description:"mountainking.Berserker.description" ~new_reaction:berserker_reaction ();
     creature ~key:"mountainking.MountainKingCard.name" ~attack:(attack 4) ~life:45
       ~description:"mountainking.MountainKingCard.description" ~new_reaction:mountain_reaction
       ~effects:(effects [ (Direct, mountain_direct) ])
@@ -384,15 +401,4 @@ let () =
   ballista_ref := Some (List.nth cards 5);
   berserker_ref := Some (List.nth cards 6)
 
-let house =
-  {
-    h_key = "mountainking";
-    h_name = "mountainking";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = house_id;
-    h_additional_cards = [];
-    h_make_listener = mk_listener;
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"mountainking" ~id:house_id ~listener:mk_listener cards

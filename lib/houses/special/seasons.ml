@@ -32,7 +32,8 @@ let destroyed_mod (card : card) : desc_mod =
 
 let nectar_bloom =
   creature ~key:"seasons.Nectarbloom.name" ~attack:(attack 2) ~life:10
-    ~description:"seasons.Nectarbloom.description" ~effects:(effects [ (On_turn, focus (heal_creature 2)) ])
+    ~description:"seasons.Nectarbloom.description"
+    ~effects:(effects [ (On_turn, focus (heal_creature 2)) ])
     ()
 
 let rec regrowth env =
@@ -44,8 +45,7 @@ and wintry env =
   let p = player_of_env env in
   let op = other_of_env env in
   Slots.foreach op.slots_update (fun s ->
-      if Option.is_none p.slots_update.slot_updates.(s.num).value then
-        Slot.inflict s (mk_damage ~is_ability:true 1 (ctx_of_env env)))
+      if Option.is_none p.slots_update.slot_updates.(s.num).value then Slot.inflict s (ability_damage env 1))
 
 let freeze : card_effect =
  fun env ->
@@ -62,12 +62,11 @@ let gaea_effect : card_effect =
   let p = player_of_env env in
   let op = other_of_env env in
   let nb_empty = List.length (Slots.get_open p.slots_update) + List.length (Slots.get_open op.slots_update) in
-  Slot.inflict p.slots_update.slot_updates.(env.env_selected) (mk_damage ~is_ability:true nb_empty (ctx_of_env env))
+  Slot.inflict p.slots_update.slot_updates.(env.env_selected) (ability_damage env nb_empty)
 
 let cornucopia_effect : card_effect =
  fun env ->
-  Slots.foreach (player_of_env env).slots_update (fun s ->
-      if s.num <> env.env_selected then Slot.heal s 9)
+  Slots.foreach (player_of_env env).slots_update (fun s -> if s.num <> env.env_selected then Slot.heal s 9)
 
 let cornucopia_reaction () =
   let r =
@@ -92,7 +91,7 @@ let solar_wave : card_effect =
  fun env ->
   let p = player_of_env env in
   let op = other_of_env env in
-  Player.inflict op (mk_damage ~is_spell:true (List.length (Slots.get_open op.slots_update)) (ctx_of_env env));
+  Player.inflict op (spell_damage env (List.length (Slots.get_open op.slots_update)));
   set_data p { (get_data p) with se_triple = true };
   Player.add_effect p (On_end_turn, one_time_player_effect recover_triple)
 
@@ -123,7 +122,7 @@ let equinox : card_effect =
  fun env ->
   let p = player_of_env env in
   let op = other_of_env env in
-  let d = mk_damage ~is_ability:true 4 (ctx_of_env env) in
+  let d = ability_damage env 4 in
   Player.inflict op d;
   Slots.inflict_creatures op.slots_update d;
   Player.heal p 4;
@@ -135,7 +134,7 @@ let spawn_nectar : card_effect =
   let open_slots = Slots.get_open p.slots_update in
   match open_slots with
   | [] -> ()
-  | ns ->
+  | ns -> (
       let n = List.nth ns (Dice.int env.env_updater.rng (List.length ns)) in
       Slots.add_creature p.slots_update.slot_updates.(n) (make_creature nectar_bloom);
       let remain = List.filter (( <> ) n) ns in
@@ -143,7 +142,7 @@ let spawn_nectar : card_effect =
       | [] -> ()
       | rs ->
           let n2 = List.nth rs (Dice.int env.env_updater.rng (List.length rs)) in
-          Slots.add_creature p.slots_update.slot_updates.(n2) (make_creature nectar_bloom)
+          Slots.add_creature p.slots_update.slot_updates.(n2) (make_creature nectar_bloom))
 
 let gaea_reaction () =
   let r = Reaction.default () in
@@ -217,7 +216,7 @@ let season_listener () =
         p.submit_command_hook <-
           (fun c ->
             let r = old c in
-            if c.cmd_card.house_index = 4 then (
+            if c.cmd_card.house_index = special_house_index then (
               Player.add_desc_mod p (destroyed_mod c.cmd_card);
               match c.cmd_card.key with
               | "seasons.AiluvBees.name" | "seasons.SpiritofEquinox.name" ->
@@ -236,9 +235,13 @@ let season_listener () =
 let cards =
   [
     creature ~key:"seasons.AiluvBees.name" ~attack:(attack 4) ~life:16
-      ~description:"seasons.AiluvBees.description" ~effects:(effects [ (Direct, spawn_nectar) ]) ();
+      ~description:"seasons.AiluvBees.description"
+      ~effects:(effects [ (Direct, spawn_nectar) ])
+      ();
     creature ~key:"seasons.SpiritofEquinox.name" ~attack:(attack 5) ~life:12
-      ~description:"seasons.SpiritofEquinox.description" ~effects:(effects [ (Direct, equinox) ]) ();
+      ~description:"seasons.SpiritofEquinox.description"
+      ~effects:(effects [ (Direct, equinox) ])
+      ();
     spell ~key:"seasons.SolarWave.name" ~description:"seasons.SolarWave.description"
       ~effects:(effects [ (Direct, solar_wave) ])
       ();
@@ -246,27 +249,24 @@ let cards =
       ~effects:(effects [ (Direct, eternal_summer) ])
       ();
     creature ~key:"seasons.Cornucopia.name" ~attack:(attack 0) ~life:26
-      ~description:"seasons.Cornucopia.description" ~effects:(effects [ (Direct, cornucopia_effect) ])
+      ~description:"seasons.Cornucopia.description"
+      ~effects:(effects [ (Direct, cornucopia_effect) ])
       ~new_reaction:cornucopia_reaction ();
-    creature ~key:"seasons.GaeasAvatar.name" ~attack:{ base = None; sources = [ gaea_attack ] } ~life:60
-      ~description:"seasons.GaeasAvatar.description" ~effects:(effects [ (On_turn, gaea_effect) ])
+    creature ~key:"seasons.GaeasAvatar.name"
+      ~attack:{ base = None; sources = [ gaea_attack ] }
+      ~life:60 ~description:"seasons.GaeasAvatar.description"
+      ~effects:(effects [ (On_turn, gaea_effect) ])
       ~new_reaction:gaea_reaction ();
     creature ~key:"seasons.BehemothofFrozenTime.name" ~attack:(attack 7) ~life:29
-      ~description:"seasons.BehemothofFrozenTime.description" ~effects:(effects [ (Direct, freeze) ]) ();
+      ~description:"seasons.BehemothofFrozenTime.description"
+      ~effects:(effects [ (Direct, freeze) ])
+      ();
     spell ~key:"seasons.TheGreatAurora.name" ~description:"seasons.TheGreatAurora.description"
       ~effects:(effects [ (Direct, great_aurora) ])
       ();
   ]
 
 let house =
-  {
-    h_key = "seasons";
-    h_name = "seasons";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [ (On_turn, regrowth); (On_turn, wintry) ];
-    h_house_id = 34;
-    h_additional_cards = [ nectar_bloom ];
-    h_make_listener = season_listener;
-    h_data = Season_data init_data;
-  }
+  special_house ~key:"seasons" ~id:34
+    ~effects:[ (On_turn, regrowth); (On_turn, wintry) ]
+    ~additional_cards:[ nectar_bloom ] ~listener:season_listener ~data:(Season_data init_data) cards

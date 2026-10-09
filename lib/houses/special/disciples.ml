@@ -16,7 +16,6 @@ let preacher_bonus = Attack_bonus { tag = "preacher"; pos = 0; bonus = (fun a ->
 let madden_bonus = Attack_bonus { tag = "madden"; pos = 0; bonus = (fun a -> a + 1) }
 let lc_bonus pid = Attack_bonus { tag = "lc_bonus"; pos = pid; bonus = (fun a -> a + 1) }
 let lc_weaken half = Attack_bonus { tag = "lc_weaken"; pos = 0; bonus = (fun a -> max 0 (a + half)) }
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let is_prisoner_kind (c : card) = is_card !prisoner_ref c || is_card !enraged_ref c
 let get_prisoner_slot su = Slots.find su (fun st -> is_prisoner_kind st.card.c_card)
 
@@ -58,7 +57,8 @@ let weaken : card_effect =
   let p = player_of_env env in
   let hid =
     p.pstate.ps_desc.init_desc.pd_houses |> Array.to_seq
-    |> Seq.find_map (fun h -> if h.phd_house.h_index = 4 then Some h.phd_house.h_house_id else None)
+    |> Seq.find_map (fun h ->
+        if h.phd_house.h_index = special_house_index then Some h.phd_house.h_house_id else None)
     |> Option.value ~default:(-1)
   in
   Slots.foreach p.slots_update (fun s ->
@@ -109,10 +109,10 @@ let prophetize_full : card_effect =
 
 let scare : card_effect =
  fun env ->
-  let slot = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = opp_slot_of_env env in
   if Option.is_some slot.value then (
     Updater.focus env.env_updater env.env_selected env.env_player true;
-    Slot.inflict slot (mk_damage ~is_ability:true 4 (ctx_of_env env));
+    Slot.inflict slot (ability_damage env 4);
     Slot.stun slot);
   Player.add_desc_mod (player_of_env env) !scarecrow_ability_mod
 
@@ -127,7 +127,7 @@ let oppress : card_effect =
             (fun n ->
               let opp = (other_of_env env).slots_update.slot_updates.(n) in
               if Option.is_some opp.value then (
-                Slot.inflict opp (mk_damage ~is_ability:true 4 (ctx_of_env env));
+                Slot.inflict opp (ability_damage env 4);
                 Slot.toggle opp stun_flag))
             (slot_interval (slot.num - 1) (slot.num + 1)))
         (Slots.find_card (player_of_env env).slots_update scarecrow)
@@ -162,14 +162,14 @@ let speed_drug : card_effect =
   let p = player_of_env env in
   let bonus = lc_bonus p.pid in
   Slots.foreach p.slots_update (fun s -> add_attack s bonus);
-  Slots.inflict_creatures p.slots_update (mk_damage ~is_spell:true 4 (ctx_of_env env))
+  Slots.inflict_creatures p.slots_update (spell_damage env 4)
 
 let madden : card_effect =
  fun env ->
   let p = player_of_env env in
   let op = other_of_env env in
   Slots.foreach op.slots_update (fun slot ->
-      Slot.inflict slot (mk_damage ~is_spell:true 8 (ctx_of_env env));
+      Slot.inflict slot (spell_damage env 8);
       if Option.is_some slot.value then add_attack slot madden_bonus else Player.heal p 3);
   Slots.foreach p.slots_update (fun s -> add_attack s madden_bonus)
 
@@ -178,7 +178,7 @@ let falcon : card_effect =
   Updater.focus env.env_updater env.env_selected env.env_player true;
   Slots.foreach (other_of_env env).slots_update (fun slot ->
       if slot.num <> env.env_selected then
-        Slot.inflict slot (mk_damage ~is_ability:true (abs (slot.num - env.env_selected)) (ctx_of_env env)))
+        Slot.inflict slot (ability_damage env (abs (slot.num - env.env_selected))))
 
 let liberator_reaction () =
   let r = Reaction.default () in
@@ -355,7 +355,9 @@ let scarecrow =
 
 let liberator =
   creature ~key:"disciples.liberator" ~attack:(attack 3) ~life:liberator_life
-    ~description:"disciples.liberator.description" ~new_reaction:liberator_reaction
+    ~description:"disciples.liberator.description"
+    ~desc_args:(fun _ _ -> [ string_of_int liberator_life ])
+    ~new_reaction:liberator_reaction
     ~effects:(effects [ (Direct, focus deliver_prisoner) ])
     ()
 
@@ -398,14 +400,7 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "disciples";
-    h_name = "disciples";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [ (On_end_turn, spawn_prisoner); (On_turn, weaken) ];
-    h_house_id = 9;
-    h_additional_cards = [ prisoner; enraged; wind_of_oppression; dark_monk ];
-    h_make_listener = lc_listener;
-    h_data = No_player_data;
-  }
+  special_house ~key:"disciples" ~id:9
+    ~effects:[ (On_end_turn, spawn_prisoner); (On_turn, weaken) ]
+    ~additional_cards:[ prisoner; enraged; wind_of_oppression; dark_monk ]
+    ~listener:lc_listener cards

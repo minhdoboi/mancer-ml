@@ -64,7 +64,6 @@ let owl_ref = ref None
 let panther_ref = ref None
 let bear_ref = ref None
 let eagle_ref = ref None
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 
 let spirit_of (c : card) =
   if is_card !tortoise_ref c then Some tortoise_spirit
@@ -164,7 +163,7 @@ let check_releases (owner : player_update) =
 
 let totem_turn : card_effect =
  fun env ->
-  let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = own_slot_of_env env in
   Option.iter
     (fun (st : slot_state) ->
       let ready =
@@ -220,7 +219,7 @@ let tortoise =
              fun env ->
                List.iter
                  (fun s -> match s.value with Some st when is_totem st.card.c_card -> release s | _ -> ())
-                 (Slot.filled_adjacent (player_of_env env).slots_update.slot_updates.(env.env_selected)) );
+                 (Slot.filled_adjacent (own_slot_of_env env)) );
          ])
     ~new_reaction:tortoise_reaction ~run_attack:never_run_attack ()
 
@@ -231,11 +230,11 @@ let fox =
          [
            ( Direct,
              fun env ->
-               let opposite = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+               let opposite = opp_slot_of_env env in
                Option.iter
                  (fun (st : slot_state) ->
-                   focus_slot (player_of_env env).slots_update.slot_updates.(env.env_selected);
-                   Slot.inflict opposite (mk_damage ~is_ability:true st.attack (ctx_of_env env)))
+                   focus_slot (own_slot_of_env env);
+                   Slot.inflict opposite (ability_damage env st.attack))
                  opposite.value );
            (On_turn, totem_turn);
          ])
@@ -248,7 +247,7 @@ let deer =
          [
            ( On_turn,
              fun env ->
-               let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+               let slot = own_slot_of_env env in
                Option.iter
                  (fun _ ->
                    focus_slot slot;
@@ -279,7 +278,7 @@ let panther =
          [
            ( On_turn,
              fun env ->
-               let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+               let slot = own_slot_of_env env in
                Option.iter
                  (fun (st : slot_state) ->
                    Slot.set_data slot (Count (panther_count st.data + 1));
@@ -312,7 +311,7 @@ let eagle =
          [
            ( Direct,
              fun env ->
-               focus_slot (player_of_env env).slots_update.slot_updates.(env.env_selected);
+               focus_slot (own_slot_of_env env);
                Houses.incr_mana (player_of_env env).houses_update 4 [ spirit_index ] );
            (On_turn, totem_turn);
          ])
@@ -356,15 +355,4 @@ let cards =
     eagle;
   ]
 
-let house =
-  {
-    h_key = "spiritshaman";
-    h_name = "spiritshaman";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 30;
-    h_additional_cards = spirits;
-    h_make_listener = shaman_listener;
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"spiritshaman" ~id:30 ~additional_cards:spirits ~listener:shaman_listener cards

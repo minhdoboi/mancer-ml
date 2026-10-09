@@ -1,0 +1,112 @@
+# Build the raylib GUI natively on each OS and zip it with scripts/package.sh.
+# Push a v* tag to attach the zips to a GitHub Release.
+name: package
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which build to run
+        type: choice
+        default: all
+        options: [all, linux-x64, mac-aarch64, mac-x64, windows-x64]
+
+permissions:
+  contents: write
+
+jobs:
+  # `matrix` is not available in a job-level `if`, so pick the targets here.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - id: pick
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          python3 - <<'PY' >>"$GITHUB_OUTPUT"
+          import json, os
+          # Oldest Linux image on purpose: the binary needs the glibc it was
+          # built against (2.35 here), so never build on a rolling distro.
+          every = [
+              {"name": "linux-x64", "os": "ubuntu-22.04"},
+              {"name": "mac-aarch64", "os": "macos-14"},
+              {"name": "mac-x64", "os": "macos-15-intel"},
+              {"name": "windows-x64", "os": "windows-latest"},
+          ]
+          want = os.environ.get("TARGET") or "all"
+          picked = [t for t in every if want in ("all", t["name"])]
+          print("matrix=" + json.dumps({"include": picked}))
+          PY
+
+  package:
+    name: ${{ matrix.name }}
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libgl-dev libasound2-dev zip
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.2.0"
+          dune-cache: false
+
+      - name: Install OCaml dependencies
+        run: opam install -y dune raylib ctypes yojson yojson-five
+
+      - name: Package
+        shell: bash
+        run: opam exec -- sh scripts/package.sh
+        env:
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+
+      - name: Check glibc floor (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          max=$(objdump -T dist/*/mancer.bin | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1)
+          echo "needs $max"
+          [ "$(printf '%s\nGLIBC_2.35\n' "$max" | sort -V | tail -1)" = GLIBC_2.35 ]
+
+      - name: List dynamic libraries
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Linux) ldd dist/*/mancer.bin ;;
+            macOS) otool -L dist/*/mancer.app/Contents/MacOS/gui ;;
+            Windows) opam exec -- ldd dist/*/mancer.exe ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mancer-${{ matrix.name }}
+          path: dist/*.zip
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: zips
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: zips/*.zip

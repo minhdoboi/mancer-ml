@@ -15,19 +15,14 @@ let medic : card_effect =
   Player.heal (player_of_env env) (min (get_mana env 3) 10)
 
 let lightning : card_effect =
- fun env ->
-  Player.inflict (other_of_env env)
-    (mk_damage ~is_spell:true (5 + get_mana env 2 + env.env_paid_cost) (ctx_of_env env))
+ fun env -> Player.inflict (other_of_env env) (spell_damage env (5 + get_mana env 2 + env.env_paid_cost))
 
-let twister : card_effect =
- fun env -> (other_of_env env).slots_update.slot_updates.(env.env_selected).overridable_destroy ()
+let twister : card_effect = fun env -> (opp_slot_of_env env).overridable_destroy ()
 
 let titan : card_effect =
  fun env ->
   Updater.focus env.env_updater env.env_selected env.env_player true;
-  Slot.inflict
-    (other_of_env env).slots_update.slot_updates.(env.env_selected)
-    (mk_damage ~is_ability:true 15 (ctx_of_env env))
+  Slot.inflict (opp_slot_of_env env) (ability_damage env 15)
 
 let phoenix_reaction () =
   let r = Reaction.default () in
@@ -59,6 +54,7 @@ let cards =
       ~effects:(effects [ (On_turn, focus (damage ~is_ability:true 4)) ])
       ();
     spell ~key:"air.lightnin" ~description:"air.lightnin.description"
+      ~desc_args:(fun state pid -> [ string_of_int (5 + state.players.(pid).ps_houses.(2).mana) ])
       ~effects:(effects [ (Direct, lightning) ])
       ();
     creature ~key:"air.phoenix" ~attack:(attack 6) ~life:18 ~description:"air.phoenix.description"

@@ -8,11 +8,10 @@ open Common
 let empty_souls = []
 let souls_of = function Soulbinder_data xs -> xs | _ -> empty_souls
 let get_souls p = souls_of p.pstate.ps_data
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 
 let hide_special_creature_mod : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index <> 4 then cards
+  if house.phd_house.h_index <> special_house_index then cards
   else Array.map (fun cd -> if cd.cd_card.is_spell then cd else { cd with cd_enabled = false }) cards
 
 let set_souls p souls =
@@ -116,7 +115,7 @@ let cards =
            [
              ( On_turn,
                fun env ->
-                 let slot = slot_of_env env in
+                 let slot = own_slot_of_env env in
                  let souls = get_souls (player_of_env env) in
                  List.find_opt
                    (fun s -> Option.is_none s.value && not (List.mem s.num souls))
@@ -179,8 +178,7 @@ let cards =
                fun env ->
                  let total = total_souls env in
                  Player.heal (player_of_env env) (2 * total);
-                 Player.inflict (other_of_env env) (mk_damage ~is_ability:true (2 * total) (ctx_of_env env))
-             );
+                 Player.inflict (other_of_env env) (ability_damage env (2 * total)) );
            ])
       ~new_reaction:priestess_reaction ();
     creature ~key:"soulbinder.dragon" ~attack:(attack 6) ~life:44 ~description:"soulbinder.dragon.description"
@@ -190,28 +188,20 @@ let cards =
            [
              ( Direct,
                fun env ->
-                 focus_slot (slot_of_env env);
-                 let d = mk_damage ~is_ability:true 6 (ctx_of_env env) in
+                 focus_slot (own_slot_of_env env);
+                 let d = ability_damage env 6 in
                  Player.inflict (other_of_env env) d;
                  Slots.inflict_creatures (other_of_env env).slots_update d );
              ( On_turn,
                fun env ->
                  let amount = 3 * List.length (get_souls (player_of_env env)) in
-                 Slot.heal (slot_of_env env) amount;
+                 Slot.heal (own_slot_of_env env) amount;
                  Player.heal (player_of_env env) amount );
            ])
       ();
   ]
 
 let house =
-  {
-    h_key = "soulbinder";
-    h_name = "soulbinder";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [ (On_start, fun env -> ignore (add_soul_random (player_of_env env))) ];
-    h_house_id = 28;
-    h_additional_cards = [];
-    h_make_listener = soul_listener;
-    h_data = Soulbinder_data empty_souls;
-  }
+  special_house ~key:"soulbinder" ~id:28
+    ~effects:[ (On_start, fun env -> ignore (add_soul_random (player_of_env env))) ]
+    ~listener:soul_listener ~data:(Soulbinder_data empty_souls) cards

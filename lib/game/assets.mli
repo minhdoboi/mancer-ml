@@ -31,7 +31,10 @@ val clean : string -> string
 (** Control characters to spaces; terminal and font renderers choke on them. *)
 
 val card_name : card -> string
-val describe : card -> string
+
+val describe : ?state:game_state -> ?player:player_id -> card -> string
+(** Card text. When [state] and [player] are given, [{0}] placeholders (Lightning
+    damage, …) are filled from the board, as in Scala [card.description]. *)
 
 val card_art : card -> string option
 (** [cards/<key>.jpg|png], else the English card name; creatures are 80x80, spells 95x103. *)
@@ -39,6 +42,10 @@ val card_art : card -> string option
 val background : house -> string option
 (** [backgrounds/<house key>], else the English house name (["dark priest"]), else [backgrounds/default]
     (832x800). *)
+
+val background_layer : house -> string -> string option
+(** A layer of a layered backdrop: [background_layer house "-sky"] and ["-ground"]. The ground is the flat
+    picture with its sky cut out (a PNG with alpha), the sky the drifting panorama behind it. *)
 
 val creature_frame : unit -> string option
 (** Stone creature frame ([raka], 90x102). *)
@@ -48,6 +55,9 @@ val spell_frame : unit -> string option
 
 val slot_frame : unit -> string option
 (** Empty board-slot frame ([slot]). *)
+
+val combat : string -> string option
+(** Status overlay ([sand], [crystalize], [shield], …). *)
 
 val ui : string -> string option
 (** Command-bar icon [ui/<name>.png] (quit, settings, play, …). *)

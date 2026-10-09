@@ -10,17 +10,20 @@ let forest_spider =
 
 let () = forest_spider.cost <- 1
 
+let fury_attack (p : player_state) =
+  let attacks =
+    Array.to_list p.ps_slots
+    |> List.filter_map (Option.map (fun st -> st.attack))
+    |> List.sort (fun a b -> compare b a)
+  in
+  match attacks with a :: b :: _ -> a + b | [ a ] -> a | [] -> 0
+
 let fury : card_effect =
  fun env ->
   (* Scala reads player.value: the attacks published at the start of the step,
      before Fury's cost is paid (it matters for mana-attack elementals) *)
-  let attacks =
-    Array.to_list (player_of_env env).pstate.ps_slots
-    |> List.filter_map (Option.map (fun st -> st.attack))
-    |> List.sort (fun a b -> compare b a)
-  in
-  let amount = match attacks with a :: b :: _ -> a + b | [ a ] -> a | [] -> 0 in
-  Player.inflict (other_of_env env) (mk_damage ~is_spell:true amount (ctx_of_env env))
+  let amount = fury_attack (player_of_env env).pstate in
+  Player.inflict (other_of_env env) (spell_damage env amount)
 
 let therapy : card_effect =
  fun env -> Player.heal (player_of_env env) (2 * (get_mana env 3 + env.env_paid_cost))
@@ -48,12 +51,16 @@ let cards =
     creature ~key:"earth.sprite" ~attack:(attack 1) ~life:22 ~description:"earth.sprite.description"
       ~run_attack:multi_run_attack ();
     spell ~key:"earth.therapy" ~description:"earth.therapy.description"
+      ~desc_args:(fun state pid -> [ string_of_int (2 * state.players.(pid).ps_houses.(3).mana) ])
       ~effects:(effects [ (Direct, therapy) ])
       ();
     creature ~key:"earth.hermit" ~attack:(attack 1) ~life:13 ~description:"earth.hermit.description"
       ~new_reaction:(mana_growth_reaction ~owner:true ~amount:2 ~house_indexes:[ 3 ])
       ();
-    spell ~key:"earth.fury" ~description:"earth.fury.description" ~effects:(effects [ (Direct, fury) ]) ();
+    spell ~key:"earth.fury" ~description:"earth.fury.description"
+      ~desc_args:(fun state pid -> [ string_of_int (fury_attack state.players.(pid)) ])
+      ~effects:(effects [ (Direct, fury) ])
+      ();
     creature ~key:"earth.hugespider" ~attack:(attack 4) ~life:21 ~description:"earth.hugespider.description"
       ~effects:(effects [ (Direct, spider) ])
       ();

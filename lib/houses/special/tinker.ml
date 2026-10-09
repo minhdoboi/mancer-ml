@@ -10,7 +10,6 @@ let soldier_ref : card option ref = ref None
 let dragon_ref : card option ref = ref None
 let is_card opt (st : slot_state) = match opt with Some c -> st.card.c_card.id = c.id | None -> false
 let has_card su opt = Option.is_some (Slots.find su (is_card opt))
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 
 let bomb_explode (owner : player_update) (card : card) =
   let ctx = { ctx_player = owner.pid; ctx_card = Some card; ctx_selected = no_selection } in
@@ -30,9 +29,9 @@ let tinkerbomb =
          [
            ( On_turn,
              fun env ->
-               let slot = slot_of_env env in
+               let slot = own_slot_of_env env in
                focus_slot ~blocking:false slot;
-               drain slot (mk_damage ~is_ability:true 1 (ctx_of_env env)) );
+               drain slot (ability_damage env 1) );
          ])
     ~new_reaction:bomb_reaction ()
 
@@ -114,7 +113,7 @@ let cards =
            [
              ( Direct,
                fun env ->
-                 let opp = Slot.opposite (slot_of_env env) in
+                 let opp = Slot.opposite (own_slot_of_env env) in
                  if Option.is_none opp.value then Slots.add_creature opp (make_creature tinkerbomb) );
            ])
       ~run_attack:(custom_run_attack spider_attack) ();
@@ -132,7 +131,7 @@ let cards =
                    Array.to_list op.slots_update.slot_updates
                    |> List.filter_map (fun s -> if Option.is_some s.value then Some s.num else None)
                  in
-                 Slots.inflict_creatures op.slots_update (mk_damage ~is_spell:true 8 (ctx_of_env env));
+                 Slots.inflict_creatures op.slots_update (spell_damage env 8);
                  List.iter
                    (fun n -> if Option.is_none op.slots_update.slot_updates.(n).value then plant_bomb_at op n)
                    occupied );
@@ -160,7 +159,7 @@ let cards =
            [
              ( Direct,
                fun env ->
-                 let slot = slot_of_env env in
+                 let slot = own_slot_of_env env in
                  Option.iter
                    (fun (s : slot_state) ->
                      let d =
@@ -186,14 +185,4 @@ let () =
   dragon_ref := List.find_opt (fun (c : card) -> c.key = "tinker.dragon") cards
 
 let house =
-  {
-    h_key = "tinker";
-    h_name = "tinker";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 26;
-    h_additional_cards = [ tinkerbomb ];
-    h_make_listener = tinker_listener;
-    h_data = No_player_data;
-  }
+  special_house ~key:"tinker" ~id:26 ~additional_cards:[ tinkerbomb ] ~listener:tinker_listener cards

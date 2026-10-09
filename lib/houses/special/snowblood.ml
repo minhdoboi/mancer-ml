@@ -4,12 +4,10 @@ open Sp
 open Engine
 open Common
 
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let bounty_ref : card option ref = ref None
 let maiko_ref : card option ref = ref None
 let guide_ref : card option ref = ref None
 let amaterasu_ref : card option ref = ref None
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 
 (* Lower1Attack(id) *)
 let lower1 pos = Attack_bonus { tag = "lower1"; pos; bonus = (fun a -> max 0 (a - 1)) }
@@ -66,9 +64,7 @@ let bounty_reaction () =
 let bounty_strike : card_effect =
  fun env ->
   Updater.focus env.env_updater env.env_selected env.env_player true;
-  Slot.inflict
-    (other_of_env env).slots_update.slot_updates.(env.env_selected)
-    (mk_damage ~is_ability:true 2 (ctx_of_env env))
+  Slot.inflict (opp_slot_of_env env) (ability_damage env 2)
 
 (* ------------------------------------------------------------------ maiko *)
 
@@ -131,7 +127,7 @@ let maiko_effect : card_effect =
 
 let maiko_heal : card_effect =
  fun env ->
-  let slot = slot_of_env env in
+  let slot = own_slot_of_env env in
   match Slot.filled_adjacent slot with
   | [] -> ()
   | adjs ->
@@ -163,7 +159,9 @@ let echo : card_effect =
         [ On_turn; Direct ]);
   (* then every Snowblood creature attacks right away, outside the attack phase *)
   Slots.foreach p.slots_update (fun s ->
-      match s.value with Some st when st.card.c_card.house_index = 4 -> Player.run_slot p s.num st | _ -> ())
+      match s.value with
+      | Some st when st.card.c_card.house_index = special_house_index -> Player.run_slot p s.num st
+      | _ -> ())
 
 (* ----------------------------------------------------------------- kojiro *)
 
@@ -171,7 +169,7 @@ let echo : card_effect =
 let kojiro_rush : card_effect =
  fun env ->
   let bonus = Attack_func (fun a -> a + 4) in
-  add_attack (slot_of_env env) bonus;
+  add_attack (own_slot_of_env env) bonus;
   Player.add_effect (player_of_env env) (On_end_turn, one_time_player_effect (remove_attack bonus))
 
 let kojiro_turn : card_effect =
@@ -179,8 +177,8 @@ let kojiro_turn : card_effect =
   match get_aligneds (other_of_env env).slots_update env.env_selected with
   | [] -> ()
   | aligneds ->
-      focus_slot (slot_of_env env);
-      let d = mk_damage ~is_ability:true 2 (ctx_of_env env) in
+      focus_slot (own_slot_of_env env);
+      let d = ability_damage env 2 in
       List.iter (fun s -> Slot.inflict s d) aligneds
 
 (* ------------------------------------------------------------------ guide *)
@@ -221,12 +219,12 @@ let janus_on_summon : card_effect =
         p.slots_update.slot_updates.(n).value)
     (janus_same_side_others env.env_selected);
   Player.heal p 2;
-  focus_slot (slot_of_env env)
+  focus_slot (own_slot_of_env env)
 
 let janus_turn : card_effect =
  fun env ->
   let p = player_of_env env in
-  let d = mk_damage ~is_ability:true 2 (ctx_of_env env) in
+  let d = ability_damage env 2 in
   let hit = ref false in
   List.iter
     (fun n ->
@@ -235,7 +233,7 @@ let janus_turn : card_effect =
         Slot.inflict s d;
         hit := true))
     (janus_other_side env.env_selected);
-  if !hit then focus_slot (slot_of_env env)
+  if !hit then focus_slot (own_slot_of_env env)
 
 (* -------------------------------------------------------------- amaterasu *)
 
@@ -263,10 +261,10 @@ let apply_amaterasu_slot me (slot : slot_update) =
 
 let amaterasu : card_effect =
  fun env ->
-  let me = slot_of_env env in
+  let me = own_slot_of_env env in
   Slots.foreach (player_of_env env).slots_update (fun s ->
       match s.value with
-      | Some st when st.card.c_card.house_index < 4 ->
+      | Some st when st.card.c_card.house_index < special_house_index ->
           focus_slot s;
           apply_amaterasu_slot me s
       | _ -> ())
@@ -358,14 +356,4 @@ let cards =
 let () = letter.cost <- 3
 
 let house =
-  {
-    h_key = "snowblood";
-    h_name = "snowblood";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 16;
-    h_additional_cards = [ letter ];
-    h_make_listener = snowblood_listener;
-    h_data = No_player_data;
-  }
+  special_house ~key:"snowblood" ~id:16 ~additional_cards:[ letter ] ~listener:snowblood_listener cards

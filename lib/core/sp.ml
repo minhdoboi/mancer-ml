@@ -112,12 +112,7 @@ and played_spell = { ps_card : card; ps_input : int option; ps_target_other : bo
 and quantum_data = { q_played : played_spell list; q_choice : desc_mod option }
 
 (* Meteomancer: Called Element, Mistwalker hide flag, Fateweaver extra-play charges and HideNonCalled *)
-and meteo_data = {
-  mt_called : int option;
-  mt_hidden : bool;
-  mt_fate : int;
-  mt_hide : desc_mod option;
-}
+and meteo_data = { mt_called : int option; mt_hidden : bool; mt_fate : int; mt_hide : desc_mod option }
 
 (* Seasons: Solar Wave triple, Midnight Sun, Eternal Summer *)
 and season_data = { se_triple : bool; se_midnight : bool; se_summer : bool }
@@ -242,6 +237,9 @@ and card = {
   effects : phase_effects;
   input_spec : input_spec;
   description : string;
+  (* Scala [Description]: extra [{0}] args from the live board (Lightning
+     damage, Fury total, …). [None] leaves the template as-is. *)
+  desc_args : (game_state -> player_id -> string list) option;
   is_spell : bool;
   (* Some for creatures, None for spells *)
   creature_body : creature_body option;
@@ -422,6 +420,9 @@ and updater = {
 (* ---------------------------------------------------------------- helpers *)
 
 let no_selection = -1
+
+(* [h_index] of every special house; the four basic houses are 0..3. *)
+let special_house_index = 4
 
 let default_listener =
   {

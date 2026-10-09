@@ -77,8 +77,7 @@ let campaign_progress () =
       Prefs.complete_campaign p ~extras:[ Campaign.go_city ] "duckwoman";
       let q = Prefs.load ~path () in
       Alcotest.(check (list string))
-        "completed"
-        [ "duckwoman"; Campaign.go_city ]
+        "completed" [ "duckwoman"; Campaign.go_city ]
         (List.sort String.compare (Prefs.campaign_completed q));
       check_string "position" "duckwoman" (Prefs.campaign_position q);
       Prefs.complete_campaign q "wind";
@@ -98,6 +97,37 @@ let old_singles () =
       Alcotest.(check (list string)) "P1" [ "zen" ] a;
       Alcotest.(check (list string)) "P2" [ "wind" ] b)
 
+let continuation_and_backslash () =
+  (* An odd trailing run of backslashes continues the line; an even run is a literal backslash. *)
+  with_temp (fun path ->
+      Out_channel.with_open_text path (fun oc ->
+          output_string oc "user.name=ab\\\n    cd\nai.opponent=x\\\\\n");
+      let p = Prefs.load ~path () in
+      Alcotest.(check (option string)) "continued" (Some "abcd") (Prefs.user_name p);
+      Prefs.set_ai_opponent p "back\\slash";
+      check_string "backslash round trip" "back\\slash" (Prefs.ai_opponent (Prefs.load ~path ())))
+
+let comments_not_keys () =
+  (* [#] and [!] lines are comments; saving must not turn the header into junk keys. *)
+  with_temp (fun path ->
+      Out_channel.with_open_text path (fun oc ->
+          output_string oc "#user preferences\n! other comment\n\nlanguage=fr\n");
+      let p = Prefs.load ~path () in
+      Prefs.set_sound_level p 0.5;
+      let lines = In_channel.with_open_text path In_channel.input_lines in
+      let keys =
+        List.filter_map
+          (fun l -> if l = "" || l.[0] = '#' then None else Some (List.hd (String.split_on_char '=' l)))
+          lines
+      in
+      Alcotest.(check (list string)) "keys" [ "language"; "sound.level" ] keys)
+
+let unwritable_dir () =
+  (* Saving is best effort: an unwritable location must not raise. *)
+  let p = Prefs.load ~path:"/proc/mancer-nope/user.prefs" () in
+  Prefs.set_language p "fr";
+  check_string "in memory" "fr" (Prefs.language p)
+
 let () =
   Alcotest.run "prefs"
     [
@@ -109,5 +139,8 @@ let () =
           Alcotest.test_case "scala format" `Quick scala_format;
           Alcotest.test_case "clamp and fallback" `Quick clamp_and_fallback;
           Alcotest.test_case "campaign progress" `Quick campaign_progress;
+          Alcotest.test_case "continuation and backslash" `Quick continuation_and_backslash;
+          Alcotest.test_case "comments are not keys" `Quick comments_not_keys;
+          Alcotest.test_case "unwritable dir" `Quick unwritable_dir;
         ] );
     ]

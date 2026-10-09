@@ -21,10 +21,18 @@ val mana_gens : (int * int) list
 *)
 
 val create_player :
-  ?rng:Random.State.t -> ?exclude:player_desc -> first:bool -> special:house -> house list -> deal
+  ?rng:Random.State.t ->
+  ?exclude:player_desc ->
+  ?require:int list array ->
+  first:bool ->
+  special:house ->
+  house list ->
+  deal
 (** The house list must be [[fire; water; air; earth]], in that order; raises [Invalid_argument] otherwise.
     [first] draws the 19-mana opening hand rather than the 18-mana one. [exclude] is the opponent's already
-    built deck: shared houses may not reuse those 1-based card indexes. *)
+    built deck: shared houses may not reuse those 1-based card indexes. [require] has one entry per house
+    (fire, water, air, earth, special) listing 1-based card indexes the deck must contain; raises [Failure]
+    when no legal deck holds them all. *)
 
 val two_players :
   ?rng:Random.State.t -> ?starting:player_id -> specials:house * house -> house list -> deal * deal

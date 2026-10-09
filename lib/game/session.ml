@@ -17,6 +17,11 @@ type t = {
   mutable over_sent : bool;
 }
 
+(* Scala GameSession persistUpdater(); refresh(): death hooks (Prisoner mana)
+   run in [result]/flush after the step, so the board needs a loud snapshot
+   afterwards or the -1 is swallowed by the silent Ev_to_move. *)
+let loud_refresh u = emit u (Ev_refresh { silent = false })
+
 (* Resolve what [pid]'s submit queued: a Wait_player transition hands the turn
    over at once; otherwise run attacks and the end-of-turn chain. Returns who
    moves next. *)
@@ -32,10 +37,12 @@ let drain u pid =
       | None ->
           let p = Updater.player u pid in
           let op = Player.other p in
+          if running () then (
+            Game.step u (fun _ -> Player.run_slots p);
+            loud_refresh u);
           List.iter
             (fun f -> if running () then Game.step u (fun _ -> f ()))
             [
-              (fun () -> Player.run_slots p);
               (fun () -> Player.apply_effects p On_end_turn);
               (fun () -> Slots.toggle_run p.slots_update);
               (fun () -> Player.prepare_next_turn op);
@@ -93,6 +100,8 @@ let submit s cmd =
       s.moves <- Game_record.move_of ~t ~player:pid cmd s.u.state s.desc :: s.moves;
       emit s.u (Ev_submitted { t; player = pid; command = cmd });
       Game.step s.u (fun _ -> Player.submit (Updater.player s.u pid) cmd);
+      (* Scala persist(submit); refresh() — flush has run, death mana is live. *)
+      loud_refresh s.u;
       s.next <- drain s.u pid;
       s.turns <- t;
       announce s

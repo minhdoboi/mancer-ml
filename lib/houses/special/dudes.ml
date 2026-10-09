@@ -17,15 +17,4 @@ let cards =
     dude "Edi E" 10 99;
   ]
 
-let house =
-  {
-    h_key = "Dudes";
-    h_name = "Dudes";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 13;
-    h_additional_cards = [];
-    h_make_listener = (fun () -> default_listener);
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"Dudes" ~id:13 cards

@@ -39,6 +39,10 @@ let mk_env pid (u : updater) =
 let ctx_of_env env = { ctx_player = env.env_player; ctx_card = env.env_card; ctx_selected = env.env_selected }
 let player_of_env env = env.env_updater.player_updates.(env.env_player)
 let other_of_env env = env.env_updater.player_updates.(other env.env_player)
+let spell_damage env amount = mk_damage ~is_spell:true amount (ctx_of_env env)
+let ability_damage env amount = mk_damage ~is_ability:true amount (ctx_of_env env)
+let own_slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
+let opp_slot_of_env env = (other_of_env env).slots_update.slot_updates.(env.env_selected)
 let get_mana env house_index = (player_of_env env).pstate.ps_houses.(house_index).mana
 
 (* PlayerUpdate.scala:253-266.  Called on the *victim*: if the damage came from
@@ -118,6 +122,7 @@ module Slot = struct
     List.filter
       (fun adj -> Option.is_none adj.value && List.mem adj.num s.slots.player.pstate.ps_slot_list)
       (adjacent s)
+
   let opposite s = (other_player s.slots.player).slots_update.slot_updates.(s.num)
 
   (* Scala's `write(value map f)` *)
@@ -230,8 +235,10 @@ module Slots = struct
         | Attack_bonus b -> b.bonus acc
         | Attack_state_func f -> f acc su.player
         | Attack_slot_state_func f -> f acc slot
-        (* CardSpec.scala:297 — attack is a function of the owner's house mana *)
-        | Mana_attack idx -> acc + su.player.pstate.ps_houses.(idx).mana
+        (* CardSpec.scala:297 — attack is a function of the owner's house mana.
+           Read [houses_update], not [pstate]: mana from the current step
+           (Meditate, payment) is not synced onto [pstate] until [result]. *)
+        | Mana_attack idx -> acc + su.player.houses_update.hu_value.(idx).mana
         | Extra_attacks _ -> acc
         | Aging_malus -> acc - 3)
       (Option.value src.base ~default:0) src.sources
@@ -357,8 +364,8 @@ module Player = struct
 
   let result p =
     flush p;
-    refresh_slots p;
     sync_houses p;
+    refresh_slots p;
     p.pstate
 
   let inflict p d =
@@ -601,7 +608,9 @@ module Updater = struct
   let make_player u id =
     let pstate = u.state.players.(id) in
     let listener =
-      match Array.find_opt (fun h -> h.phd_house.h_index = 4) u.desc.gd_players.(id).pd_houses with
+      match
+        Array.find_opt (fun h -> h.phd_house.h_index = special_house_index) u.desc.gd_players.(id).pd_houses
+      with
       | Some h -> h.phd_house.h_make_listener ()
       | None -> default_listener
     in
@@ -669,8 +678,9 @@ module Updater = struct
   let listen u f = u.listener <- f
 
   (* A copy of the board as it stands mid-step, for UI refreshes. Unlike
-     export it does not flush pending deaths or re-fold attacks, so reading it
-     from a listener cannot change the game. *)
+     export it does not flush pending deaths, so a listener cannot change the
+     game. Attack is re-folded into the copy (live mana and bonuses) so the
+     board can show a Meditate buff before the creature lunges. *)
   let peek u =
     {
       players =
@@ -678,7 +688,15 @@ module Updater = struct
           (fun p ->
             {
               (copy_player_state p.pstate) with
-              ps_slots = Array.map (fun s -> s.value) p.slots_update.slot_updates;
+              ps_slots =
+                Array.map
+                  (fun s ->
+                    match s.value with
+                    | None -> None
+                    | Some st ->
+                        let attack = Slots.current_attack s st in
+                        if attack = st.attack then Some st else Some { st with attack })
+                  p.slots_update.slot_updates;
               ps_houses = Array.copy p.houses_update.hu_value;
             })
           u.player_updates;

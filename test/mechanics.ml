@@ -103,6 +103,21 @@ let mana_attack_elemental () =
   step u (fun () -> Player.refresh_slots (player u 0));
   check_int "attack = fire mana" 6 (attack_at u 0 0)
 
+(* Ev_refresh snapshots via peek; the live slot stays at the last published
+   attack until refresh_slots. The UI must still show the Meditate buff. *)
+let peek_refolds_mana_attack () =
+  let u = new_game ~mana0:5 () in
+  place u 0 "fire.elemental" 0;
+  step u (fun () -> Player.refresh_slots (player u 0));
+  check_int "published" 5 (attack_at u 0 0);
+  step u (fun () ->
+      Houses.incr_mana (player u 0).houses_update 1 [ 0 ];
+      check_int "live slot still unpublished" 5 (attack_at u 0 0);
+      (match (Updater.peek u).players.(0).ps_slots.(0) with
+      | Some st -> check_int "peek sees new mana attack" 6 st.attack
+      | None -> Alcotest.fail "empty slot");
+      check_int "peek does not publish" 5 (attack_at u 0 0))
+
 let spellmod_dragon () =
   let u = new_game () in
   place u 0 "fire.dragon" 1;
@@ -206,6 +221,7 @@ let () =
           test_case "two bulls" `Quick two_bulls_stack_and_unstack;
           test_case "monk growth" `Quick monk_mana_growth;
           test_case "elemental mana attack" `Quick mana_attack_elemental;
+          test_case "peek refolds mana attack" `Quick peek_refolds_mana_attack;
           test_case "dragon SpellMod" `Quick spellmod_dragon;
         ] );
       ( "abilities and spells",

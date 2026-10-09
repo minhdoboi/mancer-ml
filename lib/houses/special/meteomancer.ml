@@ -24,8 +24,7 @@ let hide_non_called called : desc_mod =
 
 let count_meteo (p : player_update) =
   Array.fold_left
-    (fun n s ->
-      match s.value with Some st when is_meteo st.card.c_card -> n + 1 | _ -> n)
+    (fun n s -> match s.value with Some st when is_meteo st.card.c_card -> n + 1 | _ -> n)
     0 p.slots_update.slot_updates
 
 let mistwalker_attack = Attack_state_func (fun a p -> if count_meteo p = 1 then a + 5 else a)
@@ -48,8 +47,7 @@ let prism_turn : card_effect =
       let dmg = mana / 2 in
       if dmg > 0 then (
         Updater.focus env.env_updater env.env_selected env.env_player true;
-        Slots.inflict_creatures (other_of_env env).slots_update
-          (mk_damage ~is_ability:true dmg (ctx_of_env env)))
+        Slots.inflict_creatures (other_of_env env).slots_update (ability_damage env dmg))
 
 let ctx_of owner source source_num =
   { ctx_player = owner.pid; ctx_card = Some source; ctx_selected = source_num }
@@ -97,8 +95,7 @@ let on_opponent_plays_called owner (command : command) =
       List.iter
         (fun ((slot : slot_update), st) ->
           match st.card.c_card.key with
-          | "meteomancer.thief" when is_spell_of_called ->
-              cast_call_to_thunder owner st.card.c_card slot.num
+          | "meteomancer.thief" when is_spell_of_called -> cast_call_to_thunder owner st.card.c_card slot.num
           | "meteomancer.extremophile" -> spawn_extremophile owner
           | "meteomancer.prism" -> add_attack slot (Attack_func (fun a -> a + 1))
           | "meteomancer.storm" -> storm_strike owner st.card.c_card slot.num
@@ -115,7 +112,11 @@ let set_called_on_summon p (c : command) =
       match c.cmd_flag with Some (Called_element idx) when idx >= 0 && idx <= 3 -> Some idx | _ -> None
     in
     let prev = get_data p in
-    let next = match flag_idx with Some i -> Some i | None -> ( match prev.mt_called with Some i -> Some i | None -> Some 0 ) in
+    let next =
+      match flag_idx with
+      | Some i -> Some i
+      | None -> ( match prev.mt_called with Some i -> Some i | None -> Some 0)
+    in
     set_data p { prev with mt_called = next; mt_hidden = c.cmd_card.key = "meteomancer.mistwalker" }
 
 let remove_hide p =
@@ -177,7 +178,7 @@ let grenadier_reaction () =
     on_summon =
       (fun e ->
         let me = Reaction.bound_slot r in
-        if e.s_player.pid <> me.slots.player.pid && e.s_card.c_card.house_index < 4 then
+        if e.s_player.pid <> me.slots.player.pid && e.s_card.c_card.house_index < special_house_index then
           match get_called me.slots.player with
           | None -> ()
           | Some called -> (
@@ -186,9 +187,7 @@ let grenadier_reaction () =
               | None -> ()
               | Some state ->
                   let ctx = ctx_of me.slots.player (Option.get me.value).card.c_card me.num in
-                  let amount =
-                    if e.s_card.c_card.house_index = called then (state.life + 1) / 2 else 4
-                  in
+                  let amount = if e.s_card.c_card.house_index = called then (state.life + 1) / 2 else 4 in
                   Slot.inflict slot (mk_damage ~is_ability:true amount ctx);
                   focus_slot me));
   }
@@ -200,10 +199,12 @@ let cards =
     creature ~key:"meteomancer.extremophile" ~attack:(attack 4) ~life:11
       ~description:"meteomancer.extremophile.description" ~new_reaction:extremophile_reaction ();
     creature ~key:"meteomancer.clairvoyant" ~attack:(attack 5) ~life:19
-      ~description:"meteomancer.clairvoyant.description" ~effects:(effects [ (Direct, clairvoyant_summon) ])
+      ~description:"meteomancer.clairvoyant.description"
+      ~effects:(effects [ (Direct, clairvoyant_summon) ])
       ();
-    creature ~key:"meteomancer.mistwalker" ~attack:{ base = Some 2; sources = [ mistwalker_attack ] } ~life:28
-      ~description:"meteomancer.mistwalker.description" ();
+    creature ~key:"meteomancer.mistwalker"
+      ~attack:{ base = Some 2; sources = [ mistwalker_attack ] }
+      ~life:28 ~description:"meteomancer.mistwalker.description" ();
     creature ~key:"meteomancer.grenadier" ~attack:(attack 6) ~life:26
       ~description:"meteomancer.grenadier.description" ~new_reaction:grenadier_reaction ();
     creature ~key:"meteomancer.fateweaver" ~attack:(attack 5) ~life:24
@@ -218,14 +219,4 @@ let cards =
 let () = extremophile_ref := Some (List.nth cards 1)
 
 let house =
-  {
-    h_key = "meteomancer";
-    h_name = "meteomancer";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 33;
-    h_additional_cards = [];
-    h_make_listener = meteo_listener;
-    h_data = Meteo_data empty_data;
-  }
+  special_house ~key:"meteomancer" ~id:33 ~listener:meteo_listener ~data:(Meteo_data empty_data) cards

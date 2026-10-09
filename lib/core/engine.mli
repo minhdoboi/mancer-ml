@@ -19,6 +19,19 @@ val mk_env : player_id -> updater -> env
 val ctx_of_env : env -> context
 val player_of_env : env -> player_update
 val other_of_env : env -> player_update
+
+val spell_damage : env -> int -> damage
+(** Spell damage in the context of the card being played. *)
+
+val ability_damage : env -> int -> damage
+(** Creature-ability damage in the context of the card being played. *)
+
+val own_slot_of_env : env -> slot_update
+(** The player's slot at [env.env_selected]. *)
+
+val opp_slot_of_env : env -> slot_update
+(** The opponent's slot at [env.env_selected]. *)
+
 val get_mana : env -> int -> int
 
 (** {1 Update graph} *)
@@ -179,7 +192,7 @@ module Updater : sig
 
   val peek : updater -> game_state
   (** A copy of the board as it stands, safe to call from a listener mid-step: unlike {!export} it does not
-      flush pending deaths. Attack values are as of the last refresh. *)
+      flush pending deaths. Slot attacks are re-folded from live sources and mana into the copy only. *)
 
   val export : updater -> game_state
   (** Flushes the live graph into an independent [game_state] copy. *)

@@ -6,8 +6,8 @@ open Common
 
 let goblin_berserker : card_effect =
  fun env ->
-  let d = mk_damage ~is_ability:true 2 (ctx_of_env env) in
-  let selected = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let d = ability_damage env 2 in
+  let selected = own_slot_of_env env in
   match Slot.filled_adjacent selected with
   | [] -> ()
   | targets ->
@@ -16,7 +16,7 @@ let goblin_berserker : card_effect =
 
 let inferno : card_effect =
  fun env ->
-  let damage amount = mk_damage ~is_spell:true amount (ctx_of_env env) in
+  let damage amount = spell_damage env amount in
   Slots.foreach (other_of_env env).slots_update (fun s ->
       Slot.inflict s (damage (if s.num = env.env_selected then 18 else 10)))
 
@@ -24,7 +24,7 @@ let armageddon : card_effect =
  fun env ->
   (* counts fire mana from before the spell was paid, as the description shows *)
   let amount = get_mana env 0 + env.env_paid_cost + 8 in
-  Player.inflict (other_of_env env) (mk_damage ~is_spell:true amount (ctx_of_env env));
+  Player.inflict (other_of_env env) (spell_damage env amount);
   (* massDamage: every creature on both sides, the caster's included *)
   mass_damage ~is_spell:true amount env
 
@@ -72,6 +72,7 @@ let cards =
            ])
       ();
     spell ~key:"fire.apocalypse" ~description:"fire.apocalypse.description"
+      ~desc_args:(fun state pid -> [ string_of_int (8 + state.players.(pid).ps_houses.(0).mana) ])
       ~effects:(effects [ (Direct, armageddon) ])
       ();
     creature ~key:"fire.dragon" ~attack:(attack 9) ~life:41 ~description:"fire.dragon.description"

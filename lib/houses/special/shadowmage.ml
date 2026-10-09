@@ -1,15 +1,15 @@
 (* Special house Shadowmage — port of priv/sp/house/Shadowmage.scala.
 
-   Stealth is slot data [Stealthed], not a UI flag: Shade Stalker stays hidden until it takes damage.
+   Stealth is slot data [Stealthed], not a UI flag: Shade Stalker stays hidden
+   until it takes damage or damages an enemy creature (revealing on the attack
+   is a deliberate deviation from Scala, which only reveals on damage taken).
    Eclipse's 30-point player shield lives in [Shadowmage_data] and is applied through [guard_hook]. *)
 
 open Sp
 open Engine
 open Common
 
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let assassin_ref : card option ref = ref None
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 let initial_data = { eclipse_shield = 0 }
 let get_data p = match p.pstate.ps_data with Shadowmage_data d -> d | _ -> initial_data
 let set_data p d = Player.set_data p (Shadowmage_data d)
@@ -35,12 +35,12 @@ let hide_house_mod house_index : desc_mod =
 
 let archer_shot : card_effect =
  fun env ->
-  focus_slot (slot_of_env env);
-  Player.inflict (other_of_env env) (mk_damage ~is_ability:true 6 (ctx_of_env env))
+  focus_slot (own_slot_of_env env);
+  Player.inflict (other_of_env env) (ability_damage env 6)
 
 let weave : card_effect =
  fun env ->
-  let slot = slot_of_env env in
+  let slot = own_slot_of_env env in
   let ids =
     List.filter_map
       (fun s ->
@@ -65,10 +65,10 @@ let weave : card_effect =
 
 let silence : card_effect =
  fun env ->
-  let opp = Slot.opposite (slot_of_env env) in
+  let opp = Slot.opposite (own_slot_of_env env) in
   Option.iter
     (fun (st : slot_state) ->
-      focus_slot (slot_of_env env);
+      focus_slot (own_slot_of_env env);
       Slot.stun opp;
       let mod_ = hide_house_mod st.card.c_card.house_index in
       let op = other_of_env env in
@@ -86,18 +86,18 @@ let eclipse_cast : card_effect =
 
 let spike_of_pain : card_effect =
  fun env ->
-  Slots.inflict_creatures (other_of_env env).slots_update (mk_damage ~is_spell:true 16 (ctx_of_env env));
+  Slots.inflict_creatures (other_of_env env).slots_update (spell_damage env 16);
   let fade : card_effect = fun e -> Slots.heal_creatures (other_of_env e).slots_update 16 in
   Player.add_effect (player_of_env env) (On_end_turn, one_time_player_effect fade)
 
 let assassinate : card_effect =
  fun env ->
-  focus_slot (slot_of_env env);
-  Slot.inflict (Slot.opposite (slot_of_env env)) (mk_damage ~is_ability:true 12 (ctx_of_env env))
+  focus_slot (own_slot_of_env env);
+  Slot.inflict (Slot.opposite (own_slot_of_env env)) (ability_damage env 12)
 
 let reset_warden : card_effect =
  fun env ->
-  let slot = slot_of_env env in
+  let slot = own_slot_of_env env in
   match slot.value with Some st when st.data = Absorbed -> Slot.set_data slot No_data | _ -> ()
 
 let archer_reaction () =
@@ -115,6 +115,33 @@ let stalker_reaction () =
         | Some st when damage.amount > 0 && st.data = Stealthed -> Slot.set_data me No_data
         | _ -> ());
   }
+
+(* Striking from the shadows breaks cover: a normal single-target attack, but
+   the stalker is revealed when it actually damages an enemy creature (a kill
+   counts; a fully absorbed hit or a direct hit on the player does not). *)
+let stalker_attack target d player =
+  let other = other_player player in
+  let before =
+    List.filter_map
+      (fun n ->
+        match other.slots_update.slot_updates.(n).value with Some st -> Some (n, st.life) | None -> None)
+      target
+  in
+  ignore (single_target_attack target d player);
+  let damaged =
+    List.exists
+      (fun (num, life) ->
+        match other.slots_update.slot_updates.(num).value with
+        | Some st -> st.life < life
+        | None -> true)
+      before
+  in
+  if damaged then
+    let me = player.slots_update.slot_updates.(d.context.ctx_selected) in
+    match me.value with
+    | Some st when st.data = Stealthed && st.card.c_card.key = "shadowmage.stalker" ->
+        Slot.set_data me No_data
+    | _ -> ()
 
 let warden_reaction () =
   let r = Reaction.default () in
@@ -174,7 +201,8 @@ let cards =
       ~effects:(effects [ (Direct, archer_shot) ])
       ~new_reaction:archer_reaction ();
     creature ~key:"shadowmage.stalker" ~attack:(attack 5) ~life:17
-      ~description:"shadowmage.stalker.description" ~data:Stealthed ~new_reaction:stalker_reaction ();
+      ~description:"shadowmage.stalker.description" ~data:Stealthed ~new_reaction:stalker_reaction
+      ~run_attack:(custom_run_attack stalker_attack) ();
     creature ~key:"shadowmage.weaver" ~attack:(attack 4) ~life:18 ~description:"shadowmage.weaver.description"
       ~effects:(effects [ (Direct, weave) ])
       ();
@@ -195,14 +223,5 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "shadowmage";
-    h_name = "shadowmage";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 22;
-    h_additional_cards = [];
-    h_make_listener = shadowmage_listener;
-    h_data = Shadowmage_data initial_data;
-  }
+  special_house ~key:"shadowmage" ~id:22 ~listener:shadowmage_listener ~data:(Shadowmage_data initial_data)
+    cards

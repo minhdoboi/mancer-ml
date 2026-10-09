@@ -7,7 +7,7 @@ open Common
 let sprite : card_effect =
  fun env ->
   Updater.focus env.env_updater env.env_selected env.env_player true;
-  Player.inflict (player_of_env env) (mk_damage ~is_ability:true 2 (ctx_of_env env))
+  Player.inflict (player_of_env env) (ability_damage env 2)
 
 let shower_drain : card_effect =
  fun env -> Houses.incr_mana (other_of_env env).houses_update (-1) [ 0; 1; 2; 3; 4 ]

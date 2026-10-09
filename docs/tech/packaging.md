@@ -18,6 +18,19 @@ Windows. Settings stay in `~/.mancer/` (or `%USERPROFILE%\.mancer` on
 Windows). The launcher sets `MANCER_ASSETS` so art is found even if the
 working directory is elsewhere.
 
+## CI (recommended)
+
+`.github/workflows/package.yml` runs `scripts/package.sh` on `ubuntu-22.04`,
+`macos-14` (arm64), `macos-15-intel` (x64) and `windows-latest`, and uploads
+each zip as an artifact. Push a `v*` tag, or run the workflow by hand, to
+build; a tag also attaches the zips to a GitHub Release.
+
+The Linux job builds on glibc 2.35 and fails if the binary needs a newer
+one. A binary only runs on systems at least as new as the glibc it was built
+against, so do not ship a zip built on a rolling distro (Arch, Fedora
+Rawhide, Ubuntu devel). The macOS jobs set `MACOSX_DEPLOYMENT_TARGET=11.0`.
+The macOS app gets an ad-hoc signature so Apple Silicon will launch it.
+
 ## Linux
 
 Needs a desktop with X11 (`libX11`). Wayland sessions work through Xwayland;

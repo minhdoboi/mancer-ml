@@ -7,7 +7,6 @@ open Sp
 open Engine
 open Common
 
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let hunter_ref : card option ref = ref None
 let tower_ref : card option ref = ref None
 let avatars_ref : card list ref = ref []
@@ -16,14 +15,13 @@ let initial_data = { pw_bargain = false; pw_turn = 0; pw_mod = None }
 let get_data (p : player_update) = match p.pstate.ps_data with Power_data d -> d | _ -> initial_data
 let set_data p d = Player.set_data p (Power_data d)
 let special_mana (p : player_update) = p.houses_update.hu_value.(4).mana
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 
 (* ---------------------------------------------------------------- desc mods *)
 
 (* Bargained basic cards keep their real cost, but special mana counts toward their availability *)
 let bargain_mod special : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index >= 4 then cards
+  if house.phd_house.h_index >= special_house_index then cards
   else Array.map (fun cd -> { cd with cd_extra_mana = special }) cards
 
 (* One discount, however many Towers: spells cost 2 less, other cards 1 less *)
@@ -61,14 +59,14 @@ let bargain =
 (* The bargain is locked for the first two turns: it reads as disabled until the end of the second *)
 let hide_bargain : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index <> 4 then cards
+  if house.phd_house.h_index <> special_house_index then cards
   else Array.map (fun cd -> if cd.cd_card.id = bargain.id then { cd with cd_enabled = false } else cd) cards
 
 (* Sacrifice an own creature for +3 of its type, +1 of every other, and life (twice its cost, at most 10) *)
 let eternal_burial : card_effect =
  fun env ->
   let p = player_of_env env in
-  let slot = slot_of_env env in
+  let slot = own_slot_of_env env in
   Option.iter
     (fun (st : slot_state) ->
       let card = st.card.c_card in
@@ -190,7 +188,8 @@ let refresh_turn : card_effect = fun env -> refresh_bargain (player_of_env env)
    command goes on with cost = type pool, so the normal submit path drains the type pool and the paid cost stays
    honest. *)
 let can_split_play p (c : command) =
-  (get_data p).pw_bargain && c.cmd_card.house_index < 4
+  (get_data p).pw_bargain
+  && c.cmd_card.house_index < special_house_index
   &&
   let pool = p.houses_update.hu_value.(c.cmd_card.house_index).mana in
   pool < c.cmd_cost && pool + special_mana p >= c.cmd_cost
@@ -299,14 +298,6 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "powermancer";
-    h_name = "powermancer";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [ (On_start, veil_bargain); (On_turn, refresh_turn); (On_end_turn, count_turns) ];
-    h_house_id = 21;
-    h_additional_cards = avatars;
-    h_make_listener = power_listener;
-    h_data = Power_data initial_data;
-  }
+  special_house ~key:"powermancer" ~id:21
+    ~effects:[ (On_start, veil_bargain); (On_turn, refresh_turn); (On_end_turn, count_turns) ]
+    ~additional_cards:avatars ~listener:power_listener ~data:(Power_data initial_data) cards

@@ -39,7 +39,7 @@ let siege : card_effect =
         | None -> Some s
         | Some a -> if (Slot.get s).life >= (Slot.get a).life then Some s else acc)
   in
-  Option.iter (fun s -> Slot.inflict s (mk_damage ~is_ability:true 8 (ctx_of_env env))) target
+  Option.iter (fun s -> Slot.inflict s (ability_damage env 8)) target
 
 let marine =
   creature ~key:"Marine" ~attack:(attack 4) ~life:17
@@ -75,15 +75,4 @@ let cards =
       ();
   ]
 
-let house =
-  {
-    h_key = "Troopers";
-    h_name = "Troopers";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 5;
-    h_additional_cards = [];
-    h_make_listener = (fun () -> default_listener);
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"Troopers" ~id:5 cards

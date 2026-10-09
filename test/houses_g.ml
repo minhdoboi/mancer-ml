@@ -169,6 +169,14 @@ let wajet_scales () =
   play u 0 "highpriest.EyeofWajet" ~input:None ~cost:5;
   check_int "player" 61 (player_life u 0)
 
+let bennu_strikes_before_death () =
+  let u = new_game ~mana:ten ~special:Highpriest.house () in
+  place u 0 "highpriest.Bennu" 0;
+  place u 1 "fire.goblin" 0;
+  kill u 0 0;
+  check_bool "bennu gone" true (is_empty u 0 0);
+  check_int "15 to the opposite" 1 (life_at u 1 0)
+
 (* ----------------------------------------------------------- kinetician *)
 
 let warp_caps () =
@@ -222,6 +230,7 @@ let () =
           Alcotest.test_case "curse" `Quick curse_sums;
           Alcotest.test_case "path" `Quick path_swaps;
           Alcotest.test_case "wajet" `Quick wajet_scales;
+          Alcotest.test_case "bennu" `Quick bennu_strikes_before_death;
         ] );
       ( "kinetician",
         [

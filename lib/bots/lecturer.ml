@@ -273,4 +273,4 @@ let execute settings ~pid ~desc start =
           |> String.concat " | " |> Printf.printf "  root: %s\n%!");
         best.move
 
-let mover settings u pid = execute settings ~pid ~desc:u.desc u.state
+let mover settings = Belief.blind (execute settings)

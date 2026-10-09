@@ -101,13 +101,13 @@ let matter_strike : card_effect =
       Option.iter
         (fun s ->
           spark env s;
-          Slot.inflict s (mk_damage ~is_ability:true 3 (ctx_of_env env)))
+          Slot.inflict s (ability_damage env 3))
         (reduce_filled (other_of_env env).slots_update strongest)
   | _ -> ()
 
 let zen_effect : card_effect =
  fun env ->
-  let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = own_slot_of_env env in
   match (slot.value, Slot.opposite slot) with
   | Some mine, opp ->
       Option.iter
@@ -126,7 +126,7 @@ let dreamer_shock : card_effect =
   Option.iter
     (fun s ->
       spark env s;
-      Slot.inflict s (mk_damage ~is_ability:true 4 (ctx_of_env env)))
+      Slot.inflict s (ability_damage env 4))
     (reduce_filled (other_of_env env).slots_update lowest_life)
 
 let place_cocoon : card_effect =
@@ -238,7 +238,8 @@ let cards =
     creature ~key:"zen.elementesist" ~attack:(attack 3) ~life:14 ~description:"zen.elementesist.description"
       ~run_attack:(custom_run_attack elem_attack) ();
     creature ~key:"zen.redlight" ~attack:(attack 2) ~life:14 ~description:"zen.redlight.description"
-      ~run_attack:(custom_run_attack ~multi:true redlight_attack) ();
+      ~run_attack:(custom_run_attack ~multi:true redlight_attack)
+      ();
     spell ~key:"zen.focus" ~description:"zen.focus.description" ~input_spec:Select_owner_creature
       ~effects:(effects [ (Direct, focus_spell) ])
       ();
@@ -251,15 +252,4 @@ let cards =
     inertia;
   ]
 
-let house =
-  {
-    h_key = "zen";
-    h_name = "zen";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 6;
-    h_additional_cards = [ matter ];
-    h_make_listener = (fun () -> default_listener);
-    h_data = Zen_cocoons [];
-  }
+let house = special_house ~key:"zen" ~id:6 ~additional_cards:[ matter ] ~data:(Zen_cocoons []) cards

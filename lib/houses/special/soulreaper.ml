@@ -12,29 +12,28 @@ let add_x p n = set_x p (get_x p + n)
 
 let damn : card_effect =
  fun env ->
-  let slot = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = opp_slot_of_env env in
   let x = get_x (player_of_env env) in
-  Slot.inflict slot (mk_damage ~is_spell:true (min 8 (3 + x)) (ctx_of_env env))
+  Slot.inflict slot (spell_damage env (min 8 (3 + x)))
 
 let pass : card_effect =
  fun env ->
-  let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = own_slot_of_env env in
   let x = min 12 (get_x (player_of_env env)) in
   Slot.heal slot x;
   List.iter (fun s -> Slot.heal s x) (Slot.filled_adjacent slot)
 
-let eternal_rage : card_effect =
- fun env -> Slot.set_data (player_of_env env).slots_update.slot_updates.(env.env_selected) Eternal
+let eternal_rage : card_effect = fun env -> Slot.set_data (own_slot_of_env env) Eternal
 
 let onslaught : card_effect =
  fun env ->
   let p = player_of_env env in
-  Slots.inflict_creatures (other_of_env env).slots_update (mk_damage ~is_spell:true (get_x p) (ctx_of_env env));
+  Slots.inflict_creatures (other_of_env env).slots_update (spell_damage env (get_x p));
   set_x p empty_data
 
 let tribute : card_effect =
  fun env ->
-  let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = own_slot_of_env env in
   match slot.value with
   | None -> ()
   | Some st ->
@@ -46,7 +45,7 @@ let furious : card_effect =
   let p = player_of_env env in
   let x = get_x p in
   set_x p empty_data;
-  Player.inflict (other_of_env env) (mk_damage ~is_spell:true (x + 7) (ctx_of_env env))
+  Player.inflict (other_of_env env) (spell_damage env (x + 7))
 
 let death_sentence : card_effect =
  fun env ->
@@ -63,11 +62,11 @@ let shackle_effect num : card_effect =
   let slot = p.slots_update.slot_updates.(num) in
   let opp = Slot.opposite slot in
   if Option.is_some opp.value then add_x p 1
-  else if Option.is_some slot.value then Slot.inflict slot (mk_damage ~is_ability:true 6 (ctx_of_env env))
+  else if Option.is_some slot.value then Slot.inflict slot (ability_damage env 6)
 
 let shackle : card_effect =
  fun env ->
-  let slot = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = opp_slot_of_env env in
   match slot.value with
   | None -> ()
   | Some _ ->
@@ -111,8 +110,7 @@ let check_eternal (slot : slot_update) (p : player_update) =
         Player.add_effect p
           ( On_end_turn,
             countdown 2 (fun env ->
-                Option.iter Slot.destroy
-                  (Slots.find_slot_id (player_of_env env).slots_update id)) ));
+                Option.iter Slot.destroy (Slots.find_slot_id (player_of_env env).slots_update id)) ));
       true
   | _ -> false
 
@@ -133,8 +131,7 @@ let reaper_listener () =
         Array.iter
           (fun (slot : slot_update) ->
             let old_delayed = slot.delayed_destroy_hook in
-            slot.delayed_destroy_hook <-
-              (fun d -> if not (check_eternal slot p) then old_delayed d);
+            slot.delayed_destroy_hook <- (fun d -> if not (check_eternal slot p) then old_delayed d);
             let old_over = slot.overridable_destroy in
             slot.overridable_destroy <- (fun () -> if not (check_eternal slot p) then old_over ()))
           p.slots_update.slot_updates);
@@ -164,21 +161,9 @@ let cards =
     spell ~key:"reaper.sentence" ~description:"reaper.sentence.description"
       ~effects:(effects [ (Direct, death_sentence) ])
       ();
-    spell ~key:"reaper.shackles" ~description:"reaper.shackles.description"
-      ~input_spec:Select_target_creature
+    spell ~key:"reaper.shackles" ~description:"reaper.shackles.description" ~input_spec:Select_target_creature
       ~effects:(effects [ (Direct, shackle) ])
       ();
   ]
 
-let house =
-  {
-    h_key = "reaper";
-    h_name = "reaper";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 35;
-    h_additional_cards = [];
-    h_make_listener = reaper_listener;
-    h_data = Reaper_data empty_data;
-  }
+let house = special_house ~key:"reaper" ~id:35 ~listener:reaper_listener ~data:(Reaper_data empty_data) cards

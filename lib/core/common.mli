@@ -24,6 +24,7 @@ val creature :
   attack:attack_sources ->
   life:int ->
   description:string ->
+  ?desc_args:(game_state -> player_id -> string list) ->
   ?effects:phase_effects ->
   ?input_spec:input_spec ->
   ?mod_:mod_ ->
@@ -36,7 +37,27 @@ val creature :
   card
 
 val spell :
-  key:string -> description:string -> ?input_spec:input_spec -> effects:phase_effects -> unit -> card
+  key:string ->
+  description:string ->
+  ?desc_args:(game_state -> player_id -> string list) ->
+  ?input_spec:input_spec ->
+  effects:phase_effects ->
+  unit ->
+  card
+
+val is_card : card option -> card -> bool
+(** Is [c] the card held in a forward-declared [ref] (cards that refer to each other)? *)
+
+val special_house :
+  key:string ->
+  id:int ->
+  ?effects:(phase * card_effect) list ->
+  ?additional_cards:card list ->
+  ?listener:(unit -> house_event_listener) ->
+  ?data:player_data ->
+  card list ->
+  house
+(** A special house (index {!Sp.special_house_index}); [key] doubles as the display name. *)
 
 (** {1 Attack sources} *)
 

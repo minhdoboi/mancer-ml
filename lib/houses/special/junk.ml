@@ -7,12 +7,10 @@ open Sp
 open Engine
 open Common
 
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let screamer_ref : card option ref = ref None
 let fortune_ref : card option ref = ref None
 let cyborg_ref : card option ref = ref None
 let trash_ref : card option ref = ref None
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 let creature_of opt = match opt with Some c -> make_creature c | None -> failwith "junk not initialised"
 
 let screamer_source =
@@ -29,8 +27,8 @@ let screamer_source =
 let poison_flower : card_effect =
  fun env ->
   let p = player_of_env env and op = other_of_env env in
-  let damage = mk_damage ~is_spell:true 5 (ctx_of_env env) in
-  let slot = slot_of_env env in
+  let damage = spell_damage env 5 in
+  let slot = own_slot_of_env env in
   let h = (Slot.get slot).card.c_card.house_index in
   Slot.inflict slot damage;
   Houses.incr_mana p.houses_update (-1) [ h ];
@@ -61,7 +59,7 @@ let fortune_reaction () =
         | _ -> de.de_damage);
   }
 
-let reset_protect : card_effect = fun env -> Slot.set_data (slot_of_env env) No_data
+let reset_protect : card_effect = fun env -> Slot.set_data (own_slot_of_env env) No_data
 
 (* ---------------------------------------------------------------- assassin *)
 
@@ -84,7 +82,7 @@ let roam : card_effect =
   if Option.is_none op.slots_update.slot_updates.(env.env_selected).value then
     Option.iter
       (fun n ->
-        Slot.inflict op.slots_update.slot_updates.(n) (mk_damage ~is_ability:true 5 (ctx_of_env env));
+        Slot.inflict op.slots_update.slot_updates.(n) (ability_damage env 5);
         Slots.move p.slots_update env.env_selected n)
       (nearest_slot_opposed env.env_selected p)
 
@@ -125,7 +123,7 @@ let factory_copy : card_effect =
   let copy_into (source : slot_update) (dest : slot_update) =
     match (source.value, dest.value) with
     | Some s, None when s.card.c_card.cost < 6 ->
-        focus_slot (slot_of_env env);
+        focus_slot (own_slot_of_env env);
         Slots.add_creature dest s.card;
         Option.iter (fun copied -> Player.apply_effect p Direct dest.num copied) dest.value;
         true
@@ -263,15 +261,4 @@ let cards =
     cyborg;
   ]
 
-let house =
-  {
-    h_key = "junk";
-    h_name = "junk";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 19;
-    h_additional_cards = [ trash ];
-    h_make_listener = junk_listener;
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"junk" ~id:19 ~additional_cards:[ trash ] ~listener:junk_listener cards

@@ -18,7 +18,6 @@ let mummy_ref : card option ref = ref None
 let ra_ref : card option ref = ref None
 let babi_ref : card option ref = ref None
 let amit_ref : card option ref = ref None
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let hp_set_ref : card list ref = ref []
 let serpo_bonus = Attack_func (fun a -> int_of_float (ceil (float_of_int a *. 2.)))
 
@@ -30,12 +29,13 @@ let nearest_slot_opposed ?(opposed = true) selected (p : player_update) =
       && Option.is_none p.slots_update.slot_updates.(n).value
       && Option.is_some op.slots_update.slot_updates.(n).value = opposed)
   |> List.fold_left
-       (fun best n -> match best with Some b when abs (b - selected) <= abs (n - selected) -> best | _ -> Some n)
+       (fun best n ->
+         match best with Some b when abs (b - selected) <= abs (n - selected) -> best | _ -> Some n)
        None
 
 let path_set : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index <> 4 then cards
+  if house.phd_house.h_index <> special_house_index then cards
   else
     Array.map
       (fun c ->
@@ -72,14 +72,14 @@ let wajet : card_effect =
   let n = List.length (get_data p).hp_revealed in
   Player.heal p n;
   Slots.heal_creatures p.slots_update n;
-  Slots.inflict_creatures (other_of_env env).slots_update (mk_damage ~is_spell:true n (ctx_of_env env))
+  Slots.inflict_creatures (other_of_env env).slots_update (spell_damage env n)
 
 let curse : card_effect =
  fun env ->
-  let slot = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = opp_slot_of_env env in
   let slots = slot :: Slot.filled_adjacent slot in
   let amount = List.fold_left (fun a s -> a + (Slot.get s).attack) 0 slots in
-  let d = mk_damage ~is_spell:true amount (ctx_of_env env) in
+  let d = spell_damage env amount in
   List.iter (fun s -> Slot.inflict s d) slots
 
 let apis_effect : card_effect =
@@ -100,7 +100,10 @@ let ouro : card_effect =
   let p = player_of_env env in
   let ouro_num = env.env_selected in
   Option.iter
-    (fun pos -> Option.iter (fun c -> Slots.add_creature p.slots_update.slot_updates.(pos) (make_creature c)) !serpent_ref)
+    (fun pos ->
+      Option.iter
+        (fun c -> Slots.add_creature p.slots_update.slot_updates.(pos) (make_creature c))
+        !serpent_ref)
     (nearest_empty ouro_num p);
   let rec die env =
     let hp = other_of_env env in
@@ -111,7 +114,8 @@ let ouro : card_effect =
             let amount = st.life in
             Player.heal hp amount;
             (match hp.slots_update.slot_updates.(ouro_num).value with
-            | Some o when is_card !ouro_ref o.card.c_card -> Slot.heal hp.slots_update.slot_updates.(ouro_num) amount
+            | Some o when is_card !ouro_ref o.card.c_card ->
+                Slot.heal hp.slots_update.slot_updates.(ouro_num) amount
             | _ -> Player.remove_effect (player_of_env env) (fun e -> e == die));
             focus_slot s;
             Slot.destroy s
@@ -159,7 +163,9 @@ let incr_ra : card_effect =
   match !ra_ref with
   | None -> ()
   | Some c ->
-      Option.iter (fun s -> add_attack s (Attack_func (fun a -> a + 1))) (Slots.find_card (player_of_env env).slots_update c)
+      Option.iter
+        (fun s -> add_attack s (Attack_func (fun a -> a + 1)))
+        (Slots.find_card (player_of_env env).slots_update c)
 
 let apep : card_effect = fun env -> Houses.incr_mana (player_of_env env).houses_update (-1) [ 0; 1; 2; 3 ]
 let apep_opp : card_effect = fun env -> Houses.incr_mana (other_of_env env).houses_update (-1) [ 0; 1; 2; 3 ]
@@ -204,7 +210,9 @@ let anubite_attack target d player =
     Option.iter
       (fun pos ->
         Updater.focus player.updater d.context.ctx_selected player.pid true;
-        Option.iter (fun c -> Slots.add_creature player.slots_update.slot_updates.(pos) (make_creature c)) !mummy_ref)
+        Option.iter
+          (fun c -> Slots.add_creature player.slots_update.slot_updates.(pos) (make_creature c))
+          !mummy_ref)
       (nearest_empty d.context.ctx_selected player)
 
 let babi_reaction () =
@@ -215,7 +223,9 @@ let babi_reaction () =
       (fun slot ->
         let me = Reaction.bound_slot r in
         if slot.num = me.num then
-          let mana = Array.fold_left (fun a h -> a + h.mana) 0 (other_player me.slots.player).houses_update.hu_value in
+          let mana =
+            Array.fold_left (fun a h -> a + h.mana) 0 (other_player me.slots.player).houses_update.hu_value
+          in
           Slot.set_data me (Babi_mana mana));
   }
 
@@ -267,7 +277,8 @@ let crocodile_attack target d player =
   Slot.toggle player.slots_update.slot_updates.(num) paused_flag;
   Player.add_effect player
     ( On_turn,
-      countdown 2 (fun env -> Slot.toggle_off (player_of_env env).slots_update.slot_updates.(num) paused_flag) )
+      countdown 2 (fun env -> Slot.toggle_off (player_of_env env).slots_update.slot_updates.(num) paused_flag)
+    )
 
 let bennu_reaction () =
   let r = Reaction.default () in
@@ -276,17 +287,22 @@ let bennu_reaction () =
     on_my_remove =
       (fun dead ->
         let me = Reaction.bound_slot r in
-        match me.value with
-        | Some st when st.data <> Bennu_dead ->
-            let from_owner =
-              match dead with
-              | Some { d_damage = Some dm; _ } -> dm.context.ctx_player = me.slots.player.pid
-              | _ -> false
-            in
-            if not from_owner then (
-              add_attack me (Attack_func (fun a -> int_of_float (ceil (float_of_int a *. 3.))));
-              Slot.set_data me Bennu_dead;
-              Option.iter (fun s -> Player.run_slot me.slots.player me.num s) me.value)
+        (* Only a real death (Some dead). Warp Schizo / Queen silence is
+           [remove None] and must not fire the dying attack. *)
+        match (me.value, dead) with
+        | Some st, Some d -> (
+            match st.data with
+            | Bennu_dead -> ()
+            | _ ->
+                let from_owner =
+                  match d.d_damage with
+                  | Some dm -> dm.context.ctx_player = me.slots.player.pid
+                  | None -> false
+                in
+                if not from_owner then (
+                  add_attack me (Attack_func (fun a -> int_of_float (ceil (float_of_int a *. 3.))));
+                  Slot.set_data me Bennu_dead;
+                  Option.iter (fun s -> Player.run_slot me.slots.player me.num s) me.value))
         | _ -> ());
   }
 
@@ -297,7 +313,11 @@ let serpo_reaction () =
     on_summon =
       (fun e ->
         let me = Reaction.bound_slot r in
-        if e.s_num <> me.num && e.s_card.c_card.house_index = 4 && e.s_player.pid = me.slots.player.pid then
+        if
+          e.s_num <> me.num
+          && e.s_card.c_card.house_index = special_house_index
+          && e.s_player.pid = me.slots.player.pid
+        then
           Option.iter
             (fun n ->
               Slots.move me.slots me.num n;
@@ -318,13 +338,13 @@ let hp_listener () =
     hl_init =
       (fun p ->
         init_any_death p;
-        if p.pstate.ps_desc.init_desc.pd_houses |> Array.exists (fun h -> h.phd_house.h_key = "highpriest")
-        then (
-          let old_slots = p.slots_update.after_change in
-          p.slots_update.after_change <-
-            (fun () ->
-              old_slots ();
-              choose_path p));
+        (if p.pstate.ps_desc.init_desc.pd_houses |> Array.exists (fun h -> h.phd_house.h_key = "highpriest")
+         then
+           let old_slots = p.slots_update.after_change in
+           p.slots_update.after_change <-
+             (fun () ->
+               old_slots ();
+               choose_path p));
         let op = other_player p in
         let old_houses = op.houses_update.after_update in
         op.houses_update.after_update <-
@@ -340,15 +360,20 @@ let hp_listener () =
             let r = old_sub c in
             let ident = (c.cmd_card.house_index, c.cmd_card.card_index) in
             let d = get_data p in
-            if not (List.mem ident d.hp_revealed) then set_data p { d with hp_revealed = ident :: d.hp_revealed };
+            if not (List.mem ident d.hp_revealed) then
+              set_data p { d with hp_revealed = ident :: d.hp_revealed };
             r));
   }
 
 let guardian_mummy = creature ~key:"highpriest.guardianmummy" ~attack:(attack 4) ~life:20 ~description:"" ()
-let serpent = creature ~key:"highpriest.serpent" ~attack:(attack 2) ~life:8 ~description:"highpriest.serpent.description" ()
+
+let serpent =
+  creature ~key:"highpriest.serpent" ~attack:(attack 2) ~life:8 ~description:"highpriest.serpent.description"
+    ()
 
 let sun_stone =
-  creature ~key:"highpriest.sunstone" ~attack:(attack 0) ~life:22 ~description:"highpriest.sunstone.description"
+  creature ~key:"highpriest.sunstone" ~attack:(attack 0) ~life:22
+    ~description:"highpriest.sunstone.description"
     ~mod_:(Spell_mod (fun x -> x + 2))
     ~effects:(effects [ (On_turn, incr_ra) ])
     ()
@@ -367,13 +392,16 @@ let sphinx =
     ~new_reaction:sphinx_reaction ()
 
 let ouroboros =
-  creature ~key:"highpriest.Ouroboros" ~attack:(attack 6) ~life:38 ~description:"highpriest.Ouroboros.description"
+  creature ~key:"highpriest.Ouroboros" ~attack:(attack 6) ~life:38
+    ~description:"highpriest.Ouroboros.description"
     ~effects:(effects [ (On_turn, ouro) ])
     ()
 
 let dragon_of_ra =
   creature ~key:"highpriest.Wingeddragon" ~attack:(attack 6) ~life:45
-    ~description:"highpriest.Wingeddragon.description" ~effects:(effects [ (Direct, ra) ]) ()
+    ~description:"highpriest.Wingeddragon.description"
+    ~effects:(effects [ (Direct, ra) ])
+    ()
 
 let babi =
   creature ~key:"highpriest.Babi" ~attack:(attack 5) ~life:21 ~description:"highpriest.Babi.description"
@@ -386,11 +414,12 @@ let amit =
 let hp_set =
   [
     creature ~key:"highpriest.Ancientcrocodile" ~attack:(attack 8) ~life:15
-      ~description:"highpriest.Ancientcrocodile.description" ~run_attack:(custom_run_attack crocodile_attack) ();
-    creature ~key:"highpriest.Serpopard" ~attack:(attack 4) ~life:18 ~description:"highpriest.Serpopard.description"
-      ~new_reaction:serpo_reaction ();
-    creature ~key:"highpriest.Anubite" ~attack:(attack 5) ~life:20 ~description:"highpriest.Anubite.description"
-      ~run_attack:(custom_run_attack anubite_attack) ();
+      ~description:"highpriest.Ancientcrocodile.description" ~run_attack:(custom_run_attack crocodile_attack)
+      ();
+    creature ~key:"highpriest.Serpopard" ~attack:(attack 4) ~life:18
+      ~description:"highpriest.Serpopard.description" ~new_reaction:serpo_reaction ();
+    creature ~key:"highpriest.Anubite" ~attack:(attack 5) ~life:20
+      ~description:"highpriest.Anubite.description" ~run_attack:(custom_run_attack anubite_attack) ();
     babi;
     spell ~key:"highpriest.Curseofchaos" ~description:"highpriest.Curseofchaos.description"
       ~input_spec:Select_target_creature
@@ -425,7 +454,8 @@ let cards =
       ~description:"highpriest.Sacredscarab.description" ~new_reaction:scarab_reaction ();
     creature ~key:"highpriest.sunpriest" ~attack:(attack 2) ~life:16
       ~description:"highpriest.sunpriest.description"
-      ~run_attack:(custom_run_attack ~multi:true sun_priest_attack) ();
+      ~run_attack:(custom_run_attack ~multi:true sun_priest_attack)
+      ();
     apis;
     creature ~key:"highpriest.Bennu" ~attack:(attack 5) ~life:21 ~description:"highpriest.Bennu.description"
       ~new_reaction:bennu_reaction ();
@@ -438,14 +468,7 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "highpriest";
-    h_name = "highpriest";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [ (On_turn, hp_turn); (On_start, init_path) ];
-    h_house_id = 41;
-    h_additional_cards = hp_set @ [ guardian_mummy; serpent; sun_stone; puzzle ];
-    h_make_listener = hp_listener;
-    h_data = Priest_data empty_data;
-  }
+  special_house ~key:"highpriest" ~id:41
+    ~effects:[ (On_turn, hp_turn); (On_start, init_path) ]
+    ~additional_cards:(hp_set @ [ guardian_mummy; serpent; sun_stone; puzzle ])
+    ~listener:hp_listener ~data:(Priest_data empty_data) cards

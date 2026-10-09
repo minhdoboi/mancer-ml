@@ -61,6 +61,40 @@ let stalker_stays_hidden_if_absorbed () =
   check_int "untouched" 17 (life_at u 0 3);
   check_bool "still hidden" true (Shadowmage.is_hidden (Option.get (slot u 0 3).value))
 
+let stalker_revealed_when_it_damages_a_creature () =
+  let u = new_game ~special:Shadowmage.house () in
+  place u 0 "shadowmage.stalker" 3;
+  place u 1 "fire.goblin" 3;
+  step u (fun () -> Option.iter (fun st -> Player.run_slot (player u 0) 3 st) (slot u 0 3).value);
+  check_bool "revealed" false (Shadowmage.is_hidden (Option.get (slot u 0 3).value));
+  check_int "goblin hurt" 11 (life_at u 1 3)
+
+let stalker_stays_hidden_hitting_the_player () =
+  let u = new_game ~special:Shadowmage.house () in
+  place u 0 "shadowmage.stalker" 3;
+  step u (fun () -> Option.iter (fun st -> Player.run_slot (player u 0) 3 st) (slot u 0 3).value);
+  check_bool "still hidden" true (Shadowmage.is_hidden (Option.get (slot u 0 3).value));
+  check_int "player hit" 55 (player_life u 1)
+
+let stalker_untargetable_while_hidden () =
+  let u = new_duel ~special0:Shadowmage.house ~special1:Rogue.house () in
+  place u 0 "shadowmage.stalker" 3;
+  place u 0 "fire.goblin" 1;
+  settle u;
+  let sneaks =
+    Game.legal_commands 1 u.desc u.state |> List.filter (fun c -> c.cmd_card.key = "rogue.sneak")
+  in
+  check_bool "sneak offered" true (sneaks <> []);
+  check_bool "stalker excluded" true (List.for_all (fun c -> c.cmd_input <> Some 3) sneaks);
+  check_bool "goblin targeted" true (List.exists (fun c -> c.cmd_input = Some 1) sneaks);
+  hit ~is_ability:true u 0 3 4;
+  settle u;
+  let sneaks2 =
+    Game.legal_commands 1 u.desc u.state |> List.filter (fun c -> c.cmd_card.key = "rogue.sneak")
+  in
+  check_bool "stalker targetable after reveal" true
+    (List.exists (fun c -> c.cmd_input = Some 3) sneaks2)
+
 let weaver_shields_neighbours () =
   let u = new_game ~mana:all_mana ~special:Shadowmage.house () in
   place u 0 "fire.goblin" 1;
@@ -390,6 +424,9 @@ let () =
           test_case "archer" `Quick archer_shot_and_heal;
           test_case "stalker" `Quick stalker_hides_until_hit;
           test_case "stalker absorb" `Quick stalker_stays_hidden_if_absorbed;
+          test_case "stalker reveals on hit" `Quick stalker_revealed_when_it_damages_a_creature;
+          test_case "stalker hidden on player hit" `Quick stalker_stays_hidden_hitting_the_player;
+          test_case "stalker untargetable" `Quick stalker_untargetable_while_hidden;
           test_case "weaver" `Quick weaver_shields_neighbours;
           test_case "silencer" `Quick silencer_hides_element;
           test_case "eclipse" `Quick eclipse_absorbs_thirty;

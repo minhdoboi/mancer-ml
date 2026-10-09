@@ -6,8 +6,6 @@ open Engine
 open Common
 
 let giant_ant_ref : card option ref = ref None
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
 let targeting_of (p : player_update) = match p.pstate.ps_data with Player_targeting t -> t | _ -> None
 let tracks_target p = match p.pstate.ps_data with Player_targeting _ -> true | _ -> false
 
@@ -21,7 +19,7 @@ let recover_target (p : player_update) =
 let change_target : card_effect =
  fun env ->
   let p = player_of_env env in
-  let target = Slot.get (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let target = Slot.get (opp_slot_of_env env) in
   set_target p (Some target.slot_id);
   Slots.foreach p.slots_update (fun s -> Slot.set_target s [ env.env_selected ]);
   Player.add_effect p
@@ -59,7 +57,7 @@ let assassin_source =
 
 let lower_giant_cost : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index < 4 then cards
+  if house.phd_house.h_index < special_house_index then cards
   else
     Array.map
       (fun cd ->
@@ -141,18 +139,18 @@ let mantis_reaction () =
 
 let locust : card_effect =
  fun env ->
-  let s = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let s = opp_slot_of_env env in
   Slot.toggle s cursed_flag;
   let id = (Slot.get s).slot_id in
-  Player.add_effect (player_of_env env)
-    ( On_end_turn,
-      one_time_player_effect (fun e ->
-          match Slots.find_slot_id (other_of_env e).slots_update id with
-          | Some slot ->
-              let ctx = { ctx_player = e.env_player; ctx_card = None; ctx_selected = no_selection } in
-              Player.inflict (other_of_env e) (mk_damage ~is_spell:true 4 ctx);
-              Slot.inflict slot (mk_damage ~is_spell:true 8 ctx)
-          | None -> ()) )
+  let rec curse e =
+    match Slots.find_slot_id (other_of_env e).slots_update id with
+    | Some slot ->
+        let ctx = { ctx_player = e.env_player; ctx_card = None; ctx_selected = no_selection } in
+        Player.inflict (other_of_env e) (mk_damage ~is_spell:true 4 ctx);
+        Slot.inflict slot (mk_damage ~is_spell:true 8 ctx)
+    | None -> Player.remove_effect (player_of_env e) (fun f -> f == curse)
+  in
+  Player.add_effect (player_of_env env) (On_end_turn, curse)
 
 let spawn_drone env num =
   let p = player_of_env env in
@@ -219,13 +217,7 @@ let cards =
       ~description:"entomologist.beetle.description"
       ~effects:
         (effects
-           [
-             ( Direct,
-               fun env ->
-                 Slot.inflict
-                   (Slot.opposite (slot_of_env env))
-                   (mk_damage ~is_ability:true 4 (ctx_of_env env)) );
-           ])
+           [ (Direct, fun env -> Slot.inflict (Slot.opposite (own_slot_of_env env)) (ability_damage env 4)) ])
       ~new_reaction:beetle_reaction ();
     creature ~key:"entomologist.moth" ~attack:(attack 3) ~life:14 ~description:"entomologist.moth.description"
       ~effects:
@@ -269,14 +261,5 @@ let cards =
 let () = giant_ant_ref := List.find_opt (fun (c : card) -> c.key = "entomologist.ant") cards
 
 let house =
-  {
-    h_key = "entomologist";
-    h_name = "entomologist";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 27;
-    h_additional_cards = [ drone; insect ];
-    h_make_listener = entomologist_listener;
-    h_data = Player_targeting None;
-  }
+  special_house ~key:"entomologist" ~id:27 ~additional_cards:[ drone; insect ] ~listener:entomologist_listener
+    ~data:(Player_targeting None) cards

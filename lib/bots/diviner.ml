@@ -2,8 +2,9 @@
    Port of priv/sp/bot/diviner/DivinerBot.scala.
 
    Scala draws beliefs with Choco CardGuess. Here each belief is a legal
-   four-cards-per-house deal from {!Shuffle}, excluding the bot's cards, plus
-   the visible opponent desc so a short budget still has the real hand. *)
+   four-cards-per-house deal from {!Shuffle}, excluding the bot's cards and
+   containing every card seen so far (see {!Belief}). The real deck is not a
+   world, as in Scala. *)
 
 open Sp
 
@@ -40,7 +41,9 @@ let cmd_label = function None -> "pass" | Some c -> command_to_string c
 module Eval = struct
   let world_mean ~screen ~sum ~n =
     if n <= 0 then screen
-    else ((!Oracle.Params.screen_weight *. screen) +. (sum /. float_of_int n)) /. (!Oracle.Params.screen_weight +. 1.)
+    else
+      ((!Oracle.Params.screen_weight *. screen) +. (sum /. float_of_int n))
+      /. (!Oracle.Params.screen_weight +. 1.)
 
   let score ?(aversion = !Params.risk_aversion) means =
     match means with
@@ -78,51 +81,9 @@ let cand_score c =
   in
   Eval.score means
 
-let rec max_by f = function
-  | [] -> invalid_arg "Diviner.max_by"
-  | x :: xs -> List.fold_left (fun a b -> if f b > f a then b else a) x xs
-
+let max_by = Util.max_by
 let rec take n = function [] -> [] | _ when n <= 0 -> [] | x :: xs -> x :: take (n - 1) xs
-
 let card_key = function None -> None | Some (c : command) -> Some c.cmd_card.id
-
-let sample_beliefs ~desc ~bot_id ~n rng =
-  let bot = desc.gd_players.(bot_id) in
-  let opp = desc.gd_players.(other bot_id) in
-  let special = opp.pd_houses.(4).phd_house in
-  let seen = Hashtbl.create 8 in
-  let rec go acc i =
-    if List.length acc >= n || i > n * 4 then List.rev acc
-    else
-      match
-        try Some (Shuffle.create_player ~rng ~exclude:bot ~first:false ~special Catalog.basics)
-        with _ -> None
-      with
-      | None -> go acc (i + 1)
-      | Some deal ->
-          let key =
-            Array.to_list deal.desc.pd_houses
-            |> List.concat_map (fun h -> Array.to_list h.phd_cards |> List.map (fun cd -> cd.cd_card.id))
-            |> List.sort compare
-            |> List.map string_of_int
-            |> String.concat ","
-          in
-          if Hashtbl.mem seen key then go acc (i + 1)
-          else (
-            Hashtbl.add seen key ();
-            go (deal.desc :: acc) (i + 1))
-  in
-  let sampled = go [] 0 in
-  if List.mem opp sampled then sampled else opp :: sampled
-
-let with_belief visible desc bot_id belief =
-  let opp = other bot_id in
-  let p = visible.players.(opp) in
-  let players = Array.copy visible.players in
-  players.(opp) <- { p with ps_desc = { init_desc = belief; desc_mods = p.ps_desc.desc_mods } };
-  let gd = { gd_players = Array.copy desc.gd_players } in
-  gd.gd_players.(opp) <- belief;
-  ({ players }, gd)
 
 let search settings ~pid worlds ~deadline =
   let bot_id = pid in
@@ -130,9 +91,7 @@ let search settings ~pid worlds ~deadline =
   else
     let primary = List.hd worlds in
     let nw = List.length worlds in
-    let moves =
-      None :: List.map (fun c -> Some c) (Game.legal_commands bot_id primary.desc primary.start)
-    in
+    let moves = None :: List.map (fun c -> Some c) (Game.legal_commands bot_id primary.desc primary.start) in
     let rows = ref [] in
     let rec screen = function
       | [] -> ()
@@ -153,14 +112,7 @@ let search settings ~pid worlds ~deadline =
           else (
             if Array.exists Fun.id seen then
               rows :=
-                `Cand
-                  {
-                    cmd;
-                    screen = values;
-                    screened = seen;
-                    sum = Array.make nw 0.;
-                    cnt = Array.make nw 0;
-                  }
+                `Cand { cmd; screen = values; screened = seen; sum = Array.make nw 0.; cnt = Array.make nw 0 }
                 :: !rows;
             screen rest)
     in
@@ -188,7 +140,9 @@ let search settings ~pid worlds ~deadline =
             |> List.sort (fun a b -> compare (cand_score b) (cand_score a))
           in
           let pass = List.filter (fun c -> Option.is_none c.cmd) per_card in
-          let cards = List.filter (fun c -> Option.is_some c.cmd) per_card |> take !Oracle.Params.root_cards in
+          let cards =
+            List.filter (fun c -> Option.is_some c.cmd) per_card |> take !Oracle.Params.root_cards
+          in
           let survivors = ref (cards @ pass) in
           let per_round = ref (max 1 !Params.first_round_samples) in
           let time_left = ref (now_ms () < deadline) in
@@ -203,7 +157,8 @@ let search settings ~pid worlds ~deadline =
                     (fun c ->
                       if !time_left then (
                         let rank = c.cnt.(w) mod Array.length !Oracle.Params.reply_weights in
-                        add c w (Oracle.Search.playout world.ai ~start:world.start ~root:c.cmd ~reply_rank:rank);
+                        add c w
+                          (Oracle.Search.playout world.ai ~start:world.start ~root:c.cmd ~reply_rank:rank);
                         time_left := now_ms () < deadline))
                     !survivors)
                 worlds;
@@ -212,7 +167,8 @@ let search settings ~pid worlds ~deadline =
             if !time_left then (
               let n = List.length !survivors in
               let keep = if n > 2 then (n + 1) / 2 else 2 in
-              survivors := List.sort (fun a b -> compare (cand_score b) (cand_score a)) !survivors |> take keep;
+              survivors :=
+                List.sort (fun a b -> compare (cand_score b) (cand_score a)) !survivors |> take keep;
               if List.length !survivors = 2 then per_round := 1 else per_round := !per_round * 2)
           done;
           match !survivors with
@@ -224,20 +180,38 @@ let search settings ~pid worlds ~deadline =
                   (cmd_label best.cmd) (cand_score best);
               best.cmd)
 
-let execute settings ~pid ~desc start =
+(* Sampled decks, kept while the seen cards and the game stay the same (Scala
+   [cachedBeliefs]), so the bot's picture of the opponent does not jump
+   between moves. *)
+let cached : (game_desc * player_id * string * player_desc list) list ref = ref []
+
+let beliefs ~desc ~pid ~seen rng =
+  let key = Belief.seen_key seen in
+  match List.find_opt (fun (d, p, k, _) -> d == desc && p = pid && k = key) !cached with
+  | Some (_, _, _, b) -> b
+  | None ->
+      let b =
+        match Belief.sample ~desc ~bot_id:pid ~seen ~n:!Params.belief_count rng with
+        | [] -> [ desc.gd_players.(other pid) ] (* no legal deck at all: nothing better to guess *)
+        | l -> l
+      in
+      cached := (desc, pid, key, b) :: List.filter (fun (d, p, _, _) -> d == desc && p <> pid) !cached;
+      b
+
+let execute ?(seen = []) settings ~pid ~desc start =
   if is_disabled start.players.(pid) then None
   else
     let t0 = now_ms () in
     let deadline = t0 + settings.duration in
     let rng = Random.State.make_self_init () in
-    let beliefs = sample_beliefs ~desc ~bot_id:pid ~n:!Params.belief_count rng in
+    let beliefs = beliefs ~desc ~pid ~seen rng in
     let worlds =
       List.map
         (fun belief ->
-          let st, d = with_belief start desc pid belief in
+          let st, d = Belief.with_belief start desc pid belief in
           { start = st; desc = d; ai = Oracle.Search.create ~desc:d ~bot_id:pid })
         beliefs
     in
     search settings ~pid worlds ~deadline
 
-let mover settings (u : updater) pid = execute settings ~pid ~desc:u.desc u.state
+let mover settings (u : updater) pid = execute ~seen:(Belief.seen_cards u ~pid) settings ~pid ~desc:u.desc u.state

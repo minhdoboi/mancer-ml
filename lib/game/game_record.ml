@@ -113,7 +113,7 @@ let move_of ~t ~player cmd (state : game_state) (desc : game_desc) =
       }
 
 let special_name (d : player_desc) =
-  match Array.find_opt (fun h -> h.phd_house.h_index = 4) d.pd_houses with
+  match Array.find_opt (fun h -> h.phd_house.h_index = special_house_index) d.pd_houses with
   | Some h -> h.phd_house.h_name
   | None -> ( match Array.length d.pd_houses with 0 -> "none" | n -> d.pd_houses.(n - 1).phd_house.h_name)
 

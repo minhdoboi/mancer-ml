@@ -49,19 +49,20 @@ let nurture_heal (p : player_update) =
 
 let pain : card_effect =
  fun env ->
-  let slot = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = opp_slot_of_env env in
   match slot.value with
   | None -> ()
   | Some st ->
       let extra = 2 * (other_of_env env).houses_update.hu_value.(st.card.c_card.house_index).mana in
-      let d = mk_damage ~is_spell:true (3 + extra) (ctx_of_env env) in
+      let d = spell_damage env (3 + extra) in
       Slot.inflict slot d;
       Player.inflict (other_of_env env) d
 
 let guard_summon : card_effect =
  fun env -> until_eot (other_of_env env) (-3) (filleds (other_of_env env).slots_update)
 
-let mystic_summon : card_effect = fun env -> Houses.incr_mana (player_of_env env).houses_update 2 [ 0; 1; 2; 3 ]
+let mystic_summon : card_effect =
+ fun env -> Houses.incr_mana (player_of_env env).houses_update 2 [ 0; 1; 2; 3 ]
 
 let on_conjure (slot : slot_update) =
   match slot.value with
@@ -128,15 +129,4 @@ let cards =
       ();
   ]
 
-let house =
-  {
-    h_key = "conjurer";
-    h_name = "conjurer";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 31;
-    h_additional_cards = [];
-    h_make_listener = conjurer_listener;
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"conjurer" ~id:31 ~listener:conjurer_listener cards

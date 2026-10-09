@@ -10,7 +10,6 @@ open Sp
 open Engine
 open Common
 
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let heaven_ref : card option ref = ref None
 let hell_ref : card option ref = ref None
 let baron_ref : card option ref = ref None
@@ -29,7 +28,9 @@ let wraith_attack =
       + match p.pstate.ps_data with Limbo_player `Limbo -> 1 | _ -> 0)
 
 let first_special_card (p : player_update) =
-  match Array.find_opt (fun h -> h.phd_house.h_index = 4) p.pstate.ps_desc.init_desc.pd_houses with
+  match
+    Array.find_opt (fun h -> h.phd_house.h_index = special_house_index) p.pstate.ps_desc.init_desc.pd_houses
+  with
   | None -> None
   | Some h ->
       let cards = List.fold_left (fun cs m -> m h cs) h.phd_cards p.pstate.ps_desc.desc_mods in
@@ -45,7 +46,7 @@ let nether_grasp : card_effect =
 
 let redeem : card_effect =
  fun env ->
-  let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = own_slot_of_env env in
   match slot.value with
   | Some st when is_limbo_state st.data ->
       let card = st.card in
@@ -231,14 +232,4 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "limbo";
-    h_name = "limbo";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [ (On_end_turn, clean_limbo) ];
-    h_house_id = 24;
-    h_additional_cards = [];
-    h_make_listener = limbo_listener;
-    h_data = No_player_data;
-  }
+  special_house ~key:"limbo" ~id:24 ~effects:[ (On_end_turn, clean_limbo) ] ~listener:limbo_listener cards

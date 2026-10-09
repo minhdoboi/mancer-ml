@@ -10,7 +10,6 @@ let restless_ref : card option ref = ref None
 let shadow_ref : card option ref = ref None
 let heretic_ref : card option ref = ref None
 let angel_ref : card option ref = ref None
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 
 let filled_count (p : player_update) =
   Array.fold_left (fun n s -> if Option.is_some s.value then n + 1 else n) 0 p.slots_update.slot_updates
@@ -54,17 +53,18 @@ let black_mass : card_effect =
  fun env ->
   let op = other_of_env env in
   let x = black_mass_x op.slots_update in
-  Slots.inflict_creatures op.slots_update (mk_damage ~is_spell:true x (ctx_of_env env));
-  Slot.destroy (player_of_env env).slots_update.slot_updates.(env.env_selected)
+  Slots.inflict_creatures op.slots_update (spell_damage env x);
+  Slot.destroy (own_slot_of_env env)
 
 let occult : card_effect =
  fun env ->
-  let slot = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
-  if Option.is_none slot.value then Option.iter (fun c -> Slots.add_creature slot (make_creature c)) !shadow_ref
+  let slot = opp_slot_of_env env in
+  if Option.is_none slot.value then
+    Option.iter (fun c -> Slots.add_creature slot (make_creature c)) !shadow_ref
 
 let shadow_heal : card_effect =
  fun env ->
-  focus_slot (player_of_env env).slots_update.slot_updates.(env.env_selected);
+  focus_slot (own_slot_of_env env);
   let op = other_of_env env in
   Player.heal op 1;
   Slots.heal_creatures op.slots_update 1
@@ -74,8 +74,7 @@ let ghost_heal : card_effect = fun env -> Player.heal (player_of_env env) (fille
 let evampire : card_effect =
  fun env ->
   let houses =
-    Slot.filled_adjacent (player_of_env env).slots_update.slot_updates.(env.env_selected)
-    |> List.map (fun s -> (Slot.get s).card.c_card.house_index)
+    Slot.filled_adjacent (own_slot_of_env env) |> List.map (fun s -> (Slot.get s).card.c_card.house_index)
   in
   if houses <> [] then Houses.incr_mana (player_of_env env).houses_update 1 houses
 
@@ -83,7 +82,7 @@ let betray : card_effect =
  fun env ->
   let p = player_of_env env in
   let slot = p.slots_update.slot_updates.(env.env_selected) in
-  let d = mk_damage ~is_ability:true 4 (ctx_of_env env) in
+  let d = ability_damage env 4 in
   focus_slot slot;
   Player.inflict p d;
   Slot.inflict slot d;
@@ -103,7 +102,7 @@ let missionar : card_effect =
   Option.iter
     (fun w ->
       let house_index = (Slot.get w).card.c_card.house_index in
-      Slot.inflict w (mk_damage ~is_ability:true ((Slot.get w).life / 2) (ctx_of_env env));
+      Slot.inflict w (ability_damage env ((Slot.get w).life / 2));
       let weakest_other =
         Slots.foldl (other_of_env env).slots_update None (fun acc s ->
             if (Slot.get s).card.c_card.house_index <> house_index then acc
@@ -112,18 +111,12 @@ let missionar : card_effect =
               | None -> Some s
               | Some a -> if (Slot.get a).attack > (Slot.get s).attack then Some s else acc)
       in
-      Option.iter
-        (fun s -> Slot.inflict s (mk_damage ~is_ability:true ((Slot.get s).life / 2) (ctx_of_env env)))
-        weakest_other)
+      Option.iter (fun s -> Slot.inflict s (ability_damage env ((Slot.get s).life / 2))) weakest_other)
     weakest
 
 let restless_reaction () =
   let r = Reaction.default () in
-  {
-    r with
-    on_my_death =
-      (fun dead -> Houses.incr_mana (other_player dead.d_player).houses_update 2 [ 4 ]);
-  }
+  { r with on_my_death = (fun dead -> Houses.incr_mana (other_player dead.d_player).houses_update 2 [ 4 ]) }
 
 let ghost_reaction () =
   let r = Reaction.default () in
@@ -142,11 +135,11 @@ let missionary_reaction () =
     on_summon =
       (fun e ->
         let me = Reaction.bound_slot r in
-        if e.s_player.pid = me.slots.player.pid then
-          if e.s_card.c_card.house_index = 4 then (
+        if e.s_player.pid = me.slots.player.pid then (
+          if e.s_card.c_card.house_index = special_house_index then (
             Slot.destroy me;
             Option.iter (fun c -> Slots.add_creature me (make_creature c)) !angel_ref)
-          else (
+          else
             let slot = e.s_player.slots_update.slot_updates.(e.s_num) in
             Slot.destroy slot;
             Option.iter (fun c -> Slots.add_creature slot (make_creature c)) !heretic_ref));
@@ -176,12 +169,15 @@ let angel_attack target d player =
       let slot = (other_player player).slots_update.slot_updates.(num) in
       match slot.value with
       | None -> Player.inflict (other_player player) d
-      | Some _ ->
+      | Some _ -> (
           Slot.inflict slot d;
           if Option.is_none slot.value then
             match !angel_ref with
-            | Some c -> Slot.heal player.slots_update.slot_updates.(num) (match c.creature_body with Some b -> b.b_life | None -> 0)
-            | None -> ())
+            | Some c ->
+                Slot.heal
+                  player.slots_update.slot_updates.(num)
+                  (match c.creature_body with Some b -> b.b_life | None -> 0)
+            | None -> ()))
 
 let restless =
   creature ~key:"darkpriest.RestlessSoul.name" ~attack:(attack 3) ~life:11
@@ -189,7 +185,9 @@ let restless =
 
 let shadow_priest =
   creature ~key:"darkpriest.ShadowOfPriest.name" ~attack:(attack 3) ~life:13
-    ~description:"darkpriest.ShadowOfPriest.description" ~effects:(effects [ (On_turn, shadow_heal) ]) ()
+    ~description:"darkpriest.ShadowOfPriest.description"
+    ~effects:(effects [ (On_turn, shadow_heal) ])
+    ()
 
 let heretic = creature ~key:"darkpriest.Heretic.name" ~attack:(attack 6) ~life:20 ~description:"" ()
 
@@ -204,8 +202,8 @@ let () =
   angel_ref := Some black_angel
 
 let ghost =
-  creature ~key:"darkpriest.Ghost.name" ~attack:(attack 5) ~life:16 ~description:"darkpriest.Ghost.description"
-    ~new_reaction:ghost_reaction
+  creature ~key:"darkpriest.Ghost.name" ~attack:(attack 5) ~life:16
+    ~description:"darkpriest.Ghost.description" ~new_reaction:ghost_reaction
     ~effects:(effects [ (Direct, ghost_heal) ])
     ()
 
@@ -215,13 +213,17 @@ let cards =
   [
     ghost;
     creature ~key:"darkpriest.Occultist.name" ~attack:(attack 4) ~life:20
-      ~description:"darkpriest.Occultist.description" ~effects:(effects [ (Direct, occult) ]) ();
+      ~description:"darkpriest.Occultist.description"
+      ~effects:(effects [ (Direct, occult) ])
+      ();
     spell ~key:"darkpriest.BlackMass.name" ~description:"darkpriest.BlackMass.description"
       ~input_spec:Select_owner_creature
       ~effects:(effects [ (Direct, black_mass) ])
       ();
     creature ~key:"darkpriest.EnergyVampire.name" ~attack:(attack 3) ~life:23
-      ~description:"darkpriest.EnergyVampire.description" ~effects:(effects [ (On_turn, evampire) ]) ();
+      ~description:"darkpriest.EnergyVampire.description"
+      ~effects:(effects [ (On_turn, evampire) ])
+      ();
     creature ~key:"darkpriest.BlackMonk.name" ~attack:(attack 4) ~life:25
       ~description:"darkpriest.BlackMonk.description" ~new_reaction:black_monk_reaction ();
     creature ~key:"darkpriest.Betrayer.name" ~attack:(attack 7) ~life:38
@@ -230,7 +232,8 @@ let cards =
       ();
     creature ~key:"darkpriest.DarkHydra.name" ~attack:(attack 1) ~life:32
       ~description:"darkpriest.DarkHydra.description"
-      ~run_attack:(custom_run_attack ~multi:true hydra_attack) ();
+      ~run_attack:(custom_run_attack ~multi:true hydra_attack)
+      ();
     creature ~key:"darkpriest.Missionary.name" ~attack:(attack 3) ~life:36
       ~description:"darkpriest.Missionary.description" ~new_reaction:missionary_reaction
       ~effects:(effects [ (Direct, missionar) ])
@@ -238,14 +241,7 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "darkpriest";
-    h_name = "darkpriest";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [ (On_start, init_restless) ];
-    h_house_id = 39;
-    h_additional_cards = [ restless; shadow_priest; heretic; black_angel ];
-    h_make_listener = (fun () -> default_listener);
-    h_data = No_player_data;
-  }
+  special_house ~key:"darkpriest" ~id:39
+    ~effects:[ (On_start, init_restless) ]
+    ~additional_cards:[ restless; shadow_priest; heretic; black_angel ]
+    cards

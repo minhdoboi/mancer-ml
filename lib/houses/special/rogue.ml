@@ -5,8 +5,6 @@ open Sp
 open Engine
 open Common
 
-let slot_of_env env = (player_of_env env).slots_update.slot_updates.(env.env_selected)
-
 let opposed_extra_attack target d player =
   let op = other_player player in
   let filled n = Option.is_some op.slots_update.slot_updates.(n).value in
@@ -21,22 +19,22 @@ let dark_archer_attack target d player =
 let sneak_attack : card_effect =
  fun env ->
   let p = player_of_env env in
-  let slot = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = opp_slot_of_env env in
   let blocked = Option.is_some p.slots_update.slot_updates.(env.env_selected).value in
   let amount = if blocked then 8 else 4 in
   Slot.stun slot;
-  Slot.inflict slot (mk_damage ~is_spell:true amount (ctx_of_env env))
+  Slot.inflict slot (spell_damage env amount)
 
 let trickster_tick : card_effect =
  fun env ->
-  let slot = slot_of_env env in
+  let slot = own_slot_of_env env in
   if Option.is_some (Slot.opposite slot).value then (
     focus_slot slot;
-    Player.inflict (other_of_env env) (mk_damage ~is_ability:true 2 (ctx_of_env env)))
+    Player.inflict (other_of_env env) (ability_damage env 2))
 
 let energy_steal : card_effect =
  fun env ->
-  let slot = slot_of_env env in
+  let slot = own_slot_of_env env in
   Option.iter
     (fun (opp : slot_state) ->
       focus_slot slot;
@@ -45,11 +43,11 @@ let energy_steal : card_effect =
 
 let assassin_summon : card_effect =
  fun env ->
-  let slot = slot_of_env env in
+  let slot = own_slot_of_env env in
   let opp = Slot.opposite slot in
   if Option.is_some opp.value then (
     focus_slot slot;
-    Slot.inflict opp (mk_damage ~is_ability:true 8 (ctx_of_env env));
+    Slot.inflict opp (ability_damage env 8);
     if Option.is_none opp.value then
       Option.iter
         (fun (s : slot_state) ->
@@ -78,7 +76,7 @@ let archer_summon : card_effect =
           if slot.num = env.env_selected then killed_opposite := true;
           Slot.destroy slot
       | _ -> ());
-  if !killed_opposite then Player.inflict op (mk_damage ~is_ability:true 3 (ctx_of_env env))
+  if !killed_opposite then Player.inflict op (ability_damage env 3)
 
 let fighter_reaction () =
   let r = Reaction.default () in
@@ -122,15 +120,4 @@ let cards =
       ();
   ]
 
-let house =
-  {
-    h_key = "rogue";
-    h_name = "rogue";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 25;
-    h_additional_cards = [];
-    h_make_listener = (fun () -> default_listener);
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"rogue" ~id:25 cards

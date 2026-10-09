@@ -108,8 +108,7 @@ let cards =
              ( Direct,
                fun env ->
                  let x = get_power (player_of_env env) in
-                 Slots.inflict_creatures (other_of_env env).slots_update
-                   (mk_damage ~is_spell:true (x + 2) (ctx_of_env env)) );
+                 Slots.inflict_creatures (other_of_env env).slots_update (spell_damage env (x + 2)) );
            ])
       ();
     creature ~key:"shadowcaster.noble" ~attack:(attack 5) ~life:19
@@ -128,11 +127,10 @@ let cards =
                  let x = get_power p in
                  let kills =
                    count_kills op (fun () ->
-                       Slots.inflict_creatures op.slots_update
-                         (mk_damage ~is_spell:true (x + 4) (ctx_of_env env)))
+                       Slots.inflict_creatures op.slots_update (spell_damage env (x + 4)))
                  in
                  for _ = 1 to kills do
-                   Player.inflict op (mk_damage ~is_spell:true 2 (ctx_of_env env))
+                   Player.inflict op (spell_damage env 2)
                  done;
                  if kills > 0 then add_power p kills );
            ])
@@ -153,9 +151,7 @@ let cards =
                  if x > 0 && Slots.foldl op.slots_update false (fun acc _ -> acc || true) then (
                    focus_slot p.slots_update.slot_updates.(env.env_selected);
                    let kills =
-                     count_kills op (fun () ->
-                         Slots.inflict_creatures op.slots_update
-                           (mk_damage ~is_ability:true x (ctx_of_env env)))
+                     count_kills op (fun () -> Slots.inflict_creatures op.slots_update (ability_damage env x))
                    in
                    if kills > 0 then add_power p kills) );
            ])
@@ -167,7 +163,7 @@ let cards =
            [
              ( Direct,
                fun env ->
-                 focus_slot (player_of_env env).slots_update.slot_updates.(env.env_selected);
+                 focus_slot (own_slot_of_env env);
                  Slots.foreach (other_of_env env).slots_update Slot.stun );
            ])
       ~new_reaction:priestess_reaction ();
@@ -176,14 +172,4 @@ let cards =
 let () = mage_ref := List.find_opt (fun (c : card) -> c.key = "shadowcaster.mage") cards
 
 let house =
-  {
-    h_key = "shadowcaster";
-    h_name = "shadowcaster";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 29;
-    h_additional_cards = [];
-    h_make_listener = shadowcaster_listener;
-    h_data = Shadowcaster_data 0;
-  }
+  special_house ~key:"shadowcaster" ~id:29 ~listener:shadowcaster_listener ~data:(Shadowcaster_data 0) cards

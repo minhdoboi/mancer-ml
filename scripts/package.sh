@@ -123,6 +123,11 @@ EOF
 </dict>
 </plist>
 EOF
+  # Ad-hoc signature: Apple Silicon refuses to run an unsigned binary at all.
+  # (A Developer ID signature replaces this; see docs/packaging.md.)
+  if command -v codesign >/dev/null 2>&1; then
+    codesign --force --deep --sign - "$app"
+  fi
   write_readme "$out/README.txt" \
     "Open mancer.app. The first time, right-click it and choose Open (the download is not signed)."
 
@@ -162,6 +167,10 @@ fi
 
 rm -f "$zip"
 # zip from dist/ so the archive contains the versioned folder.
-(cd "$root/dist" && zip -qr "$folder.zip" "$folder")
+if command -v zip >/dev/null 2>&1; then
+  (cd "$root/dist" && zip -qr "$folder.zip" "$folder")
+else
+  (cd "$root/dist" && python3 -m zipfile -c "$folder.zip" "$folder")
+fi
 echo "Wrote $out"
 echo "Wrote $zip"

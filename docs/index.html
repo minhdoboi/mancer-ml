@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mancers</title>
+<meta name="description" content="Mancers: a duel card game of 42 houses, a campaign and AI opponents, written in OCaml.">
+<style>
+:root{--bg:#14110f;--fg:#e8dfd0;--muted:#a89c88;--accent:#d9a441;--card:#1f1a16;--line:#3a3028}
+@media (prefers-color-scheme:light){:root{--bg:#f6f0e4;--fg:#2a211a;--muted:#6b5d4d;--accent:#9a5b0f;--card:#fffaf0;--line:#d8ccb6}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 Georgia,serif}
+main{max-width:860px;margin:0 auto;padding:48px 16px}
+h1{font-size:3rem;margin:0;color:var(--accent);letter-spacing:.02em}
+.tag{color:var(--muted);font-size:1.2rem;margin:.25em 0 1.5em}
+img{width:100%;height:auto;border:1px solid var(--line);border-radius:8px;display:block}
+.btns{display:flex;flex-wrap:wrap;gap:12px;margin:24px 0}
+a.btn{padding:10px 20px;border-radius:6px;border:1px solid var(--accent);color:var(--accent);text-decoration:none}
+a.btn.primary{background:var(--accent);color:var(--bg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:32px 0}
+.grid div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}
+h2{margin:0 0 .3em;font-size:1.1rem;color:var(--accent)}
+.grid p{margin:0;color:var(--muted);font-size:.95rem}
+pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;overflow-x:auto;font-size:.9rem}
+footer{color:var(--muted);font-size:.9rem;margin-top:40px}
+footer a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <h1>The Mancer's echo</h1>
+  <p class="tag">A fantasy card duel, small tribute to Spectromancer©.</p>
+  <img src="screenshot.png" alt="Mancers duel board screenshot">
+  <p>
+  <div>The game is an AI port of a personal project with some improvements (fixes, enhancements) and generic AI generated art in dark fantasy MTG style.
+    </div>
+  </p>
+  <div class="btns">
+    <a class="btn primary" href="https://github.com/minhdoboi/mancer-ml/releases">Download</a>
+    <a class="btn" href="https://github.com/minhdoboi/mancer-ml">Source on GitHub</a>
+  </div>
+  <div class="grid">
+    <div><h2>Houses from community suggestions</h2><p>Vampires, Shadowmage, Entomologist and more, each with its own creatures and spells.</p></div>
+    <div><h2>Campaign &amp; duels</h2><p>Work through the campaign, or pick a duel against a bot.</p></div>
+    <div><h2>Internationalization</h2><p>Contains AI translations in multiple languages (English, French, Spanish, Russian, Vietnamese).</p></div>
+  </div>
+  <p>
+    <div>
+<strong>Limitations:</strong> not all rules of the original game are implemented (the 1% rule, some deck rules).
+  </div>
+  </p>
+  <p>
+    <div>
+You can support the original game by buying it on <a href="https://www.spectromancer.com/">Spectromancer.com</a>.
+The art is great (music and graphics). There's a multiplayer mode, and the classes are well balanced.
+  </div>
+  </p>
+</main>
+</body>
+</html>

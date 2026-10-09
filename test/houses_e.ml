@@ -196,6 +196,14 @@ let martyr_absorbs_wave () =
   check_int "martyr" 2 (life_at u 0 0);
   check_int "goblin" 16 (life_at u 0 1)
 
+let martyr_ignores_player_damage () =
+  let u = new_game ~mana:ten ~special:Quantumancer.house () in
+  play u 0 "quantumancer.martyr" ~input:(Some 0) ~cost:4;
+  let before = player_life u 0 in
+  step u (fun () -> Player.inflict (player u 0) (mk_damage ~is_spell:true 5 (ctx 1)));
+  check_int "player" (before - 5) (player_life u 0);
+  check_int "martyr" 20 (life_at u 0 0)
+
 let martyr_skips_owner_mods () =
   let u = new_game ~mana:ten ~special:Quantumancer.house () in
   play u 0 "quantumancer.martyr" ~input:(Some 0) ~cost:4;
@@ -238,8 +246,20 @@ let sealing_survives_move () =
   kill u 0 2;
   check_bool "lifted" true (enabled_of u 1 "fire.goblin")
 
-let sealing_stolen_drops_list () =
+let sealing_concurrent_copies () =
+  (* Two copies alive at once (normally banned; placed directly): the first
+     death must not lift the survivor's seals. *)
   let u = new_game ~mana:ten ~special:Quantumancer.house () in
+  place u 0 "quantumancer.sealing" 0;
+  place u 0 "quantumancer.sealing" 1;
+  play u 1 "fire.goblin" ~input:(Some 0) ~cost:1;
+  check_bool "sealed" false (enabled_of u 1 "fire.goblin");
+  kill u 0 0;
+  check_bool "survivor holds seal" false (enabled_of u 1 "fire.goblin");
+  kill u 0 1;
+  check_bool "released" true (enabled_of u 1 "fire.goblin")
+
+let sealing_stolen_drops_list () =  let u = new_game ~mana:ten ~special:Quantumancer.house () in
   play u 0 "quantumancer.sealing" ~input:(Some 0) ~cost:6;
   play u 1 "fire.goblin" ~input:(Some 0) ~cost:1;
   step u (fun () -> Slots.move ~dest_player:(player u 1) (player u 0).slots_update 0 3);
@@ -453,6 +473,12 @@ let lower_basic_until_plentitude () =
   play u 0 "seasons.GaeasAvatar.name" ~input:(Some 0) ~cost:6;
   check_int "restored" 6 (cost_of u 0 "fire.wave")
 
+let lower_basic_until_cornucopia () =
+  let u = new_game ~mana:ten ~special:Seasons.house () in
+  check_int "wave" 5 (cost_of u 0 "fire.wave");
+  play u 0 "seasons.Cornucopia.name" ~input:(Some 0) ~cost:5;
+  check_int "restored" 6 (cost_of u 0 "fire.wave")
+
 let gaea_counts_occupied () =
   let u = new_game ~mana:ten ~special:Seasons.house () in
   play u 0 "seasons.GaeasAvatar.name" ~input:(Some 0) ~cost:6;
@@ -520,11 +546,13 @@ let () =
           Alcotest.test_case "dimension hit" `Quick dimension_mirrors_hits;
           Alcotest.test_case "dimension empty" `Quick dimension_empty_is_once;
           Alcotest.test_case "martyr" `Quick martyr_absorbs_wave;
+          Alcotest.test_case "martyr player" `Quick martyr_ignores_player_damage;
           Alcotest.test_case "martyr mods" `Quick martyr_skips_owner_mods;
           Alcotest.test_case "phosphor" `Quick phosphor_retaliates_combat;
           Alcotest.test_case "sealing" `Quick sealing_bans_until_death;
           Alcotest.test_case "sealing move" `Quick sealing_survives_move;
           Alcotest.test_case "sealing steal" `Quick sealing_stolen_drops_list;
+          Alcotest.test_case "sealing concurrent" `Quick sealing_concurrent_copies;
           Alcotest.test_case "fusion" `Quick fusion_tracks_mana;
           Alcotest.test_case "cosmic offer" `Quick cosmic_offers_cheap_spells;
           Alcotest.test_case "cosmic replay" `Quick cosmic_replays;
@@ -552,6 +580,7 @@ let () =
           Alcotest.test_case "solar wave" `Quick solar_wave_triples;
           Alcotest.test_case "midnight" `Quick midnight_reduces;
           Alcotest.test_case "lower basic" `Quick lower_basic_until_plentitude;
+          Alcotest.test_case "lower basic cornucopia" `Quick lower_basic_until_cornucopia;
           Alcotest.test_case "gaea attack" `Quick gaea_counts_occupied;
           Alcotest.test_case "gaea spells" `Quick gaea_ignores_spells;
           Alcotest.test_case "behemoth" `Quick behemoth_caps_mana;

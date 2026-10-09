@@ -11,7 +11,7 @@ let set_data p d = Player.set_data p (Quantum_data d)
 
 let hide_sealing : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index <> 4 then cards
+  if house.phd_house.h_index <> special_house_index then cards
   else
     Array.map
       (fun cd -> if cd.cd_card.key = "quantumancer.sealing" then { cd with cd_enabled = false } else cd)
@@ -25,20 +25,16 @@ let seal_mod (card : card) : desc_mod =
 let sealed_cards (slot : slot_update) =
   match slot.value with
   | Some st -> (
-      match st.data with
-      | Sealed (pairs, side) when side = slot.slots.player.pid -> pairs
-      | _ -> [])
+      match st.data with Sealed (pairs, side) when side = slot.slots.player.pid -> pairs | _ -> [])
   | None -> []
 
 let cosmic_choice (spells : card list) : desc_mod =
  fun house cards ->
   let hidden = Array.map (fun cd -> { cd with cd_enabled = false }) cards in
-  if house.phd_house.h_index <> 4 then hidden
+  if house.phd_house.h_index <> special_house_index then hidden
   else
     let extras =
-      List.map
-        (fun s -> { cd_card = s; cd_cost = 0; cd_enabled = true; cd_extra_mana = 0 })
-        spells
+      List.map (fun s -> { cd_card = s; cd_cost = 0; cd_enabled = true; cd_extra_mana = 0 }) spells
       |> Array.of_list
     in
     Array.append hidden extras
@@ -46,10 +42,10 @@ let cosmic_choice (spells : card list) : desc_mod =
 let replayable p =
   let rec uniq acc seen = function
     | [] -> List.rev acc
-    | c :: cs -> if List.exists (fun x -> x.id = c.id) seen then uniq acc seen cs else uniq (c :: acc) (c :: seen) cs
+    | c :: cs ->
+        if List.exists (fun x -> x.id = c.id) seen then uniq acc seen cs else uniq (c :: acc) (c :: seen) cs
   in
-  (get_data p).q_played
-  |> List.rev
+  (get_data p).q_played |> List.rev
   |> List.filter_map (fun ps -> if ps.ps_card.is_spell && ps.ps_cost <= 10 then Some ps.ps_card else None)
   |> uniq [] []
 
@@ -68,7 +64,7 @@ let power_surge : card_effect =
       | None -> ()
       | Some st ->
           let mana = op.houses_update.hu_value.(st.card.c_card.house_index).mana in
-          Slot.inflict slot (mk_damage ~is_spell:true (max mana 3) (ctx_of_env env)))
+          Slot.inflict slot (spell_damage env (max mana 3)))
 
 let fusion_turn : card_effect =
  fun env ->
@@ -114,15 +110,20 @@ let record_opponent_spell p (c : command) =
       }
 
 let seal_opponent_card owner (card : card) =
-  let m = seal_mod card in
+  (* One SealMod per sealing slot, not one shared mod: concurrent copies each
+     hold their own instance, so the first death cannot lift the other's seals
+     (Scala shares a single SealMod across slots and leaks on first death). *)
   Slots.foreach owner.slots_update (fun slot ->
       match slot.value with
       | Some st when st.card.c_card.key = "quantumancer.sealing" ->
-          Slot.set_data slot (Sealed (sealed_cards slot @ [ (card, m) ], owner.pid))
-      | _ -> ());
-  Player.add_desc_mod (other_player owner) m
+          let m = seal_mod card in
+          Slot.set_data slot (Sealed (sealed_cards slot @ [ (card, m) ], owner.pid));
+          Player.add_desc_mod (other_player owner) m
+      | _ -> ())
 
-let fusion_attack = Attack_state_func (fun a p -> a + Array.fold_left (fun m h -> max m h.mana) 0 (other_player p).houses_update.hu_value)
+let fusion_attack =
+  Attack_state_func
+    (fun a p -> a + Array.fold_left (fun m h -> max m h.mana) 0 (other_player p).houses_update.hu_value)
 
 let dimension_attack target d player =
   let other = other_player player in
@@ -155,17 +156,12 @@ let martyr_reaction () =
     on_protect =
       (fun de ->
         let me = Reaction.bound_slot r in
-        let enemy_spell =
-          de.de_damage.is_spell && de.de_damage.context.ctx_player <> me.slots.player.pid
-        in
-        let not_self = match de.de_target with Some n -> n <> me.num | None -> true in
-        if enemy_spell && not_self && de.de_damage.amount > 0 && not (any_absorbing me.slots.player)
-        then (
+        let enemy_spell = de.de_damage.is_spell && de.de_damage.context.ctx_player <> me.slots.player.pid in
+        let not_self = match de.de_target with Some n -> n <> me.num | None -> false in
+        if enemy_spell && not_self && de.de_damage.amount > 0 && not (any_absorbing me.slots.player) then (
           let prev = match me.value with Some st -> st.data | None -> No_data in
           Slot.set_data me (Custom "martyr-absorb");
-          Fun.protect
-            ~finally:(fun () -> Slot.set_data me prev)
-            (fun () -> Slot.damage_slot me de.de_damage);
+          Fun.protect ~finally:(fun () -> Slot.set_data me prev) (fun () -> Slot.damage_slot me de.de_damage);
           { de.de_damage with amount = 0 })
         else de.de_damage);
   }
@@ -268,9 +264,7 @@ let quantum_listener () =
             if
               Array.exists
                 (fun s ->
-                  match s.value with
-                  | Some st -> st.card.c_card.key = "quantumancer.sealing"
-                  | None -> false)
+                  match s.value with Some st -> st.card.c_card.key = "quantumancer.sealing" | None -> false)
                 p.slots_update.slot_updates
             then seal_opponent_card p c.cmd_card;
             r));
@@ -291,21 +285,16 @@ let cards =
       ~new_reaction:phosphor_reaction ();
     creature ~key:"quantumancer.sealing" ~attack:(attack 6) ~life:34
       ~description:"quantumancer.sealing.description" ~new_reaction:sealing_reaction ();
-    creature ~key:"quantumancer.fusion" ~attack:{ base = None; sources = [ fusion_attack ] } ~life:36
-      ~description:"quantumancer.fusion.description" ~effects:(effects [ (On_turn, fusion_turn) ]) ();
+    creature ~key:"quantumancer.fusion"
+      ~attack:{ base = None; sources = [ fusion_attack ] }
+      ~life:36 ~description:"quantumancer.fusion.description"
+      ~effects:(effects [ (On_turn, fusion_turn) ])
+      ();
     creature ~key:"quantumancer.cosmic" ~attack:(attack 7) ~life:40
-      ~description:"quantumancer.cosmic.description" ~effects:(effects [ (Direct, cosmic_summon) ]) ();
+      ~description:"quantumancer.cosmic.description"
+      ~effects:(effects [ (Direct, cosmic_summon) ])
+      ();
   ]
 
 let house =
-  {
-    h_key = "quantumancer";
-    h_name = "quantumancer";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 32;
-    h_additional_cards = [];
-    h_make_listener = quantum_listener;
-    h_data = Quantum_data empty_data;
-  }
+  special_house ~key:"quantumancer" ~id:32 ~listener:quantum_listener ~data:(Quantum_data empty_data) cards

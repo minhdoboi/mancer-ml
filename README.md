@@ -1,9 +1,8 @@
 # mancer-ml
 
-OCaml port of [freespectrogdx](https://github.com/minhdoboi/freespectrogdx)
-(Scala 3 + libGDX). The engine, all 42 houses, the campaign, and both UIs
+OCaml port of freespectrogdx (Scala 3 + libGDX). The engine, all houses, the campaign, and both UIs
 are in. Port status and the Scala → OCaml map live in
-[docs/migration.md](docs/migration.md).
+[docs/tech/migration.md](docs/tech/migration.md).
 
 ```sh
 eval $(opam env --switch=mancer)   # OCaml 5.2.0 + dune 3.24.2
@@ -18,6 +17,8 @@ dune exec ./bin/gui.exe            # raylib window; in a game, F8 cycles spell e
 Format with `dune fmt`.
 
 ## Play
+
+Presentation page [here](https://minhdoboi.github.io/mancer-ml).
 
 Both UIs open the same lobby: campaign, duel, and settings.
 
@@ -89,6 +90,24 @@ win counts are not a balance signal. Oracle vs greedy is.
 matchup. Lecturer is a UCT tree search; tune with
 `LECTURER_OPTS=exploration=0.7,maxDepth=4,...`.
 
+## Limitations
+
+Both UIs hide what the Scala game hides, but the bots don't play blind:
+like the original, they think on the full `game_state`, so anything the
+engine tracks is visible to them even when your board keeps it secret.
+
+- **Hidden Shade Stalker (Shadowmage).** An unrevealed Stalker is an empty
+  well on your side of the board and the engine refuses to target it, but
+  the bots still see its slot, attack, and life when they score and search,
+  and will play around it.
+- **Opponent hands in search.** Strategist, lecturer, oracle, and summoner
+  explore the opponent's replies with that side's real hand, never a guess.
+  Diviner is the exception: it samples belief hands for the opponent's
+  deck, but even its worlds keep the true board, Stalker included.
+- **Not every rule of the original game is implemented.** The 1% rule and
+  some of the deck-building rules are missing, so decks and matchups can
+  differ from the original Spectromancer.
+
 ## License
 
 The game engine, tools, and original assets are under the
@@ -133,7 +152,7 @@ The first macOS launch needs right-click → Open (the app is not signed).
 Windows is built with mingw via Diskuv OCaml or opam; Git Bash can run the
 same script.
 
-Full steps, signing, and DLL notes: [docs/packaging.md](docs/packaging.md).
+Full steps, signing, and DLL notes: [docs/tech/packaging.md](docs/tech/packaging.md).
 
 ## Layout
 
@@ -145,7 +164,8 @@ Full steps, signing, and DLL notes: [docs/packaging.md](docs/packaging.md).
 | `lib/houses/` | Basic and special houses |
 | `lib/bots/` | Search bots |
 | `lib/game/` | Session, table, shuffle, campaign, tournament, assets |
-| `bin/` | `main`, `tui`, `gui`, `replay`, `compare_engines`, `sync_assets` |
+| `gui/` | The raylib front end as a library: spell effects (`fx*`) and the screens (`gui_*`) |
+| `bin/` | `main`, `tui`, `gui` (entry point), `replay`, `compare_engines`, `sync_assets` |
 | `test/` | Alcotest suites, `expect/` board snapshots, `support/` fixtures |
 
 `session.mli` drives a live game: `Session.create`, `status`,
@@ -164,7 +184,9 @@ A rules change shows up as an expect diff: review it, then `dune promote`.
 
 ## Docs
 
-- [Migration status and Scala map](docs/migration.md)
-- [House port mismatches](docs/house-port-mismatches.md)
-- [Spell-effect port plan](docs/effects-port-plan.md)
-- [Packaging for Linux, macOS, Windows](docs/packaging.md)
+- [Tutorials](docs/tuto/README.md) — the architecture, how the AI opponents
+  think (Oracle, Diviner, and the rest), and the maths behind the spell effects
+- [Migration status and Scala map](docs/tech/migration.md)
+- [House port mismatches](docs/tech/house-port-mismatches.md)
+- [Spell-effect port plan](docs/tech/effects-port-plan.md)
+- [Packaging for Linux, macOS, Windows](docs/tech/packaging.md)

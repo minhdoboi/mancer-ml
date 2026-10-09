@@ -13,11 +13,11 @@ let winge : card_effect =
 
 let simoom : card_effect =
  fun env ->
-  let slot = (other_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = opp_slot_of_env env in
   match slot.value with
   | None -> ()
   | Some st ->
-      if st.card.c_card.house_index <> 4 then (
+      if st.card.c_card.house_index <> special_house_index then (
         Slot.stun slot;
         Houses.incr_mana (player_of_env env).houses_update (st.card.c_card.cost / 2)
           [ st.card.c_card.house_index ])
@@ -27,7 +27,7 @@ let bl_phase = "Ball lightning phase"
 let ball_lightning : card_effect =
  fun env ->
   let p = player_of_env env in
-  Player.inflict (other_of_env env) (mk_damage ~is_spell:true 7 (ctx_of_env env));
+  Player.inflict (other_of_env env) (spell_damage env 7);
   Player.add_transition p (Wait_player (p.pid, Some bl_phase))
 
 let sq_phase1 = "Squall phase 1"
@@ -36,7 +36,7 @@ let sq_phase2 = "Squall phase 2"
 let squall : card_effect =
  fun env ->
   let p = player_of_env env in
-  let d = mk_damage ~is_spell:true 1 (ctx_of_env env) in
+  let d = spell_damage env 1 in
   Player.inflict (other_of_env env) d;
   Slots.inflict_creatures (other_of_env env).slots_update d;
   Player.add_transition p (Wait_player (p.pid, Some sq_phase2));
@@ -157,14 +157,6 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "wind";
-    h_name = "wind";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 7;
-    h_additional_cards = [];
-    h_make_listener = wind_listener;
-    h_data = Wind_state { winged = false; vortex = false };
-  }
+  special_house ~key:"wind" ~id:7 ~listener:wind_listener
+    ~data:(Wind_state { winged = false; vortex = false })
+    cards

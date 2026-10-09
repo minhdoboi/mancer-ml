@@ -138,13 +138,8 @@ let distinct_cmds cs =
   in
   go [] cs
 
-let max_by f = function
-  | [] -> invalid_arg "Oracle.max_by: empty"
-  | x :: xs -> List.fold_left (fun a b -> if f b > f a then b else a) x xs
-
-let min_by f = function
-  | [] -> invalid_arg "Oracle.min_by: empty"
-  | x :: xs -> List.fold_left (fun a b -> if f b < f a then b else a) x xs
+let max_by = Util.max_by
+let min_by = Util.min_by
 
 let friends (p : player_state) n =
   List.fold_left (fun a i -> if defined p i then a + 1 else a) 0 (adjacents n)
@@ -392,7 +387,7 @@ let leaf_value ~desc ?(bot_id = owner) state =
   let stats = make_stats () in
   project ~desc ~stats ~bot_id { cmd = None; state; next = opponent; ended = None } 1
 
-let mover settings u pid = execute settings ~pid ~desc:u.desc u.state
+let mover settings = Belief.blind (execute settings)
 
 module Search = struct
   type t = { desc : game_desc; bot_id : player_id; stats : stats }
@@ -421,7 +416,8 @@ module Search = struct
       incr ply
     done;
     Option.iter
-      (fun p -> if p = t.bot_id then t.stats.wins <- t.stats.wins + 1 else t.stats.losses <- t.stats.losses + 1)
+      (fun p ->
+        if p = t.bot_id then t.stats.wins <- t.stats.wins + 1 else t.stats.losses <- t.stats.losses + 1)
       !step.ended;
     value t !step ~ply:!ply
 end

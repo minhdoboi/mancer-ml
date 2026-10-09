@@ -18,7 +18,7 @@ Why:
 - The most valuable part is the table that maps about 90 spells to 13 shared
   styles, each with its own color, intensity and target. Porting the 13 styles
   gives most cards an effect at once.
-- The hover smoke ([bin/gui.ml](../bin/gui.ml), `draw_smoke`) already shows
+- The hover smoke (`Fx.Hover` in [gui/fx_particles.ml](../gui/fx_particles.ml)) already shows
   the approach: `smoke.p` was rewritten by hand as OCaml code.
 
 ## What exists in Scala
@@ -54,9 +54,10 @@ BatFlock and SoulHarvest do not. We keep this split.
 
 ### Module
 
-`bin/fx.ml` (and `fx.mli`), added to the `gui` executable in `bin/dune`.
-`gui.ml` is about 1,500 lines already, so effects stay out of it apart from
-the code that starts and draws them.
+`gui/fx.ml` (and `fx.mli`), part of the raylib library in `gui/dune`. It was
+first a single file; the implementation now sits in the `fx_*` modules next to
+it, one per section. The screens stay out of it apart from the code that starts
+and draws the effects.
 
 ```ocaml
 type spot = { x : float; y : float }          (* board coordinates, before scaling *)

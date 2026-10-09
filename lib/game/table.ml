@@ -29,6 +29,11 @@ let default_setup =
 
 let seat_name = function Human -> "human" | Bot id -> id
 
+(* Scala [Local] picks the duel starter with [Random.nextInt(2)]: a coin flip,
+   not always the owner. Campaign fights keep their scripted starter. *)
+let random_starter ?(rng = Random.State.make_self_init ()) () =
+  if Random.State.bool rng then owner else opponent
+
 (* Portrait rosters for the duel dialog, mirroring Scala [Portraits]. *)
 let player_portraits =
   [
@@ -71,7 +76,9 @@ let duel_opponents =
 let faces_for_bot bot =
   match List.filter_map (fun o -> if o.opp_kind = bot then Some o.opp_portrait else None) duel_opponents with
   | [] -> (
-      match List.filter_map (fun o -> if o.opp_bot = bot then Some o.opp_portrait else None) duel_opponents with
+      match
+        List.filter_map (fun o -> if o.opp_bot = bot then Some o.opp_portrait else None) duel_opponents
+      with
       | [] -> [ "summoner"; "summoner-f" ]
       | faces -> faces)
   | faces -> faces
@@ -169,6 +176,20 @@ type t = {
   rng_seed : int;
 }
 
+let movers_of setup =
+  let mover = function
+    | Human -> None
+    | Bot id -> Some (Tournament.mover ~stats_log:false ~budget:setup.budget_ms id)
+  in
+  [| mover (fst setup.seats); mover (snd setup.seats) |]
+
+let open_session ?on_event setup ~seed ~desc ~mana ~rng_seed =
+  let session =
+    Session.create desc ~mana0:mana.(0) ~mana1:mana.(1) ~rng:(Dice.make rng_seed) ~max_turns:setup.max_turns
+      ~starting:setup.starting ?life:setup.life ?on_event
+  in
+  { setup; seed; session; movers = movers_of setup; mana; rng_seed }
+
 let start ?on_event (setup : setup) =
   Lazy.force catalog;
   let seed =
@@ -180,17 +201,20 @@ let start ?on_event (setup : setup) =
   let p0, p1 = Shuffle.two_players ~rng ~starting:setup.starting ~specials Catalog.basics in
   let desc = { gd_players = [| p0.desc; p1.desc |] } in
   let rng_seed = Random.State.bits rng in
-  let mover = function
-    | Human -> None
-    | Bot id -> Some (Tournament.mover ~stats_log:false ~budget:setup.budget_ms id)
-  in
-  let movers = [| mover (fst setup.seats); mover (snd setup.seats) |] in
   let mana = [| Array.to_list p0.mana; Array.to_list p1.mana |] in
-  let session =
-    Session.create desc ~mana0:mana.(0) ~mana1:mana.(1) ~rng:(Dice.make rng_seed) ~max_turns:setup.max_turns
-      ~starting:setup.starting ?life:setup.life ?on_event
-  in
-  { setup; seed; session; movers; mana; rng_seed }
+  open_session ?on_event setup ~seed ~desc ~mana ~rng_seed
+
+(* Scala Local.swapped: the same opening hands move across the table. Seats
+   stay put; who starts flips unless this is a campaign fight. *)
+let start_swapped ?on_event ?(keep_starter = false) ?budget_ms t =
+  let s0, s1 = t.setup.specials in
+  let starting = if keep_starter then t.setup.starting else other t.setup.starting in
+  let budget_ms = Option.value budget_ms ~default:t.setup.budget_ms in
+  let setup = { t.setup with specials = (s1, s0); starting; seed = Some t.seed; budget_ms } in
+  let old = Session.desc t.session in
+  let desc = { gd_players = [| old.gd_players.(1); old.gd_players.(0) |] } in
+  let mana = [| t.mana.(1); t.mana.(0) |] in
+  open_session ?on_event setup ~seed:t.seed ~desc ~mana ~rng_seed:t.rng_seed
 
 let session t = t.session
 let setup t = t.setup
@@ -294,3 +318,63 @@ let save t ~dir =
   let path = Filename.concat dir (Printf.sprintf "game-%d-%.0f.json" t.seed (Unix.gettimeofday ())) in
   Out_channel.with_open_text path (fun oc -> output_string oc (Game_record.to_json (record t)));
   path
+
+(* ---- lobby (shared by the TUI and the GUI) ---- *)
+
+let budget_options = [ 100; 250; 500; 1000; 2000; 5000 ]
+let languages = [ "en"; "fr"; "es"; "ru"; "vi" ]
+let faces_for_seat = function Human -> player_portraits | Bot id -> faces_for_bot id
+
+let clamp_portrait seat id =
+  let ids = faces_for_seat seat in
+  if List.mem id ids then id else List.hd ids
+
+let seat_of_string ~fallback s =
+  match Prefs.parse_seat ~allowed:Tournament.bot_ids ~fallback s with `Human -> Human | `Bot id -> Bot id
+
+let duel_of_prefs ?(bot_opponent = false) prefs =
+  let fb0, fb1 =
+    match default_setup.seats with
+    | Human, Bot id -> (`Human, `Bot id)
+    | Bot a, Bot b -> (`Bot a, `Bot b)
+    | Bot a, Human -> (`Bot a, `Human)
+    | Human, Human -> (`Human, `Human)
+  in
+  let s0, s1 = Prefs.setup_seats prefs in
+  let p0, p1 = Prefs.setup_portraits prefs in
+  let seat0 = seat_of_string ~fallback:fb0 s0 in
+  let ai_face = Prefs.ai_opponent prefs in
+  (* The AI side follows its saved face and that face's bot. *)
+  let seat1, port1 =
+    match bot_of_portrait ai_face with
+    | Some b when List.mem b Tournament.bot_ids -> (Bot b, ai_face)
+    | _ ->
+        let seat =
+          match (seat_of_string ~fallback:fb1 s1, bot_opponent) with
+          | Human, true -> Bot "oracle"
+          | seat, _ -> seat
+        in
+        (seat, p1)
+  in
+  let port1 = clamp_portrait seat1 port1 in
+  ((seat0, clamp_portrait seat0 p0), (seat1, port1))
+
+let persist_duel ((seat0, port0), (seat1, port1)) =
+  let p = Prefs.load () in
+  Prefs.set_setup_seats p (seat_name seat0, seat_name seat1);
+  Prefs.set_setup_portraits p (port0, port1);
+  match seat1 with Bot _ -> Prefs.set_ai_opponent p port1 | Human -> ()
+
+(* ---- card play (shared by the TUI and the GUI) ---- *)
+
+let human_to_move t = match to_move t with Some pid when seat t pid = Human -> Some pid | _ -> None
+
+type pick = Not_enough_mana | No_target | Play of command | Choose of command list
+
+let pick_card t (cd : card_desc) hd =
+  if not (playable t cd hd) then Not_enough_mana
+  else
+    match choices t cd.cd_card with
+    | [] -> No_target
+    | [ c ] -> Play c
+    | cmds -> Choose cmds

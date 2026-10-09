@@ -12,7 +12,10 @@ val key_user_name : string
 val key_card_theme : string
 val key_server : string
 val key_server_port : string
-val key_class_choice : string list
+
+type side = Player | Ai  (** Whose house pool a [class.choice] key holds. *)
+
+val key_class_choice : side -> string
 val key_ai_opponent : string
 val key_player_portrait : string
 val key_sound_level : string
@@ -66,16 +69,16 @@ val debug_mode : t -> bool
 val set_debug_mode : t -> bool -> unit
 val user_name : t -> string option
 val card_theme : t -> string
-val class_choice : t -> int -> string list
-val set_class_choice : t -> int -> string list -> unit
+val class_choice : t -> side -> string list
+val set_class_choice : t -> side -> string list -> unit
 val campaign_completed : t -> string list
 val campaign_position : t -> string
 val campaign_night_rest : t -> bool
 val campaign_wake_far : t -> bool
 
 val complete_campaign : t -> ?extras:string list -> string -> unit
-(** Adds [id] and [extras] to completed stops and moves the token to
-    {!Campaign.next_position} of [id], like [Storage.completeCampaign]. *)
+(** Adds [id] and [extras] to completed stops and moves the token to {!Campaign.next_position} of [id], like
+    [Storage.completeCampaign]. *)
 
 val reset_campaign : t -> unit
 val reset_night_campaign : t -> unit

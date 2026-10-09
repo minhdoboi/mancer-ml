@@ -195,12 +195,7 @@ let parse_entry n text =
       Some { num = n; first; second; winner; specials = (s0, s1); winner_player = wp }
     with Not_found -> None
 
-let read_file path =
-  let ic = open_in_bin path in
-  let len = in_channel_length ic in
-  let s = really_input_string ic len in
-  close_in ic;
-  s
+let read_file = Util.read_file
 
 let load_dir dir =
   if not (Sys.file_exists dir && Sys.is_directory dir) then []
@@ -363,9 +358,7 @@ let rec mkdir_p path =
 
 let write_file path text =
   mkdir_p (Filename.dirname path);
-  let oc = open_out_bin path in
-  output_string oc text;
-  close_out oc
+  Util.write_file path text
 
 let write_summary path stats elos (cards : card_rate list) special_names =
   let text = summary_text stats elos cards (special_card_rates cards special_names) in

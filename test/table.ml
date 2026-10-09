@@ -66,7 +66,9 @@ let duel_roster () =
      nondec opps);
   List.iter
     (fun (o : Table.opponent) ->
-      check_bool ("kind face for " ^ o.Table.opp_kind) true
+      check_bool
+        ("kind face for " ^ o.Table.opp_kind)
+        true
         (List.mem o.Table.opp_portrait (Table.faces_for_bot o.Table.opp_kind));
       check_bool ("bot of " ^ o.Table.opp_portrait) true
         (Table.bot_of_portrait o.Table.opp_portrait = Some o.Table.opp_bot))
@@ -95,6 +97,44 @@ let resolve_special () =
     check_bool "unknown dropped" true (Table.resolve_special [ "nope"; "zen" ] = "zen")
   done
 
+let card_keys t pid =
+  (Session.desc (Table.session t)).gd_players.(pid).pd_houses |> Array.to_list
+  |> List.concat_map (fun h -> Array.to_list h.phd_cards |> List.map (fun cd -> cd.cd_card.key))
+
+(* Switch cards: houses and opening hands move; seats stay. *)
+let switch_swaps_houses_and_cards () =
+  let setup =
+    {
+      Table.default_setup with
+      seats = (Table.Human, greedy);
+      specials = ("zen", "wind");
+      seed = Some 7;
+      starting = owner;
+    }
+  in
+  let t = Table.start setup in
+  let t' = Table.start_swapped t in
+  let a = Table.record t and b = Table.record t' in
+  check_bool "seats stay" true ((Table.setup t').seats = (Table.Human, greedy));
+  check_bool "specials swap" true ((Table.setup t').specials = ("wind", "zen"));
+  check_bool "starter flips" true ((Table.setup t').starting = opponent);
+  check_bool "owner cards were opponent's" true (card_keys t' owner = card_keys t opponent);
+  check_bool "opponent cards were owner's" true (card_keys t' opponent = card_keys t owner);
+  check_bool "mana follows the cards" true (b.mana = [| a.mana.(1); a.mana.(0) |]);
+  let t'' = Table.start_swapped ~keep_starter:true t in
+  check_bool "campaign starter stays" true ((Table.setup t'').starting = owner)
+
+(* Restart with the same seed must deal the same cards. *)
+let restart_keeps_deal () =
+  let setup =
+    { Table.default_setup with seats = (greedy, greedy); specials = ("zen", "wind"); seed = Some 7 }
+  in
+  let t = Table.start setup in
+  let t2 = Table.start { (Table.setup t) with seed = Some (Table.seed t) } in
+  check_bool "same seed" true (Table.seed t = Table.seed t2);
+  check_bool "same owner cards" true (card_keys t owner = card_keys t2 owner);
+  check_bool "same opponent cards" true (card_keys t opponent = card_keys t2 opponent)
+
 let () =
   Alcotest.run "table"
     [
@@ -105,5 +145,7 @@ let () =
           Alcotest.test_case "duel roster" `Quick duel_roster;
           Alcotest.test_case "house groups" `Quick house_groups;
           Alcotest.test_case "resolve special" `Quick resolve_special;
+          Alcotest.test_case "switch swaps houses and cards" `Quick switch_swaps_houses_and_cards;
+          Alcotest.test_case "restart keeps deal" `Quick restart_keeps_deal;
         ] );
     ]

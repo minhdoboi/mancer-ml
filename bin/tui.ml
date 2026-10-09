@@ -11,7 +11,7 @@ open Sp
 
 let clean = Assets.clean
 let card_name = Assets.card_name
-let describe = Assets.describe
+let describe ?state ?player = Assets.describe ?state ?player
 
 let wrap width text =
   let words = String.split_on_char ' ' text |> List.filter (( <> ) "") in
@@ -44,8 +44,8 @@ let player_label pid = Printf.sprintf "P%d" (pid + 1)
 (* --------------------------------------------------------------- lobby ui *)
 
 let seat_options = Table.Human :: List.map (fun id -> Table.Bot id) Tournament.bot_ids
-let budget_options = [ 100; 250; 500; 1000; 2000; 5000 ]
-let languages = [ "en"; "fr"; "es"; "ru"; "vi" ]
+let budget_options = Table.budget_options
+let languages = Table.languages
 
 let cycle options current delta =
   let a = Array.of_list options in
@@ -54,11 +54,8 @@ let cycle options current delta =
   a.((((i + delta) mod n) + n) mod n)
 
 let special_names () = List.map (fun (h : house) -> cap h.h_name) (Table.special_houses ())
-let faces_for = function Table.Human -> Table.player_portraits | Table.Bot id -> Table.faces_for_bot id
-
-let clamp_face seat id =
-  let ids = faces_for seat in
-  if List.mem id ids then id else List.hd ids
+let faces_for = Table.faces_for_seat
+let clamp_face = Table.clamp_portrait
 
 (* Duel dialog: seats with portraits (a bot seat wears its own faces). *)
 type duel_ui = {
@@ -80,11 +77,6 @@ type settings_ui = {
 }
 
 type lobby_ui = { mutable row : int; duel : duel_ui; gs : settings_ui }
-
-let seat_of_string ~fallback s =
-  match Prefs.parse_seat ~allowed:Tournament.bot_ids ~fallback s with
-  | `Human -> Table.Human
-  | `Bot id -> Table.Bot id
 
 let valid_special s fb =
   try
@@ -109,40 +101,14 @@ let settings_from_prefs () =
   }
 
 let duel_from_prefs () =
-  let prefs = Prefs.load () in
-  let d = Table.default_setup in
-  let s0, s1 = Prefs.setup_seats prefs in
-  let fb0, fb1 =
-    match d.seats with
-    | Table.Human, Table.Bot id -> (`Human, `Bot id)
-    | Table.Bot a, Table.Bot b -> (`Bot a, `Bot b)
-    | Table.Bot a, Table.Human -> (`Bot a, `Human)
-    | Table.Human, Table.Human -> (`Human, `Human)
-  in
-  let p0, p1 = Prefs.setup_portraits prefs in
-  let seat0 = seat_of_string ~fallback:fb0 s0 in
-  (* The AI side follows its saved face and the face's bot. *)
-  let seat1, port1 =
-    match Table.bot_of_portrait (Prefs.ai_opponent prefs) with
-    | Some b when List.mem b Tournament.bot_ids ->
-        let seat = Table.Bot b in
-        (seat, clamp_face seat (Prefs.ai_opponent prefs))
-    | _ ->
-        let seat = seat_of_string ~fallback:fb1 s1 in
-        (seat, clamp_face seat p1)
-  in
-  { seat0; seat1; port0 = clamp_face seat0 p0; port1; drow = 0 }
+  let (seat0, port0), (seat1, port1) = Table.duel_of_prefs (Prefs.load ()) in
+  { seat0; seat1; port0; port1; drow = 0 }
 
 let new_lobby () = { row = 1; duel = duel_from_prefs (); gs = settings_from_prefs () }
 
 let persist_duel lobby =
-  try
-    let d = lobby.duel in
-    let p = Prefs.load () in
-    Prefs.set_setup_seats p (Table.seat_name d.seat0, Table.seat_name d.seat1);
-    Prefs.set_setup_portraits p (d.port0, d.port1);
-    match d.seat1 with Table.Bot _ -> Prefs.set_ai_opponent p d.port1 | Table.Human -> ()
-  with _ -> ()
+  let d = lobby.duel in
+  Table.persist_duel ((d.seat0, d.port0), (d.seat1, d.port1))
 
 let menu_row current i ~enabled label =
   let selected = current = i in
@@ -256,7 +222,7 @@ let change_settings ui delta =
 
 (* ---------------------------------------------------------------- game ui *)
 
-type mode = Browse | Target of { cmds : command array; mutable i : int }
+type mode = Browse | Called of { cmds : command array; mutable e : int } | Target of { cmds : command array; mutable i : int }
 
 type game_ui = {
   table : Table.t;
@@ -269,10 +235,18 @@ type game_ui = {
   campaign : Campaign.node option;
 }
 
+let element_keys = [| "fire"; "water"; "air"; "earth" |]
+
+let element_label i = Assets.text element_keys.(i)
+
+let current_called ui pid =
+  match (Session.state (Table.session ui.table)).players.(pid).ps_data with
+  | Meteo_data d -> d.mt_called
+  | _ -> None
+
 type campaign_ui = { mutable i : int; mutable message : string }
 
-let human_to_move ui =
-  match Table.to_move ui.table with Some pid when Table.seat ui.table pid = Human -> Some pid | _ -> None
+let human_to_move ui = Table.human_to_move ui.table
 
 let bot_to_move ui =
   match Table.to_move ui.table with
@@ -301,7 +275,15 @@ let fight lobby =
   let d = lobby.duel and gs = lobby.gs in
   let seed = if gs.seed_text = "" then None else int_of_string_opt gs.seed_text in
   let dflt = Table.default_setup in
-  new_game { dflt with seats = (d.seat0, d.seat1); specials = (gs.sp0, gs.sp1); budget_ms = gs.budget; seed }
+  new_game
+    {
+      dflt with
+      seats = (d.seat0, d.seat1);
+      specials = (gs.sp0, gs.sp1);
+      budget_ms = gs.budget;
+      seed;
+      starting = Table.random_starter ();
+    }
 
 let flag_names st =
   [
@@ -316,12 +298,26 @@ let flag_names st =
 
 let render_slot ui ~cw pid num (p : player_state) =
   let inner = cw - 2 in
+  (* A Shade Stalker hidden from the viewer renders as an empty slot. *)
+  let viewer =
+    if Table.seat ui.table owner = Table.Human then owner
+    else if Table.seat ui.table opponent = Table.Human then opponent
+    else owner
+  in
+  let concealed =
+    match p.ps_slots.(num) with Some st -> Shadowmage.is_hidden_from st ~owner:pid ~viewer | None -> false
+  in
   let target =
-    match ui.mode with
-    | Browse -> `None
-    | Target { cmds; i } ->
-        let hit c = c.cmd_input = Some num && Table.target_side c = Some pid in
-        if hit cmds.(i) then `Current else if Array.exists hit cmds then `Option else `None
+    if concealed then `None
+    else
+      match ui.mode with
+      | Browse -> `None
+      | Called { cmds; _ } ->
+          let hit c = c.cmd_input = Some num && Table.target_side c = Some pid in
+          if Array.exists hit cmds then `Option else `None
+      | Target { cmds; i } ->
+          let hit c = c.cmd_input = Some num && Table.target_side c = Some pid in
+          if hit cmds.(i) then `Current else if Array.exists hit cmds then `Option else `None
   in
   let frame =
     match target with `Current -> A.(fg lightyellow ++ st bold) | `Option -> warn | `None -> dim
@@ -338,6 +334,7 @@ let render_slot ui ~cw pid num (p : player_state) =
             | `None -> I.void inner 1
           in
           [ hint; I.void inner 1; I.void inner 1 ]
+      | Some _ when concealed -> [ I.void inner 1; I.void inner 1; I.void inner 1 ]
       | Some st ->
           let name_attr = if target = `Current then rev else bold in
           [
@@ -420,7 +417,7 @@ let input_label = function
 
 let render_card_info ui ~w =
   match (human_to_move ui, selected_card ui) with
-  | Some _, Some (cd, _) ->
+  | Some pid, Some (cd, _) ->
       let c = cd.cd_card in
       let kind =
         match c.creature_body with
@@ -436,8 +433,8 @@ let render_card_info ui ~w =
           <|> string dim (Printf.sprintf "  cost %d  %s  " cd.cd_cost kind)
           <|> string warn (input_label c.input_spec))
       in
-      I.(
-        hsnap ~align:`Left w head <-> lines A.empty w (List.filteri (fun i _ -> i < 3) (wrap w (describe c))))
+      let text = describe ~state:(Session.state (Table.session ui.table)) ~player:pid c in
+      I.(hsnap ~align:`Left w head <-> lines A.empty w (List.filteri (fun i _ -> i < 3) (wrap w text)))
   | _ -> I.empty
 
 let status_line ui =
@@ -460,6 +457,17 @@ let status_line ui =
       | Human -> (
           match ui.mode with
           | Target _ -> I.string accent "choose a target"
+          | Called { e; _ } ->
+              let cur =
+                match current_called ui pid with
+                | Some i -> element_label i
+                | None -> Assets.text "meteomancer.noelement"
+              in
+              I.string accent
+                (Printf.sprintf "%s (now: %s) — 0:%s 1:%s 2:%s 3:%s"
+                   (Assets.format (Assets.text "meteomancer.choose") [ cur ])
+                   (element_label e) (element_label 0) (element_label 1) (element_label 2)
+                   (element_label 3))
           | Browse ->
               let playable h = Array.exists (fun cd -> Table.playable ui.table cd h) h.phd_cards in
               if not (List.exists playable (Table.hand ui.table pid)) then
@@ -471,6 +479,7 @@ let keys_line ui =
     match (Session.status (Table.session ui.table), ui.mode) with
     | Over _, _ -> "r replay seed   n new deal   w save game   l lobby   q quit"
     | _, Target _ -> "arrows/0-5 choose   enter play   esc cancel"
+    | _, Called _ -> "0-3 element   arrows choose   enter confirm   esc cancel"
     | _, Browse ->
         let both_bots = Option.is_none (human_to_move ui) in
         if both_bots then "space pause/resume   w save game   l lobby   q quit"
@@ -535,15 +544,37 @@ let play ui cmd =
       ui.mode <- Browse;
       Table.submit ui.table cmd)
 
+let commit_called ui e =
+  match ui.mode with
+  | Called { cmds; _ } ->
+      let filtered =
+        Array.to_list cmds |> List.filter (fun c -> c.cmd_flag = Some (Called_element e))
+      in
+      (match filtered with
+      | [] -> ui.message <- "no legal target"
+      | [ c ] -> play ui (Some c)
+      | _ ->
+          ui.mode <- Target { cmds = Array.of_list filtered; i = 0 };
+          ui.message <- "")
+  | _ -> ()
+
 let activate ui =
   match (human_to_move ui, selected_card ui) with
+  | Some pid, Some (cd, hd) when Meteomancer.is_meteo cd.cd_card -> (
+      match Table.pick_card ui.table cd hd with
+      | Not_enough_mana -> ui.message <- "not enough mana"
+      | No_target -> ui.message <- "no legal target"
+      | Play _ | Choose _ ->
+          let cmds = Array.of_list (Table.choices ui.table cd.cd_card) in
+          let e = Option.value (current_called ui pid) ~default:0 in
+          ui.message <- "";
+          ui.mode <- Called { cmds; e })
   | Some _, Some (cd, hd) -> (
-      if not (Table.playable ui.table cd hd) then ui.message <- "not enough mana"
-      else
-        match Table.choices ui.table cd.cd_card with
-        | [] -> ui.message <- "no legal target"
-        | [ ({ cmd_input = None; _ } as c) ] -> play ui (Some c)
-        | cmds -> ui.mode <- Target { cmds = Array.of_list cmds; i = 0 })
+      match Table.pick_card ui.table cd hd with
+      | Not_enough_mana -> ui.message <- "not enough mana"
+      | No_target -> ui.message <- "no legal target"
+      | Play c -> play ui (Some c)
+      | Choose cmds -> ui.mode <- Target { cmds = Array.of_list cmds; i = 0 })
   | _ -> ()
 
 let move_cursor ui dcol dcard =
@@ -647,7 +678,28 @@ let on_game_key ui ev =
         (new_game ~campaign:ui.campaign
            (Table.setup ui.table |> fun s -> { s with seed = Some (Table.seed ui.table) }))
   | _, `Key (`ASCII 'n', _) when over ->
-      Game (new_game ~campaign:ui.campaign { (Table.setup ui.table) with seed = None })
+      let setup = Table.setup ui.table in
+      (* A fresh duel deal flips the starter like Scala's new [Local];
+         a campaign rematch keeps its scripted starter. *)
+      let starting =
+        match ui.campaign with Some _ -> setup.starting | None -> Table.random_starter ()
+      in
+      Game (new_game ~campaign:ui.campaign { setup with seed = None; starting })
+  | Called c, `Key (`Arrow (`Left | `Up), _) ->
+      c.e <- (c.e + 3) mod 4;
+      Game ui
+  | Called c, `Key (`Arrow (`Right | `Down), _) ->
+      c.e <- (c.e + 1) mod 4;
+      Game ui
+  | Called _, `Key (`ASCII ('0' .. '3' as ch), _) ->
+      commit_called ui (Char.code ch - Char.code '0');
+      Game ui
+  | Called c, `Key (`Enter, _) ->
+      commit_called ui c.e;
+      Game ui
+  | Called _, `Key (`Escape, _) ->
+      ui.mode <- Browse;
+      Game ui
   | Target t, `Key (`Arrow (`Left | `Up), _) ->
       t.i <- (t.i + Array.length t.cmds - 1) mod Array.length t.cmds;
       Game ui
@@ -721,7 +773,8 @@ let render_campaign (w, _) ui =
   in
   I.vcat
     ([
-       I.string A.(st bold ++ fg lightcyan)
+       I.string
+         A.(st bold ++ fg lightcyan)
          (Assets.text (if Campaign.is_finished completed then "campaign.complete" else "campaign.title"));
        I.string dim
          (Assets.text (if chapter = Campaign.Night then "campaign.night" else "campaign.day")
@@ -749,8 +802,12 @@ let on_campaign_key ui = function
       match List.nth_opt (campaign_open ()) ui.i with
       | None -> Campaign ui
       | Some node ->
-          if Campaign.is_fight node then
-            match campaign_fight node with game -> Game game | exception Failure msg -> (ui.message <- msg; Campaign ui)
+          if Campaign.is_fight node then (
+            match campaign_fight node with
+            | game -> Game game
+            | exception Failure msg ->
+                ui.message <- msg;
+                Campaign ui)
           else (
             (match node.meeting with
             | Some m -> (

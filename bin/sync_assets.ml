@@ -191,6 +191,11 @@ let sync_cards props =
 
 (* ------------------------------------------------------------ the rest *)
 
+(* Scala Board.Background.setBackground looks for "<house>-ground", "-sky" and
+   "-smoke" next to the flat picture; the layers are named after the same stem,
+   so "<name>-sky.jpg" pairs with "<name>-ground.png". *)
+let layer_suffixes = [ "-ground"; "-sky"; "-smoke" ]
+
 let sync_backgrounds () =
   let dir = !src / "resources/themes/vibe/Backgrounds" in
   let bgs = index dir in
@@ -200,6 +205,12 @@ let sync_backgrounds () =
   in
   List.filter_map
     (fun (key, names) ->
+      List.iter
+        (fun suffix ->
+          match List.find_map (fun n -> Hashtbl.find_opt bgs (norm (n ^ suffix))) names with
+          | Some f -> place f ("backgrounds" / (key ^ suffix))
+          | None -> ())
+        layer_suffixes;
       match List.find_map (fun n -> Hashtbl.find_opt bgs (norm n)) names with
       | Some f ->
           place f ("backgrounds" / key);
@@ -285,6 +296,13 @@ let () =
   List.iter
     (fun n -> place (!src / "resources/Images/Combat" / (n ^ ".tga")) ("combat" / n))
     [ "raka"; "rakaSpell"; "slot" ];
+  List.iter
+    (fun n -> place (!src / "resources" / (n ^ ".png")) ("combat" / n))
+    [ "crystalize"; "sand"; "shield"; "death"; "mortal"; "hird"; "limbo" ];
+  (* Scala pack_atlas: the Cocoon card picture is also the empty-slot sprite. *)
+  List.find_opt Sys.file_exists
+    [ !src / "resources/themes/vibe/Cards/Cocoon.jpg"; !out / "cards" / "zen.cocoon.jpg" ]
+  |> Option.iter (fun from -> place from ("combat" / "cocoon"));
   List.iter
     (fun n -> place (!src / "core/src/main/resources/src/images" / (n ^ ".png")) ("particle" / n))
     [ "particle"; "smoke"; "thin" ];

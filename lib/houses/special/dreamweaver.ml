@@ -7,7 +7,6 @@ open Sp
 open Engine
 open Common
 
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let castle_ref : card option ref = ref None
 
 let nb_creatures (p : player_update) =
@@ -45,7 +44,7 @@ let mare : card_effect =
  fun env ->
   let op = other_of_env env in
   let empty = nb_slots - nb_creatures op in
-  Slots.inflict_creatures op.slots_update (mk_damage ~is_ability:true (6 * empty) (ctx_of_env env))
+  Slots.inflict_creatures op.slots_update (ability_damage env (6 * empty))
 
 (* Wisp and Wisp-like: enemy spells and abilities do nothing *)
 let ethereal_reaction () =
@@ -138,7 +137,8 @@ let cards =
     creature ~key:"dreamweaver.sword"
       ~attack:{ base = Some 4; sources = [ sword_source ] }
       ~life:28 ~description:"dreamweaver.sword.description"
-      ~run_attack:(custom_run_attack ~multi:true sword_attack) ();
+      ~run_attack:(custom_run_attack ~multi:true sword_attack)
+      ();
     creature ~key:"dreamweaver.butterfly" ~attack:(attack 4) ~life:31
       ~description:"dreamweaver.butterfly.description" ~new_reaction:rainbow_reaction ();
     castle;
@@ -149,15 +149,4 @@ let cards =
       ();
   ]
 
-let house =
-  {
-    h_key = "dreamweaver";
-    h_name = "dreamweaver";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 17;
-    h_additional_cards = [];
-    h_make_listener = dreamweaver_listener;
-    h_data = No_player_data;
-  }
+let house = special_house ~key:"dreamweaver" ~id:17 ~listener:dreamweaver_listener cards

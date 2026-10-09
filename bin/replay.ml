@@ -4,21 +4,9 @@ open Mancer
 
 let () = Printexc.record_backtrace true
 let usage = "replay.exe --in GAME.json --out SNAPS.json"
-
-let value argv key =
-  let rec go = function a :: v :: _ when a = key -> Some v | _ :: xs -> go xs | [] -> None in
-  go (Array.to_list argv)
-
-let read_file path =
-  let ic = open_in_bin path in
-  let s = really_input_string ic (in_channel_length ic) in
-  close_in ic;
-  s
-
-let write_file path s =
-  let oc = open_out_bin path in
-  output_string oc s;
-  close_out oc
+let value = Util.flag_value
+let read_file = Util.read_file
+let write_file = Util.write_file
 
 let () =
   let argv = Sys.argv in

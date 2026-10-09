@@ -138,8 +138,12 @@ let allowed_indexes (exclude : player_desc option) (h : house) =
   List.filter (fun i -> not (List.mem i taken)) (indexes1 h)
 
 (* Exhaustive first-fit search, so None means no deck exists for these gaps *)
-let pick_basics rng allowed =
-  let cands idx = basic_candidates rng idx allowed.(idx) |> shuffle_list rng in
+let pick_basics rng ~require allowed =
+  let cands idx =
+    basic_candidates rng idx allowed.(idx)
+    |> List.filter (fun t -> List.for_all (has t) require.(idx))
+    |> shuffle_list rng
+  in
   let fire = cands 0 and water = cands 1 and air = cands 2 and earth = cands 3 in
   List.find_map
     (fun f ->
@@ -153,8 +157,9 @@ let pick_basics rng allowed =
         water)
     fire
 
-let pick_special rng allowed =
-  match shuffle_list rng (tuples (quarters allowed)) with
+let pick_special rng ~require allowed =
+  let ok t = List.for_all (has t) require in
+  match shuffle_list rng (List.filter ok (tuples (quarters allowed))) with
   | [] -> failwith "Shuffle: special house has no legal pick"
   | s :: _ -> s
 
@@ -201,23 +206,23 @@ let check_basics basics =
           (Printf.sprintf "Shuffle: %s has house index %d but is in position %d" h.h_name h.h_index i))
     houses
 
-let deal_deck rng ?exclude ~special basics =
+let deal_deck rng ?exclude ?(require = Array.make 5 []) ~special basics =
   check_basics basics;
   let houses = Array.of_list (basics @ [ special ]) in
   let allowed = Array.map (allowed_indexes exclude) houses in
   (* pick_basics is exhaustive, so a retry can only help because the per-pair
      gaps are re-drawn *)
   let rec basics_attempt n =
-    match pick_basics rng allowed with
+    match pick_basics rng ~require allowed with
     | Some four -> four
     | None when n > 0 -> basics_attempt (n - 1)
     | None -> failwith "Shuffle.create_player: no legal deck"
   in
   let four = basics_attempt 8 in
-  to_player_desc houses (Array.append four [| pick_special rng allowed.(4) |])
+  to_player_desc houses (Array.append four [| pick_special rng ~require:require.(4) allowed.(4) |])
 
-let create_player ?(rng = Random.State.make_self_init ()) ?exclude ~first ~special basics =
-  let desc = deal_deck rng ?exclude ~special basics in
+let create_player ?(rng = Random.State.make_self_init ()) ?exclude ?require ~first ~special basics =
+  let desc = deal_deck rng ?exclude ?require ~special basics in
   { desc; mana = pick_mana rng ~first desc }
 
 (* CardShuffle.get: owner first, then the opponent excluding the owner's

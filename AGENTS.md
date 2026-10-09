@@ -1,5 +1,7 @@
 # Agent notes
 
+After any code change, run `dune build` and fix compile errors before finishing.
+
 Art style is the same as `../freespectrogdx/AGENTS.md`. Generate vibe art in the
 Scala tree, then `dune exec ./bin/sync_assets.exe` copies it into `assets/`
 (the [mancer-assets](https://github.com/minhdoboi/mancer-assets) submodule).
@@ -90,6 +92,25 @@ One wide scene per house, named after the English house name in lowercase
 vibe boards are **832×800**. Painted land art, no text, dark enough that cards
 stay readable. After sync they land at `assets/backgrounds/<house key>.jpg`.
 The board uses the starting player's special house.
+
+### Layers
+
+A board may also ship two extra files beside the flat painting, both cut from
+the same picture:
+
+- `<name>-ground.png` — the painting with the **sky left transparent** (RGBA),
+  the same 832×800 as the flat file.
+- `<name>-sky.jpg` — just the sky, **twice as wide** (1664×800): the frame
+  followed by its mirror image, so the horizontal repeat has no seam.
+
+The board draws the sky drifting sideways behind the ground, the way Scala's
+`Board.scala` `Background`/`ScrollingSky` does; with no `-sky` it draws the
+flat `<house key>.jpg` as before. `junk` has a `-ground` + `-smoke` pair for the
+chimney, which the OCaml GUI does not draw yet — it still uses the flat junk
+board.
+
+After sync the layers land at `assets/backgrounds/<house key>-sky.jpg` and
+`-ground.png` (`Gui_draw.draw_sky`, `Assets.background_layer`).
 
 ## Portraits (`../freespectrogdx/core/src/main/resources/data/portraits/`)
 

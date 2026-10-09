@@ -22,13 +22,13 @@ let strike attackers defenders life0 =
   for i = 0 to nb_slots - 1 do
     if !life > 0 then
       match attackers.(i) with
-      | Some a when a.active && a.life > 0 && a.attack > 0 ->
+      | Some a when a.active && a.life > 0 && a.attack > 0 -> (
           if a.multi then (
             life := !life - a.attack;
             for j = 0 to nb_slots - 1 do
               harm defenders.(j) a.attack
             done)
-          else (
+          else
             match defenders.(i) with
             | Some d when d.life > 0 -> harm (Some d) a.attack
             | _ -> life := !life - a.attack)
@@ -80,7 +80,8 @@ let long_term ~bot ~human ~bot_attack ~human_attack ~bot_board ~human_board =
   in
   tanh (raw /. 10.)
 
-let mana_lead ~bot ~human = long_term ~bot ~human ~bot_attack:0. ~human_attack:0. ~bot_board:0. ~human_board:0.
+let mana_lead ~bot ~human =
+  long_term ~bot ~human ~bot_attack:0. ~human_attack:0. ~bot_board:0. ~human_board:0.
 
 let blend ~race ~bot ~human ?(bot_attack = 0.) ?(human_attack = 0.) ?(bot_board = 0.) ?(human_board = 0.) () =
   race +. ((1. -. abs_float race) *. long_term ~bot ~human ~bot_attack ~human_attack ~bot_board ~human_board)
@@ -105,16 +106,12 @@ let line (p : player_state) =
 
 let attack_of (p : player_state) =
   Array.fold_left
-    (fun a -> function
-      | Some (s : slot_state) -> a +. float_of_int s.attack
-      | None -> a)
+    (fun a -> function Some (s : slot_state) -> a +. float_of_int s.attack | None -> a)
     0. p.ps_slots
 
 let board_life (p : player_state) =
   Array.fold_left
-    (fun a -> function
-      | Some (s : slot_state) -> a +. float_of_int s.life
-      | None -> a)
+    (fun a -> function Some (s : slot_state) -> a +. float_of_int s.life | None -> a)
     0. p.ps_slots
 
 let of_state ~bot_id ~to_move state =
@@ -127,10 +124,7 @@ let of_state ~bot_id ~to_move state =
     ~human_attack:(attack_of human) ~bot_board:(board_life bot) ~human_board:(board_life human) ()
 
 let mana_ratio (p : player_state) =
-  let basics =
-    Array.fold_left ( +. ) 0.
-      (Array.init 4 (fun i -> float_of_int p.ps_houses.(i).mana /. 12.))
-  in
+  let basics = Array.fold_left ( +. ) 0. (Array.init 4 (fun i -> float_of_int p.ps_houses.(i).mana /. 12.)) in
   (basics +. (float_of_int p.ps_houses.(4).mana /. 8.)) /. 5.
 
 let board_ratio (p : player_state) =
@@ -147,7 +141,9 @@ let life_mana ~bot_id ~start state =
     let life_delta = float_of_int (bot.ps_life - human.ps_life) in
     let mana_delta = mana_ratio bot -. mana_ratio human in
     let board_delta = board_ratio bot -. board_ratio human in
-    let pressure = min 1. (float_of_int (min start.players.(bot_id).ps_life start.players.(other bot_id).ps_life) /. 60.) in
+    let pressure =
+      min 1. (float_of_int (min start.players.(bot_id).ps_life start.players.(other bot_id).ps_life) /. 60.)
+    in
     ((1. -. pressure) *. (max 0. (40. +. life_delta) /. 100.))
     +. (pressure *. ((pressure *. mana_delta) +. ((1. -. pressure) *. board_delta)))
   in

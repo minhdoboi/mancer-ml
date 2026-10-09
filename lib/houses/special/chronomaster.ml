@@ -51,18 +51,16 @@ let clear_extra_attacks : card_effect =
             (function Extra_attacks _ as e -> remove_first_attack s e | _ -> ())
             st.attack_sources.sources)
 
-let freeze_effect : card_effect =
- fun env -> Slot.stun (other_of_env env).slots_update.slot_updates.(env.env_selected)
+let freeze_effect : card_effect = fun env -> Slot.stun (opp_slot_of_env env)
 
 let accelerate_effect : card_effect =
  fun env ->
-  let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = own_slot_of_env env in
   let times = Dice.int env.env_updater.rng 2 + 2 in
   grant_extra slot (times - 1);
   Player.add_effect (player_of_env env) (On_end_turn, one_time_player_effect clear_extra_attacks)
 
-let aging_effect : card_effect =
- fun env -> add_attack (other_of_env env).slots_update.slot_updates.(env.env_selected) Aging_malus
+let aging_effect : card_effect = fun env -> add_attack (opp_slot_of_env env) Aging_malus
 
 let queen_effect : card_effect =
  fun env ->
@@ -176,14 +174,7 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "chronomaster";
-    h_name = "chronomaster";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [ (On_start, init_snapshots) ];
-    h_house_id = 8;
-    h_additional_cards = [];
-    h_make_listener = (fun () -> default_listener);
-    h_data = Chrono_data { previous = None; current = None };
-  }
+  special_house ~key:"chronomaster" ~id:8
+    ~effects:[ (On_start, init_snapshots) ]
+    ~data:(Chrono_data { previous = None; current = None })
+    cards

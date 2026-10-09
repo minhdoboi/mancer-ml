@@ -51,3 +51,9 @@ val simulate : ?rng:Dice.t -> game_desc -> game_state -> player_id -> command op
 
 val step : updater -> (updater -> unit) -> unit
 (** One engine step, published with {!Engine.Updater.lift}. *)
+
+val group_by_card : command list -> command list list
+(** Commands grouped by card, in first-seen order; each group keeps the commands' order. *)
+
+val interleave : command list list -> command list
+(** Round-robin over the groups: every group's first command, then every second one, and so on. *)

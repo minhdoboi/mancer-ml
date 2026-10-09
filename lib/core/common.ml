@@ -17,11 +17,13 @@ let custom_run_attack ?(multi = false) apply =
   { can_attack = true; apply_ = Custom apply; is_multi_target = multi }
 
 let is_multi_run (ra : run_attack) = ra.is_multi_target
-let is_multi_card (c : card) = match c.creature_body with Some b -> is_multi_run b.b_run_attack | None -> false
+
+let is_multi_card (c : card) =
+  match c.creature_body with Some b -> is_multi_run b.b_run_attack | None -> false
 
 let is_bridled (st : slot_state) = match st.card.c_body.b_data with Mortal_of _ -> true | _ -> false
 
-let new_card ~key ~effects ~input_spec ~description ~is_spell ~body =
+let new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell ~body =
   {
     key;
     name = key;
@@ -33,13 +35,14 @@ let new_card ~key ~effects ~input_spec ~description ~is_spell ~body =
     effects;
     input_spec;
     description;
+    desc_args;
     is_spell;
     creature_body = body;
   }
 
-let creature ~key ~attack ~life ~description ?(effects = no_effects) ?(input_spec = Select_owner_slot) ?mod_
-    ?(new_reaction = Reaction.default) ?(run_attack = normal_run_attack) ?(is_altar = false) ?(status = 0)
-    ?(data = No_data) () =
+let creature ~key ~attack ~life ~description ?desc_args ?(effects = no_effects)
+    ?(input_spec = Select_owner_slot) ?mod_ ?(new_reaction = Reaction.default)
+    ?(run_attack = normal_run_attack) ?(is_altar = false) ?(status = 0) ?(data = No_data) () =
   let body =
     {
       b_attack = attack;
@@ -52,10 +55,26 @@ let creature ~key ~attack ~life ~description ?(effects = no_effects) ?(input_spe
       b_data = data;
     }
   in
-  new_card ~key ~effects ~input_spec ~description ~is_spell:false ~body:(Some body)
+  new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell:false ~body:(Some body)
 
-let spell ~key ~description ?(input_spec = No_input) ~effects () =
-  new_card ~key ~effects ~input_spec ~description ~is_spell:true ~body:None
+let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
+
+let special_house ~key ~id ?(effects = []) ?(additional_cards = []) ?(listener = fun () -> default_listener)
+    ?(data = No_player_data) cards =
+  {
+    h_key = key;
+    h_name = key;
+    h_cards = cards;
+    h_index = special_house_index;
+    h_effects = effects;
+    h_house_id = id;
+    h_additional_cards = additional_cards;
+    h_make_listener = listener;
+    h_data = data;
+  }
+
+let spell ~key ~description ?desc_args ?(input_spec = No_input) ~effects () =
+  new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell:true ~body:None
 
 (* ----------------------------------------------------------- attack bonus *)
 
@@ -79,10 +98,7 @@ let add_attack s src =
   Slot.update s (fun st ->
       if st.attack_sources.base = Some 0 then st
       else
-        {
-          st with
-          attack_sources = { st.attack_sources with sources = st.attack_sources.sources @ [ src ] };
-        })
+        { st with attack_sources = { st.attack_sources with sources = st.attack_sources.sources @ [ src ] } })
 
 let remove_first_attack s src =
   Slot.update s (fun st ->
@@ -128,8 +144,7 @@ let hide_spell_mod : desc_mod =
  fun _ cards -> Array.map (fun cd -> if cd.cd_card.is_spell then { cd with cd_enabled = false } else cd) cards
 
 let hide_creature_mod : desc_mod =
- fun _ cards ->
-  Array.map (fun cd -> if cd.cd_card.is_spell then cd else { cd with cd_enabled = false }) cards
+ fun _ cards -> Array.map (fun cd -> if cd.cd_card.is_spell then cd else { cd with cd_enabled = false }) cards
 
 let skip_turn_mod : desc_mod = fun _ cards -> Array.map (fun cd -> { cd with cd_enabled = false }) cards
 let focus_slot ?(blocking = true) s = Updater.focus s.slots.player.updater s.num s.slots.player.pid blocking
@@ -168,9 +183,9 @@ let damage_creature_and_get num d (p : player_update) =
   let slot = (other_player p).slots_update.slot_updates.(num) in
   match slot.value with
   | None -> 0
-  | Some st ->
+  | Some st -> (
       Slot.inflict slot d;
-      st.life - match slot.value with Some x -> x.life | None -> 0
+      st.life - match slot.value with Some x -> x.life | None -> 0)
 
 (* DamageAttack.damageAndGet: damage dealt to the opposite slot, or to the player if it is empty *)
 let damage_and_get num d (p : player_update) =
@@ -190,7 +205,8 @@ let damage_and_get num d (p : player_update) =
 let broadcast_death (p : player_update) ~skip (dead : dead) =
   Slots.foreach p.slots_update (fun s ->
       match s.value with
-      | Some st when st.card.c_card.house_index = 4 && not (skip s) -> st.reaction.on_death dead
+      | Some st when st.card.c_card.house_index = special_house_index && not (skip s) ->
+          st.reaction.on_death dead
       | _ -> ())
 
 let after_death (target : player_update) f =
@@ -235,7 +251,9 @@ let nearest_empty selected (p : player_update) =
 let non_special pid (state : game_state) =
   List.init nb_slots Fun.id
   |> List.filter (fun n ->
-      match state.players.(pid).ps_slots.(n) with Some st -> st.card.c_card.house_index < 4 | None -> false)
+      match state.players.(pid).ps_slots.(n) with
+      | Some st -> st.card.c_card.house_index < special_house_index
+      | None -> false)
 
 (* CountDown (Common.scala:210): runs [f] on the [n]th call, then removes itself. It rebuilds itself on every
    call instead of counting in a ref, because simulations share the effect closures of the state they copy. *)
@@ -254,7 +272,7 @@ let countdown n f =
 
 let ability ~from_card ~to_card : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index = 4 then
+  if house.phd_house.h_index = special_house_index then
     Array.map
       (fun c ->
         if c.cd_card.id = from_card.id then
@@ -265,7 +283,8 @@ let ability ~from_card ~to_card : desc_mod =
 
 let incr_basic_cost_mod : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index = 4 then cards else Array.map (fun c -> { c with cd_cost = c.cd_cost + 1 }) cards
+  if house.phd_house.h_index = special_house_index then cards
+  else Array.map (fun c -> { c with cd_cost = c.cd_cost + 1 }) cards
 
 let incr_fire_cost_mod : desc_mod =
  fun house cards ->
@@ -273,11 +292,13 @@ let incr_fire_cost_mod : desc_mod =
 
 let hide_basic_mod : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index = 4 then cards else Array.map (fun c -> { c with cd_enabled = false }) cards
+  if house.phd_house.h_index = special_house_index then cards
+  else Array.map (fun c -> { c with cd_enabled = false }) cards
 
 let hide_special_mod : desc_mod =
  fun house cards ->
-  if house.phd_house.h_index <> 4 then cards else Array.map (fun c -> { c with cd_enabled = false }) cards
+  if house.phd_house.h_index <> special_house_index then cards
+  else Array.map (fun c -> { c with cd_enabled = false }) cards
 
 (* AttackBonusReaction (Common.scala:91): grants `get_bonus pos` to every slot
    `num` with `cond pos num`, where pos is the giver's slot. *)

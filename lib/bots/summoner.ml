@@ -114,9 +114,7 @@ let rec pull ~bot_id n =
 
 let rec score_leaf ~heuris ~start ~bot_id ~desc n parents =
   let reward =
-    match n.ended with
-    | Some p -> if p = bot_id then 1. else -1.
-    | None -> heuris n.from n.player_id
+    match n.ended with Some p -> if p = bot_id then 1. else -1. | None -> heuris n.from n.player_id
   in
   n.scored <- true;
   n.value <- reward;
@@ -127,12 +125,8 @@ let rec score_leaf ~heuris ~start ~bot_id ~desc n parents =
   ignore desc;
   ignore start
 
-let needs_answer ~bot_id n =
-  n.pending <> [] && (not (is_leaf n)) && value_of n > -1.
-
-let rec max_by f = function
-  | [] -> invalid_arg "Summoner.max_by"
-  | x :: xs -> List.fold_left (fun a b -> if f b > f a then b else a) x xs
+let needs_answer ~bot_id n = n.pending <> [] && (not (is_leaf n)) && value_of n > -1.
+let max_by = Util.max_by
 
 let expand ~desc parent =
   match parent.pending with
@@ -252,7 +246,7 @@ let execute settings ~pid ~desc start =
   if is_disabled start.players.(bot_id) then None
   else
     let heuris state to_move =
-      if settings.heuris = "lifemana" then Heuris.life_mana ~bot_id ~start state *. 2. -. 1.
+      if settings.heuris = "lifemana" then (Heuris.life_mana ~bot_id ~start state *. 2.) -. 1.
       else Heuris.of_state ~bot_id ~to_move state
     in
     let depth = ref 2 in
@@ -269,8 +263,9 @@ let execute settings ~pid ~desc start =
     done;
     if Option.is_none !best then best := Option.bind !last pick_best;
     if settings.logging || settings.stats_log then
-      Printf.printf "summoner-stats depth=%d spentMs=%d/budgetMs=%d cmd=%s\n%!" !depth (now_ms () - t0)
+      Printf.printf "summoner-stats depth=%d spentMs=%d/budgetMs=%d cmd=%s\n%!" !depth
+        (now_ms () - t0)
         settings.duration (cmd_label !best);
     !best
 
-let mover settings u pid = execute settings ~pid ~desc:u.desc u.state
+let mover settings = Belief.blind (execute settings)

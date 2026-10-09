@@ -4,7 +4,6 @@ open Sp
 open Engine
 open Common
 
-let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 let acolyte_ref : card option ref = ref None
 let ghoul_ref : card option ref = ref None
 let aristocrat_ref : card option ref = ref None
@@ -36,7 +35,7 @@ let dark_flock : card_effect =
 
 let blood_ties : card_effect =
  fun env ->
-  let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = own_slot_of_env env in
   let attack = (Slot.get slot).attack in
   let adjacent = Slot.filled_adjacent slot in
   Slot.destroy slot;
@@ -66,7 +65,7 @@ let aristo : card_effect =
 
 let ghoulify : card_effect =
  fun env ->
-  let slot = (player_of_env env).slots_update.slot_updates.(env.env_selected) in
+  let slot = own_slot_of_env env in
   List.iter
     (fun s ->
       if Option.is_some s.value then (
@@ -81,7 +80,9 @@ let mansion_reaction () =
     on_death =
       (fun dead ->
         let me = Reaction.bound_slot r in
-        if me.slots.player.pid = dead.d_player.pid && dead.d_slot.card.c_card.house_index < 4 then
+        if
+          me.slots.player.pid = dead.d_player.pid && dead.d_slot.card.c_card.house_index < special_house_index
+        then
           Slots.add_creature dead.d_player.slots_update.slot_updates.(dead.d_num) (creature_of !neophyte_ref));
   }
 
@@ -211,14 +212,4 @@ let cards =
   ]
 
 let house =
-  {
-    h_key = "vampires";
-    h_name = "vampires";
-    h_cards = cards;
-    h_index = 4;
-    h_effects = [];
-    h_house_id = 14;
-    h_additional_cards = [ neophyte ];
-    h_make_listener = vampire_listener;
-    h_data = No_player_data;
-  }
+  special_house ~key:"vampires" ~id:14 ~additional_cards:[ neophyte ] ~listener:vampire_listener cards

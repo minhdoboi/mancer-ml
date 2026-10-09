@@ -27,14 +27,12 @@ let looks =
     ("earth.fury", look Eyes Own_life 1. 0.55 0.05 ());
     ("water.meditate", look Rise Own_life 0.35 0.7 1. ());
     ("Conscription", look Rise Own_life 0.95 0.8 0.35 ());
-    ("air.twister", look Swirl Target 0.75 0.9 1. ());
     ("wind.Simoom.name", look Swirl Foe_slots 0.9 0.72 0.4 ());
     ("wind.Squall.name", look Swirl Foe_slots 0.7 0.88 1. ());
     ("wind.Whirlwind.name", look Swirl Foe_slots 0.8 0.92 1. ~power:1.2 ());
     ("wind.EnergeticVortex.name", look Swirl Foe_slots 0.55 0.75 1. ~power:1.25 ());
     ("wind.EternalStorm.name", look Swirl Foe_slots 0.65 0.8 1. ~power:1.35 ());
     ("disciples.wind", look Swirl Foe_slots 0.55 0.5 0.45 ());
-    ("fire.apocalypse", look Fireburst All_slots 1. 0.4 0.05 ~power:1.35 ());
     ("NuclearMissile", look Fireburst Foe_slots 1. 0.55 0.15 ~power:1.5 ());
     ("faerie.cloud", look Rise Own_slots 0.7 0.85 1. ());
     ("zen.focus", look Rise Target 0.35 0.9 0.55 ());
@@ -43,12 +41,9 @@ let looks =
     ("chronomaster.accelerate", look Rays Own_target 1. 0.78 0.28 ~power:1.15 ());
     ("chronomaster.groundhog", look Ring All_slots 0.45 0.85 0.9 ~power:1.2 ());
     ("disciples.drug", look Rise Own_slots 0.5 0.95 0.3 ());
-    ("dreamweaver.aurora", look Rays All_slots 0.55 0.95 0.7 ());
     ("snowblood.echo", look Ring Own_slots 0.6 0.85 1. ());
     ("antimancer.3.name", look Ring Own_slots 0.4 0.85 1. ());
     ("antimancer.9.name", look Ring Foe_slots 0.8 0.45 1. ());
-    ("powermancer.bargain", look Rays Own_life 1. 0.45 0.12 ~power:1.15 ());
-    ("powermancer.burial", look Shadow Own_target 0.35 0.12 0.22 ~power:1.1 ());
     ("powermancer.stasis", look Ice Foe_slots 0.65 0.8 1. ~power:1.1 ());
     ("powermancer.rainbow", look Rays Own_slots 0.95 0.55 1. ~power:1.15 ());
     ("battlemage.taunt", look Ring Target 0.95 0.45 0.15 ~power:1.1 ());
@@ -62,10 +57,8 @@ let looks =
     ("soulbinder.release", look Rise Own_slots 0.4 0.95 0.7 ());
     ("tinker.plant", look Drops Target 0.75 0.5 0.18 ());
     ("tinker.scatter", look Fireburst Foe_slots 1. 0.5 0.08 ~power:1.15 ());
-    ("shadowcaster.wave", look Shadow Foe_slots 0.35 0.05 0.45 ~power:1.2 ());
     ("shadowcaster.scythe", look Strike Foe_slots 0.55 0.08 0.12 ~power:1.2 ());
     ("spiritshaman.awakening", look Rise Own_slots 0.55 0.9 0.45 ~power:1.15 ());
-    ("shadowmage.eclipse", look Shadow Own_life 0.2 0.12 0.4 ~power:1.2 ());
     ("shadowmage.spike", look Spikes Foe_slots 0.92 0.08 0.1 ~power:1.2 ());
     ("conjurer.nectar", look Rise Target 0.72 0.5 0.95 ());
     ("conjurer.bravery", look Rise Own_slots 0.95 0.75 0.28 ());
@@ -83,19 +76,14 @@ let looks =
     ("reaper.tribute", look Shadow Target 0.4 0.12 0.6 ());
     ("reaper.shackles", look Ring Target 0.45 0.2 0.75 ());
     ("reaper.passage", look Rise Target 0.35 0.9 0.55 ());
-    ("sower.tangling", look Rise Target 0.3 0.85 0.35 ());
     ("sower.devouring", look Shadow Own_slots 0.3 0.55 0.2 ());
     ("sower.pollination", look Rise Target 0.85 0.9 0.35 ());
-    ("shaman.fury", look Fireburst Foe_slots 0.85 0.2 0.95 ());
-    ("shaman.moon", look Rays Own_slots 0.75 0.8 1. ());
     ("shaman.hunger", look Rise Own_target 0.9 0.25 0.15 ());
-    ("elementalist.avalanche", look Stones Foe_slots 0.4 0.36 0.3 ~power:1.15 ());
     ("elementalist.freeze", look Ice All_slots 0.7 0.9 1. ());
     ("elementalist.incineration", look Fireburst All_slots 1. 0.28 0.02 ());
     ("highpriest.Simoom", look Swirl Foe_slots 0.9 0.7 0.35 ());
     ("highpriest.Curseofchaos", look Fireburst Target 0.95 0.25 0.1 ());
     ("highpriest.EyeofWajet", look Rays All_slots 1. 0.85 0.4 ());
-    ("kinetician.call", look Rise Own_life 0.45 0.7 1. ());
     ("kinetician.force", look Ring Target 0.4 0.75 1. ());
     ("kinetician.warp", look Ring Target 0.6 0.4 1. ());
     ("kinetician.barrier", look Ring Target 0.35 0.7 1. ~power:1.15 ());
@@ -103,9 +91,14 @@ let looks =
 
 let custom =
   [
+    "shadowmage.eclipse";
+    "elementalist.avalanche";
+    "kinetician.call";
+    "shadowcaster.wave";
     "air.call";
     "air.lightnin";
     "air.chain";
+    "air.twister";
     "wind.BallLightning.name";
     "fire.wave";
     "fire.inferno";
@@ -118,6 +111,13 @@ let custom =
     "limbo.nether";
     "limbo.redemption";
     "powermancer.equilibrium";
+    "sower.tangling";
+    "fire.apocalypse";
+    "powermancer.burial";
+    "powermancer.bargain";
+    "dreamweaver.aurora";
+    "shaman.fury";
+    "shaman.moon";
     "vampires.flock";
     "vampires.ties";
     "warp.quake";
