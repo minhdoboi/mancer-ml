@@ -25,3 +25,4 @@ _coverage/
 bisect*.coverage
 
 .DS_Store
+tui-games/

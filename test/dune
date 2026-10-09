@@ -42,3 +42,8 @@
  (name session)
  (modules session)
  (libraries mancer support alcotest))
+
+(test
+ (name table)
+ (modules table)
+ (libraries mancer alcotest))

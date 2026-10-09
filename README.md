@@ -9,6 +9,7 @@ mechanics and shuffle constraints.
 
 ```sh
 eval $(opam env --switch=mancer)   # OCaml 5.2.0 + dune 3.24.2
+opam install notty                 # terminal UI only
 dune build
 dune test                          # Alcotest suites + expect tests
 dune promote                       # accept a reviewed expect-test diff
@@ -18,6 +19,7 @@ dune exec ./bin/main.exe -- --bots greedy,oracle --games 4 --budget 200 --seed 1
 dune exec ./bin/main.exe -- --special zen --games 4 --seed 1
 dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
 dune exec ./bin/compare_engines.exe -- --seed 1 --special zen --turns 80
+dune exec ./bin/tui.exe            # play or watch a game in the terminal
 ```
 
 ## What is ported
@@ -148,6 +150,11 @@ Listeners run mid-step, so they read the board with `Session.peek`, which does
 not flush pending deaths. `Session.play_game` is the headless bot-vs-bot loop
 built on it.
 
+`table.mli` sits on top of the session for front ends: two seats (human or a bot
+id), seeded deals, bot dispatch, the legal targets for each card, log lines and the
+game record. `bin/tui.ml` is a [notty](https://github.com/pqwy/notty) front end on
+it; a graphical one (raylib) would reuse `Table` and only redo the drawing.
+
 `engine.ml` is a sequence of modules in dependency order (`Houses`, `Slot`,
 `Slots`, `Player`, `Reaction`, `Updater`) followed by the card effect
 combinators, so there is no large `let rec` group. House code reads like the
@@ -194,6 +201,21 @@ counts are not a balance signal. Oracle vs greedy is.
 
 Tests that need a fixed hand still use `Game.make_player_desc`, which keeps the
 old cost-slice (and one special card per quarter).
+
+## Terminal UI
+
+`dune exec ./bin/tui.exe` opens a setup screen: each seat is `human`, `greedy`,
+`oracle` or `lecturer`, each side picks its special house, plus the bot budget and
+an optional seed. Two humans is hot-seat; two bots is a game to watch (space
+pauses). On your move, pick a card with the arrows and press enter, then choose a
+highlighted slot (arrows or 0-5) and enter again; `p` passes. `w` saves the game
+to `tui-games/` in the tournament format, so it feeds `replay.exe` and
+`compare_engines`. After a game, `r` replays the same seed and `n` deals again.
+
+Card names and descriptions come from `core/src/main/resources/i18n.properties`
+in the Scala repo (`../freespectrogdx` or `$FREESPECTROGDX`); without it the UI
+shows i18n keys. Bots print stats to stdout, so the UI sends stdout to
+`/dev/null` and draws on a duplicate of the terminal descriptor.
 
 ## Cross-engine harness
 

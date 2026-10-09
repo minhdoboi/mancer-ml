@@ -166,17 +166,17 @@ let order_moves ~enemy commands =
   in
   round [] groups
 
+let player_houses pid (desc : game_desc) (state : game_state) =
+  let d = desc.gd_players.(pid) in
+  match state.players.(pid).ps_desc.desc_mods with
+  | [] -> Array.to_list d.pd_houses
+  | mods ->
+      Array.to_list d.pd_houses
+      |> List.map (fun h -> { h with phd_cards = List.fold_left (fun cards m -> m h cards) h.phd_cards mods })
+
 let legal_commands pid (desc : game_desc) (state : game_state) =
   let p = state.players.(pid) in
-  let houses =
-    let d = desc.gd_players.(pid) in
-    match p.ps_desc.desc_mods with
-    | [] -> Array.to_list d.pd_houses
-    | mods ->
-        Array.to_list d.pd_houses
-        |> List.map (fun h ->
-            { h with phd_cards = List.fold_left (fun cards m -> m h cards) h.phd_cards mods })
-  in
+  let houses = player_houses pid desc state in
   let raw =
     List.concat_map
       (fun h ->

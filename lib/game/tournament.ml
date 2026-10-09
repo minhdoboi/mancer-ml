@@ -382,21 +382,25 @@ let bot_kind = function
   | "lecturer" -> Lecturer
   | id -> failwith ("unknown bot '" ^ id ^ "' (want greedy, oracle or lecturer)")
 
-let make_mover kind budget =
+let bot_ids = [ "greedy"; "oracle"; "lecturer" ]
+
+let make_mover ?(stats_log = true) kind budget =
   match kind with
   | Greedy -> Game.greedy_mover
   | Oracle ->
       let s = Oracle.default_settings () in
       s.duration <- budget;
       s.logging <- false;
-      s.stats_log <- true;
+      s.stats_log <- stats_log;
       Oracle.mover s
   | Lecturer ->
       let s = Lecturer.default_settings () in
       s.duration <- budget;
       s.logging <- false;
-      s.stats_log <- true;
+      s.stats_log <- stats_log;
       Lecturer.mover s
+
+let mover ?stats_log ~budget id = make_mover ?stats_log (bot_kind id) budget
 
 let pairings bots =
   match bots with

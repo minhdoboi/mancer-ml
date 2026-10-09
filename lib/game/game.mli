@@ -22,6 +22,10 @@ val initial_game_state : ?mana0:int list -> ?mana1:int list -> game_desc -> game
 
 (** {1 Bot} *)
 
+val player_houses : player_id -> game_desc -> game_state -> player_house_desc list
+(** The player's houses with the current desc mods applied: the hand as it stands, costs and enabled flags
+    included. *)
+
 val legal_commands : player_id -> game_desc -> game_state -> command list
 (** Every legal command, interleaved one placement per card ([Choices.getNexts]). *)
 

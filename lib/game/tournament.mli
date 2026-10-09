@@ -29,6 +29,13 @@ type standing_game = {
 
 type card_rate = { card : string; house : string; plays : int; wins : int; draws : int; rate : float }
 
+val bot_ids : string list
+(** [greedy], [oracle], [lecturer]. *)
+
+val mover : ?stats_log:bool -> budget:int -> string -> Game.mover
+(** The bot named by [id] ([apprentice] is greedy), searching [budget] ms per move. [stats_log] (default true)
+    prints one stats line per search move to stdout. Raises [Failure] for an unknown id. *)
+
 val default_args : args
 val parse : string array -> args
 val ordered_pair : string -> string -> int -> string * string

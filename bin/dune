@@ -12,3 +12,8 @@
  (name compare_engines)
  (modules compare_engines)
  (libraries mancer unix))
+
+(executable
+ (name tui)
+ (modules tui)
+ (libraries mancer notty notty.unix unix))
