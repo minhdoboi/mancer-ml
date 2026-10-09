@@ -165,6 +165,27 @@ let summon_over_occupied_slot () =
   step u ignore;
   check_int "overwrite is not counted in nb_dead" 0 (player u 0).stats.nb_dead
 
+(* ---------------------------------------------------------------- the bot *)
+
+(* No ported card selects any creature yet, so the fire house stands in: an
+   enemy target must carry Target_other or the engine reads the slot as ours *)
+let greedy_any_creature_side () =
+  let u = new_game () in
+  let fire = u.desc.gd_players.(0).pd_houses.(0) in
+  Array.iteri
+    (fun i cd ->
+      fire.phd_cards.(i) <- { cd with cd_card = { cd.cd_card with input_spec = Select_any_creature } })
+    fire.phd_cards;
+  place u 0 "fire.goblin" 1;
+  place u 1 "fire.goblin" 3;
+  let targets =
+    Game.available_commands u (player u 0)
+    |> List.filter (fun c -> c.cmd_card.input_spec = Select_any_creature)
+    |> List.map (fun c -> (c.cmd_input, c.cmd_flag))
+    |> List.sort_uniq compare
+  in
+  check_bool "own creature, enemy creature" true (targets = [ (Some 1, None); (Some 3, Some Target_other) ])
+
 let () =
   let open Alcotest in
   run "fire"
@@ -196,4 +217,5 @@ let () =
           test_case "apocalypse" `Quick apocalypse_hits_both_sides;
           test_case "summon over occupied slot" `Quick summon_over_occupied_slot;
         ] );
+      ("bot", [ test_case "greedy any-creature side" `Quick greedy_any_creature_side ]);
     ]

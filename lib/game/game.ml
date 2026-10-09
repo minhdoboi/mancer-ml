@@ -191,8 +191,8 @@ let available_commands (u : updater) (p : player_update) =
   (* Cheapest card, frontmost open slot — not Choices interleaving. *)
   let pstate = p.pstate in
   let open_slots = Slots.get_open p.slots_update in
-  let command cd input =
-    { cmd_player = p.pid; cmd_card = cd.cd_card; cmd_input = input; cmd_cost = cd.cd_cost; cmd_flag = None }
+  let command ?(flag = None) cd input =
+    { cmd_player = p.pid; cmd_card = cd.cd_card; cmd_input = input; cmd_cost = cd.cd_cost; cmd_flag = flag }
   in
   Array.to_list u.desc.gd_players.(p.pid).pd_houses
   |> List.concat_map (fun h ->
@@ -210,7 +210,9 @@ let available_commands (u : updater) (p : player_update) =
           | Select_target_slot ->
               (* Bot.scala:229: the opponent's open slots *)
               List.map (fun n -> command cd (Some n)) (Slots.get_open (Player.other p).slots_update)
-          | Select_any_creature -> List.map (fun n -> command cd (Some n)) (filled p @ filled (Player.other p))
+          | Select_any_creature ->
+              List.map (fun n -> command cd (Some n)) (filled p)
+              @ List.map (fun n -> command ~flag:(Some Target_other) cd (Some n)) (filled (Player.other p))
           | Select_owner f -> List.map (fun n -> command cd (Some n)) (f p.pid u.state)
           | Select_target f -> List.map (fun n -> command cd (Some n)) (f (other p.pid) u.state)
           | No_input -> [ command cd None ]))
