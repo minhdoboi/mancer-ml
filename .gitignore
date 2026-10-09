@@ -1,0 +1,24 @@
+# dune build output
+_build/
+*.install
+
+# local opam switch, if created with `opam switch create .`
+_opam/
+
+# merlin / editor state
+.merlin
+*.annot
+*.cmt
+*.cmti
+.vscode/
+.idea/
+*~
+.#*
+\#*#
+
+# test leftovers
+*.corrected
+_coverage/
+bisect*.coverage
+
+.DS_Store
