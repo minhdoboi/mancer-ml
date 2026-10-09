@@ -52,3 +52,8 @@
  (name prefs)
  (modules prefs)
  (libraries mancer alcotest))
+
+(test
+ (name spell_looks)
+ (modules spell_looks)
+ (libraries mancer support alcotest))

@@ -267,100 +267,10 @@ let printed_attack (c : card) =
 let printed_life (c : card) = match c.creature_body with Some b -> Some b.b_life | None -> None
 
 (* Hover smoke: Scala HoveredActor, particle/smoke.p, drawn under the board. *)
-type puff = {
-  mutable x : float;
-  mutable y : float;
-  vx : float;
-  mutable vy : float;
-  born : float;
-  life : float;
-}
-
-type smoke = {
-  rng : Random.State.t;
-  mutable on : bool;
-  mutable key : float * float;
-  mutable puffs : puff list;
-  mutable emit : float;
-}
-
-let smoke = { rng = Random.State.make_self_init (); on = false; key = (0., 0.); puffs = []; emit = 0. }
-
-let smoke_reset () =
-  smoke.puffs <- [];
-  smoke.emit <- 0.
-
-let smoke_hide () =
-  smoke.on <- false;
-  smoke_reset ()
+let smoke_hide () = Fx.Hover.hide ()
 
 (* Card group origin is the top-left; Scala places the emitter at +40,+50 in Y-up. *)
-let smoke_show (r : rect) =
-  let cx = r.x +. 40. and cy = r.y +. r.h -. 50. in
-  if (not smoke.on) || smoke.key <> (cx, cy) then (
-    smoke_reset ();
-    smoke.key <- (cx, cy));
-  smoke.on <- true
-
-let smoke_tint u =
-  let lerp a b t = a +. ((b -. a) *. t) in
-  let r, g, b =
-    if u < 0.546 then
-      let t = u /. 0.546 in
-      (lerp 0.533 0.588 t, lerp 0.537 0.635 t, lerp 0.561 0.659 t)
-    else
-      let t = (u -. 0.546) /. 0.454 in
-      (lerp 0.588 0.153 t, lerp 0.635 0.165 t, lerp 0.659 0.314 t)
-  in
-  let a = if u < 0.555 then lerp 0.316 0.982 (u /. 0.555) else lerp 0.982 0.035 ((u -. 0.555) /. 0.445) in
-  let byte x = int_of_float (Float.max 0. (Float.min 255. (x *. 255.))) in
-  rgba (byte r) (byte g) (byte b) (byte a)
-
-let draw_smoke () =
-  let dt = R.get_frame_time () in
-  let now = R.get_time () in
-  if not smoke.on then ()
-  else (
-    smoke.emit <- smoke.emit +. (dt *. 30.);
-    let cx, cy = smoke.key in
-    while smoke.emit >= 1. && List.length smoke.puffs < 100 do
-      smoke.emit <- smoke.emit -. 1.;
-      let ang = Random.State.float smoke.rng (Float.pi *. 2.) in
-      smoke.puffs <-
-        {
-          x = cx +. (Random.State.float smoke.rng 40. -. 20.);
-          y = cy +. (Random.State.float smoke.rng 60. -. 30.);
-          vx = cos ang *. 10.;
-          vy = -.sin ang *. 10.;
-          born = now;
-          life = 2.;
-        }
-        :: smoke.puffs
-    done;
-    List.iter
-      (fun p ->
-        p.vy <- p.vy -. (10. *. dt);
-        p.x <- p.x +. (p.vx *. dt);
-        p.y <- p.y +. (p.vy *. dt))
-      smoke.puffs;
-    smoke.puffs <- List.filter (fun p -> now -. p.born < p.life) smoke.puffs;
-    match texture (Assets.particle "smoke") with
-    | None -> ()
-    | Some tex ->
-        let tw = float (R.Texture.width tex) and th = float (R.Texture.height tex) in
-        let src = R.Rectangle.create 0. 0. tw th in
-        List.iter
-          (fun p ->
-            let u = (now -. p.born) /. p.life in
-            let size = 70. *. !scale in
-            let dest =
-              R.Rectangle.create
-                (!off_x +. ((p.x -. 35.) *. !scale))
-                (!off_y +. ((p.y -. 35.) *. !scale))
-                size size
-            in
-            R.draw_texture_pro tex src dest (R.Vector2.create 0. 0.) 0. (smoke_tint u))
-          smoke.puffs)
+let smoke_show (r : rect) = Fx.Hover.show ~x:(r.x +. 40.) ~y:(r.y +. r.h -. 50.)
 
 (* ---------------------------------------------------------------- widgets *)
 
@@ -1117,6 +1027,7 @@ let drive_bot ui =
    cropped/scaled to that size so it matches the creature card. *)
 let card_w = 90.
 let card_h = 102.
+let portrait_size = 84.
 let card_gap = 0.
 let house_col = 92.
 let slot_w = card_w
@@ -1257,6 +1168,57 @@ let push_frame ui ~silent =
   ui.frames <- ui.frames @ [ (start, st) ];
   ui.last_frame <- st
 
+let fx_layout ui : Fx.layout =
+  let occupied pid =
+    let p = (view ui).players.(pid) in
+    List.filter (fun n -> Option.is_some p.ps_slots.(n)) p.ps_slot_list
+  in
+  let scarecrow pid =
+    let p = (view ui).players.(pid) in
+    List.find_opt
+      (fun n ->
+        match p.ps_slots.(n) with Some st -> st.card.c_card.key = "disciples.scarecrow" | None -> false)
+      p.ps_slot_list
+  in
+  let house pid i =
+    let header_y = if pid = opponent then opp_header_y else hand_header_y in
+    match List.find_index (fun hd -> hd.phd_house.h_index = i) (Table.hand ui.table pid) with
+    | None -> { Fx.x = !lay.hand_x0; y = oy ui header_y }
+    | Some col ->
+        {
+          Fx.x = !lay.hand_x0 +. (float col *. house_col) +. (house_col /. 2.);
+          y = oy ui header_y +. (house_header_h /. 2.);
+        }
+  in
+  {
+    slot_center =
+      (fun pid n ->
+        let r = slot_rect ui pid n in
+        { x = r.x +. (r.w /. 2.); y = r.y +. (r.h /. 2.) });
+    slot_floor =
+      (fun pid n ->
+        let r = slot_rect ui pid n in
+        { x = r.x +. (r.w /. 2.); y = r.y +. r.h -. 18. });
+    flame_base =
+      (fun pid n ->
+        let r = slot_rect ui pid n in
+        { x = r.x +. (r.w /. 2.); y = r.y +. r.h -. 38. });
+    life = (fun pid -> { x = 8. +. (portrait_size /. 2.); y = oy ui (row_y pid) +. (portrait_size /. 2.) });
+    house;
+    occupied;
+    scarecrow;
+    source_of =
+      (fun c ->
+        find_hand_rect ui c.cmd_player c.cmd_card
+        |> Option.map (fun r -> { Fx.x = r.x +. (r.w /. 2.); y = r.y +. (r.h /. 2.) }));
+  }
+
+let run_fx ui recipe =
+  let start =
+    if recipe.Fx.blocking then schedule ui recipe.duration else Float.max (R.get_time ()) ui.anim_at
+  in
+  Fx.spawn (recipe.make ~start)
+
 let queue_slides ui e =
   lay := make_layout ui.table;
   match e with
@@ -1303,7 +1265,13 @@ let queue_slides ui e =
   | Ev_refresh { silent } -> push_frame ui ~silent
   (* the turn's mana income lands here: silent, as in Scala; card effects
      already popped on their own loud refresh *)
-  | Ev_to_move _ | Ev_game_over _ -> push_frame ui ~silent:true
+  | Ev_to_move _ -> push_frame ui ~silent:true
+  | Ev_spell_played c -> Option.iter (run_fx ui) (Fx.for_spell (fx_layout ui) c)
+  | Ev_ability { kind; player; num; target } ->
+      Option.iter (run_fx ui) (Fx.for_ability (fx_layout ui) ~kind ~player ~num ~target)
+  | Ev_game_over { winner; _ } ->
+      push_frame ui ~silent:true;
+      Fx.victory (fx_layout ui) ~winner ~you:(Table.seat ui.table owner = Human)
   | _ -> ()
 
 let () = board_event := queue_slides
@@ -1426,7 +1394,8 @@ let draw_slot ui pid num =
          let c = st.card.c_card in
          if inside r then ui.hover <- Some c;
          let life_color = if st.life < st.max_life then gold else life_ok in
-         let r = { r with y = r.y +. attack_offset ui pid num } in
+         let shake_x, shake_y = Fx.slot_offset pid num in
+         let r = { r with x = r.x +. shake_x; y = r.y +. attack_offset ui pid num +. shake_y } in
          let k = focus_scale ui pid num in
          let r =
            {
@@ -1447,8 +1416,6 @@ let draw_slot ui pid num =
       let hot = inside r in
       outline ~round:0.08 ~thick:(if hot then 3.5 else 2.5) r gold;
       if input_ok ui then on_click r (fun () -> play ui (Some c))
-
-let portrait_size = 84.
 
 (* Scala PortraitFlash: red or green, easing back to white over 0.5 s *)
 let portrait_flash ui pid =
@@ -1547,11 +1514,13 @@ let draw_hand_at ui pid ~cards_y ~header_y =
               let playable = Table.playable ui.table cd hd in
               let active = can_choose && playable && input_ok ui in
               let is_selected = selected = Some c.key in
-              let tint = if (not reveal_all) || playable then R.Color.white else rgba 110 110 110 255 in
+              let grey = reveal_all && not playable in
               if is_selected then fill ~round:0.08 r (rgba 40 98 140 70)
               else if active && inside r then fill ~round:0.08 r (rgba 255 255 255 28);
-              draw_card_face (desc ui) r c ~cost:(Some cd.cd_cost) ~attack:(printed_attack c)
-                ~life:(printed_life c) ~life_color:life_ok ~tint;
+              Fx.with_grey grey (fun () ->
+                  draw_card_face (desc ui) r c ~cost:(Some cd.cd_cost) ~attack:(printed_attack c)
+                    ~life:(printed_life c) ~life_color:life_ok ~tint:R.Color.white);
+              if is_selected then Fx.draw_sel ~x:r.x ~y:r.y ~w:r.w ~h:r.h;
               (* Gray-out veil while another side is to move, over art and text alike. *)
               if not turn_on then fill ~round:0.08 r (rgba 168 168 178 125);
               if is_selected then outline ~round:0.08 ~thick:3. r accent
@@ -1733,6 +1702,8 @@ let size_window_to_monitor () =
   R.set_window_size w h;
   R.set_window_position (mx + ((mw - w) / 2)) my
 
+let fx_demo = ref 0
+
 (* Headless-ish check of the drawing: `gui.exe --shot out.png` starts a game
    (or stays on the setup screen with --setup), waits, saves the window and
    exits. --bots lets two bots play so the board fills up. *)
@@ -1775,6 +1746,7 @@ let () =
   R.set_target_fps 60;
   R.init_audio_device ();
   load_fonts ();
+  Fx.load ();
   let screen = ref (Lobby (new_lobby ())) in
   let fight ?(persist = true) lobby =
     if persist then persist_duel lobby;
@@ -1818,6 +1790,7 @@ let () =
   let t0 = R.get_time () in
   while not (!quit || R.window_should_close ()) do
     fit_frame ();
+    Fx.set_transform ~scale:!scale ~off_x:!off_x ~off_y:!off_y;
     pending := None;
     hovering := false;
     (match !screen with
@@ -1845,7 +1818,13 @@ let () =
         if R.is_key_pressed R.Key.Escape then
           match ui.settings with Some _ -> ui.settings <- None | None -> ui.mode <- Browse
         else if R.is_mouse_button_pressed R.MouseButton.Right then ui.mode <- Browse;
-        if R.is_key_pressed R.Key.Space && both_bots ui then ui.paused <- not ui.paused);
+        if R.is_key_pressed R.Key.Space && both_bots ui then ui.paused <- not ui.paused;
+        if R.is_key_pressed R.Key.F8 then (
+          lay := make_layout ui.table;
+          let names = Fx.demo_names in
+          let i = !fx_demo mod List.length names in
+          incr fx_demo;
+          Fx.spawn_demo (fx_layout ui) (List.nth names i)));
     R.begin_drawing ();
     R.clear_background bg;
     (match !screen with
@@ -1862,7 +1841,7 @@ let () =
         ui.hover_opp <- false;
         lay := make_layout ui.table;
         (match peek_smoke_card ui with Some r -> smoke_show r | None -> smoke_hide ());
-        draw_smoke ();
+        Fx.Hover.draw ();
         (match !(ui.last_played) with
         | Some { card = Some c; _ } when inside (last_played_rect ui) -> ui.hover <- Some c
         | _ -> ());
@@ -1882,6 +1861,7 @@ let () =
             Game (new_game { (setup_now ()) with seats = (b, a); specials = (sb, sa); seed = None } (pb, pa))
         in
         draw_board ui;
+        Fx.draw_all ~now:(R.get_time ());
         draw_pass ui;
         draw_hands ui;
         draw_slides ui;
@@ -1916,5 +1896,6 @@ let () =
   done;
   (match !screen with Game ui -> settle ui | Lobby _ -> ());
   Hashtbl.iter (fun _ s -> Option.iter R.unload_sound s) sounds;
+  Fx.unload ();
   R.close_audio_device ();
   R.close_window ()

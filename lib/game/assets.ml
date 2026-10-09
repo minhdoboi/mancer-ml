@@ -82,3 +82,7 @@ let ui name = png "ui" name
 let portrait id = png "portraits" id
 let particle name = png "particle" name
 let sound name = with_ext (path [ "sounds"; name ]) [ ".mp3"; ".ogg"; ".wav" ]
+
+let shader_pair name =
+  let vs = path [ "shaders"; name ^ ".vs" ] and fs = path [ "shaders"; name ^ ".fs" ] in
+  if Sys.file_exists vs && Sys.file_exists fs then Some (vs, fs) else None

@@ -20,7 +20,7 @@
 
 (executable
  (name gui)
- (modules gui)
+ (modules gui fx)
  (libraries mancer raylib ctypes))
 
 (executable

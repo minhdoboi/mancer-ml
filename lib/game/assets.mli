@@ -48,5 +48,8 @@ val portrait : string -> string option
 val particle : string -> string option
 (** Particle sprite ([smoke], …). *)
 
+val shader_pair : string -> (string * string) option
+(** Vertex and fragment paths [shaders/<name>.vs|.fs], or [None] if either is missing. *)
+
 val sound : string -> string option
 (** Clip for a Scala [sounds] key ([move], [meditate], …) or a card sound ([flamewave]). *)
