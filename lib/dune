@@ -2,4 +2,4 @@
 
 (library
  (name mancer)
- (libraries unix str))
+ (libraries unix str yojson yojson-five))
