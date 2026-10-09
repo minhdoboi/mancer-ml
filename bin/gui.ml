@@ -1367,7 +1367,39 @@ let size_window_to_monitor () =
   R.set_window_size w h;
   R.set_window_position (mx + ((mw - w) / 2)) my
 
+(* Headless-ish check of the drawing: `gui.exe --shot out.png` starts a game
+   (or stays on the setup screen with --setup), waits, saves the window and
+   exits. --bots lets two bots play so the board fills up. *)
+type shot = {
+  file : string;
+  wait : float;
+  bots : bool;
+  setup_only : bool;
+  seed : int option;
+  special : string option;
+}
+
+let parse_shot () =
+  let file = ref "" and wait = ref 2. and bots = ref false and setup_only = ref false in
+  let seed = ref None and special = ref None in
+  Arg.parse
+    [
+      ("--shot", Arg.Set_string file, "FILE  save a screenshot to FILE and exit");
+      ("--wait", Arg.Set_float wait, "SECS  seconds to wait before the shot (default 2)");
+      ("--bots", Arg.Set bots, " two oracle bots play, so the board fills up");
+      ("--setup", Arg.Set setup_only, " shoot the setup screen instead of a game");
+      ("--seed", Arg.Int (fun n -> seed := Some n), "N  seed for the deal");
+      ("--special", Arg.String (fun h -> special := Some h), "NAME  special house for both players");
+    ]
+    (fun a -> raise (Arg.Bad a))
+    "gui [--shot FILE [--wait SECS] [--bots] [--setup] [--seed N] [--special NAME]]";
+  if !file = "" then None
+  else
+    Some
+      { file = !file; wait = !wait; bots = !bots; setup_only = !setup_only; seed = !seed; special = !special }
+
 let () =
+  let shot = parse_shot () in
   R.set_trace_log_level R.TraceLogLevel.Warning;
   R.set_config_flags R.ConfigFlags.(window_resizable + msaa_4x_hint + vsync_hint);
   R.init_window 832 768 "mancer";
@@ -1381,9 +1413,19 @@ let () =
     ref
       (Setup
          {
-           setup = Table.default_setup;
+           setup =
+             (match shot with
+             | None -> Table.default_setup
+             | Some sh ->
+                 let d = Table.default_setup in
+                 {
+                   d with
+                   seats = (if sh.bots then (Table.Bot "oracle", Table.Bot "oracle") else d.seats);
+                   specials = (match sh.special with Some h -> (h, h) | None -> d.specials);
+                   budget_ms = (if sh.bots then 100 else d.budget_ms);
+                 });
            portraits = ("ember", "oracle");
-           seed_text = "";
+           seed_text = (match shot with Some { seed = Some n; _ } -> string_of_int n | _ -> "");
            seed_focus = false;
            error = "";
          })
@@ -1395,6 +1437,8 @@ let () =
     | exception Failure msg -> su.error <- msg
   in
   let quit = ref false in
+  (match (shot, !screen) with Some { setup_only = false; _ }, Setup su -> start su () | _ -> ());
+  let t0 = R.get_time () in
   while not (!quit || R.window_should_close ()) do
     fit_frame ();
     pending := None;
@@ -1467,6 +1511,14 @@ let () =
           ~start_new:(fun () -> restart None ui.portraits);
         if ui.settings_open then draw_settings ui);
     R.end_drawing ();
+    (match shot with
+    | Some sh when R.get_time () -. t0 >= sh.wait ->
+        (* take_screenshot prefixes the working directory, so export by hand *)
+        let img = R.load_image_from_screen () in
+        if not (R.export_image img sh.file) then prerr_endline ("cannot write " ^ sh.file);
+        R.unload_image img;
+        quit := true
+    | _ -> ());
     R.set_mouse_cursor (if !hovering then R.MouseCursor.Pointing_hand else R.MouseCursor.Default);
     (* only humans submit from a click, never while a search reads the board;
        leaving a game settles the search first *)

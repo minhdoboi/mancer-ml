@@ -21,6 +21,7 @@ dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
 dune exec ./bin/compare_engines.exe -- --seed 1 --special zen --turns 80
 dune exec ./bin/tui.exe            # play or watch a game in the terminal
 dune exec ./bin/gui.exe            # the same in a raylib window, with card art
+dune exec ./bin/gui.exe -- --shot out.png --bots --seed 1 --wait 8   # screenshot, then exit
 dune exec ./bin/sync_assets.exe    # rebuild ../mancer-assets from ../freespectrogdx
 ```
 
