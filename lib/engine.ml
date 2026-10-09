@@ -497,6 +497,20 @@ end
 
 (* ---------------------------------------------------------------- updater *)
 
+let copy_player_state (p : player_state) =
+  {
+    ps_houses = Array.copy p.ps_houses;
+    ps_desc = { init_desc = p.ps_desc.init_desc; desc_mods = p.ps_desc.desc_mods };
+    ps_slots = Array.copy p.ps_slots;
+    ps_slot_list = p.ps_slot_list;
+    ps_life = p.ps_life;
+    ps_effects = p.ps_effects;
+    ps_data = p.ps_data;
+    ps_transitions = p.ps_transitions;
+  }
+
+let copy_game_state (s : game_state) = { players = Array.map copy_player_state s.players }
+
 module Updater = struct
   (* Hook defaults are Scala's `var` initialisers (SlotUpdate.scala:63,
      PlayerUpdate.scala:283).  `let rec` closes each cycle: OCaml accepts a
@@ -551,14 +565,34 @@ module Updater = struct
     p.slots_update.slot_updates <- Array.init nb_slots (make_slot p.slots_update);
     p
 
+  (* Fresh reaction bound to this slot, without firing on_add: attack bonuses and
+     mana growth are already in the copied houses / attack_sources. *)
+  let bind_slot (slot : slot_update) (st : slot_state) =
+    let reaction = st.card.c_body.b_new_reaction () in
+    reaction.selected := Some slot;
+    { st with reaction }
+
+  let load_player (p : player_update) =
+    Array.iteri
+      (fun i -> function
+        | None -> p.slots_update.slot_updates.(i).value <- None
+        | Some st ->
+            p.slots_update.slot_updates.(i).value <- Some (bind_slot p.slots_update.slot_updates.(i) st))
+      p.pstate.ps_slots
+
   let create state desc =
+    let state = copy_game_state state in
     let u = { state; desc; player_updates = [||]; ended = None; focus_hook = (fun _ _ _ -> ()) } in
     u.player_updates <- Array.init 2 (make_player u);
+    Array.iter load_player u.player_updates;
     u
 
   let player u id = u.player_updates.(id)
   let ended u = u.ended
   let focus u num pid blocking = u.focus_hook num pid blocking
+
+  let export u =
+    copy_game_state { players = Array.map (fun p -> copy_player_state (Player.result p)) u.player_updates }
 
   (* Scala's lift rebuilds the update graph from a state, runs f, and reads
      the result back.  Here the graph is mutated in place, so lift only

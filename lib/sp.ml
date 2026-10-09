@@ -298,6 +298,17 @@ let dead_is_destroy (d : dead) = Option.is_none d.d_damage
 let card_index1 (c : card) = c.card_index + 1
 let is_available cd (h : house_state) = cd.cd_cost <= h.mana + cd.cd_extra_mana && cd.cd_enabled
 
+let is_disabled (p : player_state) =
+  Array.for_all
+    (fun h ->
+      let hs = p.ps_houses.(h.phd_house.h_index) in
+      Array.for_all (fun cd -> not (is_available cd hs)) h.phd_cards)
+    p.ps_desc.init_desc.pd_houses
+
+let command_to_string (c : command) =
+  Printf.sprintf "%d> %s%s" c.cmd_player c.cmd_card.name
+    (match c.cmd_input with None -> "" | Some n -> Printf.sprintf " at %d" n)
+
 let state_to_string (s : game_state) =
   let player (p : player_state) =
     let mana = Array.to_list p.ps_houses |> List.map (fun h -> string_of_int h.mana) in

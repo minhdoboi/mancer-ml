@@ -11,8 +11,10 @@ eval $(opam env --switch=mancer)   # OCaml 5.2.0 + dune 3.24.2
 dune build
 dune test                          # Alcotest suites + expect tests
 dune promote                       # accept a reviewed expect-test diff
-dune exec ./bin/main.exe           # 20 headless games
+dune exec ./bin/main.exe           # 20 greedy-vs-greedy games; writes tournament-results/<ts>/
 dune exec ./bin/main.exe -- -v     # first game with an event trace
+dune exec ./bin/main.exe -- --bots greedy,oracle --games 4 --budget 200 --seed 1
+dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
 ```
 
 ## What is ported
@@ -31,6 +33,9 @@ dune exec ./bin/main.exe -- -v     # first game with an event trace
 | `house/Troopers.scala` | `lib/troopers.ml` |
 | `CardShuffle.scala` | `lib/shuffle.ml` |
 | `Tournament.scala` (HeadlessGame) | `lib/game.ml` |
+| `GameRecord.scala` | `lib/game_record.ml` |
+| `Tournament.scala` (CLI, Elo, JSON logs) | `lib/tournament.ml` |
+| `bot/oracle/OracleBot.scala` | `lib/oracle.ml` |
 
 ## How the Scala translated
 
@@ -144,18 +149,23 @@ fixtures both share. A rules change shows up as an expect diff: review it, then
 
 - **39 of 44 houses.** Fire, Water, Air, Earth and Troopers are in; the other
   specials are not.
-- **Bots.** The greedy bot in `game.ml` just picks the cheapest legal card into
-  the frontmost open slot. It is first-player-biased, which is why the numbers
-  from `bin/main.exe` are not a balance signal yet.
+- **Most bots.** Lecturer, Summoner, Strategist, Gambler and Diviner are not
+  ported. The greedy bot in `game.ml` picks the cheapest legal card into the
+  frontmost open slot. Oracle (`lib/oracle.ml`) is the sequential-halving
+  rollout bot from Scala; it searches with perfect information of both decks
+  (Scala's Choco card-guesser is not ported).
 - **Networking, campaign, rendering, i18n.**
 
 ## Reading the numbers
 
-`bin/main.exe` shuffles a fresh legal deck each game (the same constraints as
-Scala's Choco model) and then plays it with the greedy bot. Decks diverge;
-the bot still always takes the cheapest legal card, so the win counts are not
-a balance signal. The useful next step is a non-deterministic bot, then a diff
-against Scala's Elo over the same matchups.
+`bin/main.exe` is the Scala tournament driver: it shuffles legal decks, plays
+the requested bots, and writes `game-NNN.json` plus `summary.json` (W/L/D and
+Elo, K=16) under `tournament-results/<timestamp>/`. Default is greedy vs
+greedy. `--bots greedy,oracle` is the interesting matchup; `--budget` is the
+oracle's milliseconds per move (default 1000, same as Scala).
+
+The greedy bot always takes the cheapest legal card, so greedy-vs-greedy win
+counts are not a balance signal. Oracle vs greedy is.
 
 Tests that need a fixed hand still use `Game.make_player_desc`, which keeps the
 old cost-slice (and one special card per quarter).

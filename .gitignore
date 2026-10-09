@@ -16,6 +16,9 @@ _opam/
 .#*
 \#*#
 
+# tournament JSON logs
+tournament-results/
+
 # test leftovers
 *.corrected
 _coverage/

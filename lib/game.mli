@@ -1,5 +1,4 @@
-(** Deck building, a greedy bot and the headless turn loop (CardShuffle.scala, HeadlessGame in
-    Tournament.scala). *)
+(** Deck building, bots and the headless turn loop (CardShuffle.scala, HeadlessGame in Tournament.scala). *)
 
 open Sp
 
@@ -23,16 +22,38 @@ val initial_game_state : ?mana0:int list -> ?mana1:int list -> game_desc -> game
 
 (** {1 Bot} *)
 
+val legal_commands : player_id -> game_desc -> game_state -> command list
+(** Every legal command, interleaved one placement per card ([Choices.getNexts]). *)
+
 val available_commands : updater -> player_update -> command list
-(** Legal commands, cheapest first. *)
+(** Legal commands, cheapest first. The greedy bot's view. *)
 
 val bot_move : updater -> player_update -> command option
 
+type mover = updater -> player_id -> command option
+
+val greedy_mover : mover
+(** Cheapest legal card, frontmost open slot after [Choices] ordering. *)
+
+type sim = { state : game_state; next : player_id; ended : player_id option }
+
+val simulate : game_desc -> game_state -> player_id -> command option -> sim
+(** [BotSimulator.simulateCommand]: apply [cmd], then the end-turn chain unless a [Wait_player] transition
+    hands over. The live game is not touched. *)
+
 (** {1 Driver} *)
 
-type result = { winner : player_id option; turns : int }
+type result = { winner : player_id option; turns : int; reason : string; moves : Game_record.move list }
 
 val step : updater -> (updater -> unit) -> unit
 (** One engine step, published with {!Engine.Updater.lift}. *)
 
-val play_game : ?mana0:int list -> ?mana1:int list -> game_desc -> max_turns:int -> verbose:bool -> result
+val play_game :
+  ?mana0:int list ->
+  ?mana1:int list ->
+  ?bots:mover * mover ->
+  game_desc ->
+  max_turns:int ->
+  verbose:bool ->
+  result
+(** HeadlessGame's turn loop. [bots] defaults to greedy vs greedy. *)

@@ -131,12 +131,24 @@ module Reaction : sig
       yet. *)
 end
 
+val copy_player_state : player_state -> player_state
+(** Shallow-copies mutable arrays and the [player_state] record. Slot reactions still point at the original
+    update graph until {!Updater.create} rebinds them. *)
+
+val copy_game_state : game_state -> game_state
+
 (** GameStateUpdater *)
 module Updater : sig
   val create : game_state -> game_desc -> updater
+  (** Copies [state] and rebuilds the update graph, rebinding each occupant to a fresh reaction. The original
+      snapshot is left untouched, which is what lets the oracle simulate from a live position. *)
+
   val player : updater -> player_id -> player_update
   val ended : updater -> player_id option
   val focus : updater -> int -> player_id -> bool -> unit
+
+  val export : updater -> game_state
+  (** Flushes the live graph into an independent [game_state] copy. *)
 
   val lift : updater -> (updater -> 'a) -> 'a * game_state
   (** Runs one engine step and publishes the state. Unlike Scala's lift, the returned state is the live one,

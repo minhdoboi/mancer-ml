@@ -1,11 +1,24 @@
 (test
  (name mechanics)
+ (modules mechanics)
  (libraries mancer support alcotest))
 
 (test
  (name houses)
+ (modules houses)
  (libraries mancer support alcotest))
 
 (test
  (name shuffle)
+ (modules shuffle)
  (libraries mancer support alcotest))
+
+(test
+ (name test_oracle)
+ (modules test_oracle)
+ (libraries mancer support alcotest))
+
+(test
+ (name test_tournament)
+ (modules test_tournament)
+ (libraries mancer support alcotest unix))

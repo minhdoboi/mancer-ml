@@ -1,2 +1,3 @@
 (library
- (name mancer))
+ (name mancer)
+ (libraries unix str))

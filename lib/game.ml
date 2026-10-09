@@ -90,11 +90,101 @@ let initial_game_state ?(mana0 = [ 2; 2; 2; 2 ]) ?(mana1 = [ 1; 1; 1; 1 ]) (desc
 
 (* ------------------------------------------------------------------ the bot *)
 
-(* Deterministic greedy bot: cheapest legal card, frontmost open slot.  Good
-   enough to exercise the engine; not a port of the Scala heuristics. *)
+(* Choices.getNexts: every legal command, interleaved one placement per card
+   so the search meets every card before it retries slots.  Greedy still sorts
+   cheapest-first on top of this list. *)
+
+let filled_nums (p : player_state) =
+  List.init nb_slots Fun.id |> List.filter (fun n -> Option.is_some p.ps_slots.(n))
+
+let open_nums (p : player_state) =
+  List.init nb_slots Fun.id
+  |> List.filter (fun n -> Option.is_none p.ps_slots.(n) && List.mem n p.ps_slot_list)
+
+let commands_for pid (state : game_state) (cd : card_desc) =
+  let p = state.players.(pid) in
+  let op = state.players.(other pid) in
+  let command ?(flag = None) input =
+    { cmd_player = pid; cmd_card = cd.cd_card; cmd_input = input; cmd_cost = cd.cd_cost; cmd_flag = flag }
+  in
+  match cd.cd_card.input_spec with
+  | No_input -> [ command None ]
+  | Select_owner f -> List.map (fun n -> command (Some n)) (f pid state)
+  | Select_owner_slot -> List.map (fun n -> command (Some n)) (open_nums p)
+  | Select_owner_creature -> List.map (fun n -> command (Some n)) (filled_nums p)
+  | Select_target f -> List.map (fun n -> command (Some n)) (f (other pid) state)
+  | Select_target_slot -> List.map (fun n -> command (Some n)) (open_nums op)
+  | Select_target_creature -> List.map (fun n -> command (Some n)) (filled_nums op)
+  | Select_any_creature ->
+      List.map (fun n -> command (Some n)) (filled_nums p)
+      @ List.map (fun n -> command ~flag:(Some Target_other) (Some n)) (filled_nums op)
+
+let place_rank ~enemy (cmd : command) =
+  match cmd.cmd_input with
+  | None -> (0, 0, 0)
+  | Some num -> (
+      match cmd.cmd_card.input_spec with
+      | Select_owner_slot ->
+          let blocked = if in_slot_range num && Option.is_some enemy.ps_slots.(num) then 1 else 0 in
+          (blocked, num, 0)
+      | Select_target_creature | Select_target _ ->
+          let life = match enemy.ps_slots.(num) with Some st -> st.life | None -> 0 in
+          (0, life, num)
+      | _ -> (0, num, 0))
+
+let order_moves ~enemy commands =
+  let tbl = Hashtbl.create 16 in
+  let cards = ref [] in
+  List.iter
+    (fun c ->
+      let id = c.cmd_card.id in
+      match Hashtbl.find_opt tbl id with
+      | Some xs -> Hashtbl.replace tbl id (c :: xs)
+      | None ->
+          Hashtbl.add tbl id [ c ];
+          cards := c.cmd_card :: !cards)
+    commands;
+  let groups =
+    List.rev !cards
+    |> List.map (fun card ->
+        let cs = List.rev (Hashtbl.find tbl card.id) in
+        List.stable_sort (fun a b -> compare (place_rank ~enemy a) (place_rank ~enemy b)) cs)
+    |> List.sort (fun a b ->
+        let ca = (List.hd a).cmd_card and cb = (List.hd b).cmd_card in
+        let c = compare cb.cost ca.cost in
+        if c <> 0 then c else compare ca.id cb.id)
+  in
+  let rec round acc gs =
+    match List.filter (fun g -> g <> []) gs with
+    | [] -> acc
+    | keep -> round (acc @ List.map List.hd keep) (List.map List.tl keep)
+  in
+  round [] groups
+
+let legal_commands pid (desc : game_desc) (state : game_state) =
+  let p = state.players.(pid) in
+  let houses =
+    let d = desc.gd_players.(pid) in
+    match p.ps_desc.desc_mods with
+    | [] -> Array.to_list d.pd_houses
+    | mods ->
+        Array.to_list d.pd_houses
+        |> List.map (fun h ->
+            { h with phd_cards = List.fold_left (fun cards m -> m h cards) h.phd_cards mods })
+  in
+  let raw =
+    List.concat_map
+      (fun h ->
+        Array.to_list h.phd_cards
+        |> List.filter (fun cd -> is_available cd p.ps_houses.(h.phd_house.h_index))
+        |> List.concat_map (commands_for pid state))
+      houses
+  in
+  order_moves ~enemy:state.players.(other pid) raw
 
 let available_commands (u : updater) (p : player_update) =
-  let pstate = u.state.players.(p.pid) in
+  (* Cheapest card, frontmost open slot — not Choices interleaving. *)
+  let pstate = p.pstate in
   let open_slots = Slots.get_open p.slots_update in
   let command cd input =
     { cmd_player = p.pid; cmd_card = cd.cd_card; cmd_input = input; cmd_cost = cd.cd_cost; cmd_flag = None }
@@ -104,8 +194,8 @@ let available_commands (u : updater) (p : player_update) =
       Array.to_list h.phd_cards
       |> List.filter (fun cd -> is_available cd pstate.ps_houses.(h.phd_house.h_index))
       |> List.concat_map (fun cd ->
-          let filled p =
-            Array.to_list p.slots_update.slot_updates
+          let filled (pl : player_update) =
+            Array.to_list pl.slots_update.slot_updates
             |> List.filter_map (fun s -> if Option.is_some s.value then Some s.num else None)
           in
           match cd.cd_card.input_spec with
@@ -119,44 +209,82 @@ let available_commands (u : updater) (p : player_update) =
 
 let bot_move u p = List.nth_opt (available_commands u p) 0
 
+type mover = updater -> player_id -> command option
+
+let greedy_mover u pid = bot_move u (Updater.player u pid)
+
+(* BotSimulator.simulateCommand: one command, then the end-turn chain unless a
+   WaitPlayer transition hands over. *)
+type sim = { state : game_state; next : player_id; ended : player_id option }
+
+let simulate (desc : game_desc) (state : game_state) pid cmd =
+  let u = Updater.create state desc in
+  let next = ref (other pid) in
+  let _, state =
+    Updater.lift u (fun u ->
+        let p = Updater.player u pid in
+        Player.submit p cmd;
+        Array.iter Player.flush u.player_updates;
+        match Player.pop_transition p with
+        | Some (Wait_player (n, _)) -> next := n
+        | None ->
+            Player.run_slots p;
+            if Option.is_none (Updater.ended u) then (
+              Player.apply_effects p On_end_turn;
+              Slots.toggle_run p.slots_update;
+              let op = Player.other p in
+              Player.prepare_next_turn op;
+              if Option.is_none (Updater.ended u) then Player.apply_effects op On_turn);
+            next := other pid)
+  in
+  { state; next = !next; ended = Updater.ended u }
+
 (* ------------------------------------------------------------------- driver *)
 
-type result = { winner : player_id option; turns : int }
+type result = { winner : player_id option; turns : int; reason : string; moves : Game_record.move list }
 
 (* HeadlessGame's `sync`: run one engine step, then publish the state *)
 let step u f = ignore (Updater.lift u f)
 
-let play_game ?mana0 ?mana1 (desc : game_desc) ~max_turns ~verbose =
+let play_game ?mana0 ?mana1 ?(bots = (greedy_mover, greedy_mover)) (desc : game_desc) ~max_turns ~verbose =
   events_enabled := verbose;
   let u = Updater.create (initial_game_state ?mana0 ?mana1 desc) desc in
   let running () = Option.is_none (Updater.ended u) in
+  let mover pid = if pid = owner then fst bots else snd bots in
+  let moves = ref [] in
   step u (fun u -> Array.iter (fun p -> Player.apply_effects p On_start) u.player_updates);
   (* t = turns played so far, as in HeadlessGame: at most max_turns moves *)
   let rec loop t pid =
     if (not (running ())) || t >= max_turns then t
     else
       let p = Updater.player u pid in
-      let cmd = bot_move u p in
+      let cmd = if is_disabled p.pstate then None else mover pid u pid in
+      moves := Game_record.move_of ~t:(t + 1) ~player:pid cmd u.state desc :: !moves;
       step u (fun _ -> Player.submit p cmd);
-      (* Drain transitions: None runs the turn out *)
-      let rec drain () =
-        match Player.pop_transition p with
-        | Some _ -> drain ()
-        | None ->
-            let op = Player.other p in
-            List.iter
-              (fun f -> if running () then step u (fun _ -> f ()))
-              [
-                (fun () -> Player.run_slots p);
-                (fun () -> Player.apply_effects p On_end_turn);
-                (fun () -> Slots.toggle_run p.slots_update);
-                (fun () -> Player.prepare_next_turn op);
-                (fun () -> Player.apply_effects op On_turn);
-              ]
+      let rec drain pid =
+        if not (running ()) then pid
+        else
+          let popped = ref None in
+          step u (fun _ -> popped := Player.pop_transition (Updater.player u pid));
+          match !popped with
+          | Some (Wait_player (next, _)) -> next
+          | None ->
+              let p = Updater.player u pid in
+              let op = Player.other p in
+              List.iter
+                (fun f -> if running () then step u (fun _ -> f ()))
+                [
+                  (fun () -> Player.run_slots p);
+                  (fun () -> Player.apply_effects p On_end_turn);
+                  (fun () -> Slots.toggle_run p.slots_update);
+                  (fun () -> Player.prepare_next_turn op);
+                  (fun () -> Player.apply_effects op On_turn);
+                ];
+              other pid
       in
-      drain ();
-      loop (t + 1) (other pid)
+      loop (t + 1) (drain pid)
   in
   let turns = loop 0 owner in
   events_enabled := false;
-  { winner = Updater.ended u; turns }
+  let winner = Updater.ended u in
+  { winner; turns; reason = (if Option.is_none winner then "maxTurns" else "ended"); moves = List.rev !moves }
