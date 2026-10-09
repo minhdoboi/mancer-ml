@@ -1,8 +1,8 @@
 (* Deck building, a simple bot, and the headless turn loop.  Mirrors
    priv/sp/CardShuffle.scala and HeadlessGame in priv/sp/bot/Tournament.scala.
 
-   Scala's deck builder uses ChocoSolver to satisfy deck constraints; here
-   decks are a fixed slice per house so runs are reproducible. *)
+   Legal four-house decks live in shuffle.ml.  [make_player_desc] is the
+   fixed cost-slice used by tests that need a reproducible hand. *)
 
 open Sp
 open Engine
@@ -59,25 +59,33 @@ let make_player_desc ?(special = empty_special) (h : house) =
       |];
   }
 
+let special_effects (d : player_desc) =
+  match Array.find_opt (fun h -> h.phd_house.h_index = 4) d.pd_houses with
+  | Some h -> h.phd_house.h_effects
+  | None -> []
+
 let initial_player_state (mana : int list) (d : player_desc) =
+  let mana =
+    match mana with
+    | [ _; _; _; _ ] -> mana @ [ 2 ]
+    | [ _; _; _; _; _ ] -> mana
+    | _ -> invalid_arg "Game.initial_player_state: expected 4 or 5 mana values"
+  in
   {
-    ps_houses = Array.of_list (List.map (fun mana -> { mana; growth = 1 }) (mana @ [ 2 ]));
+    ps_houses = Array.of_list (List.map (fun mana -> { mana; growth = 1 }) mana);
     ps_desc = { init_desc = d; desc_mods = [] };
     ps_slots = Array.make nb_slots None;
     ps_slot_list = base_slot_list;
     ps_life = 60;
-    ps_effects = [];
+    ps_effects = special_effects d;
     ps_data = No_player_data;
     ps_transitions = [];
   }
 
-let initial_game_state (desc : game_desc) =
+let initial_game_state ?(mana0 = [ 2; 2; 2; 2 ]) ?(mana1 = [ 1; 1; 1; 1 ]) (desc : game_desc) =
   {
     players =
-      [|
-        initial_player_state [ 2; 2; 2; 2 ] desc.gd_players.(0);
-        initial_player_state [ 1; 1; 1; 1 ] desc.gd_players.(1);
-      |];
+      [| initial_player_state mana0 desc.gd_players.(0); initial_player_state mana1 desc.gd_players.(1) |];
   }
 
 (* ------------------------------------------------------------------ the bot *)
@@ -118,9 +126,9 @@ type result = { winner : player_id option; turns : int }
 (* HeadlessGame's `sync`: run one engine step, then publish the state *)
 let step u f = ignore (Updater.lift u f)
 
-let play_game (desc : game_desc) ~max_turns ~verbose =
+let play_game ?mana0 ?mana1 (desc : game_desc) ~max_turns ~verbose =
   events_enabled := verbose;
-  let u = Updater.create (initial_game_state desc) desc in
+  let u = Updater.create (initial_game_state ?mana0 ?mana1 desc) desc in
   let running () = Option.is_none (Updater.ended u) in
   step u (fun u -> Array.iter (fun p -> Player.apply_effects p On_start) u.player_updates);
   (* t = turns played so far, as in HeadlessGame: at most max_turns moves *)

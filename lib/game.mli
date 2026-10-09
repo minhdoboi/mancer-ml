@@ -16,9 +16,10 @@ val make_player_desc : ?special:house -> house -> player_desc
 (** One basic house plus a special (defaults to {!empty_special}). *)
 
 val initial_player_state : int list -> player_desc -> player_state
-(** [initial_player_state mana desc]: [mana] for the four base houses; the special house gets 2. *)
+(** [initial_player_state mana desc]: four mana values get a special of 2 appended; five values are used
+    as-is. Raises [Invalid_argument] for any other length. *)
 
-val initial_game_state : game_desc -> game_state
+val initial_game_state : ?mana0:int list -> ?mana1:int list -> game_desc -> game_state
 
 (** {1 Bot} *)
 
@@ -34,4 +35,4 @@ type result = { winner : player_id option; turns : int }
 val step : updater -> (updater -> unit) -> unit
 (** One engine step, published with {!Engine.Updater.lift}. *)
 
-val play_game : game_desc -> max_turns:int -> verbose:bool -> result
+val play_game : ?mana0:int list -> ?mana1:int list -> game_desc -> max_turns:int -> verbose:bool -> result

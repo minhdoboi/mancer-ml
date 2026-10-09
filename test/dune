@@ -5,3 +5,7 @@
 (test
  (name houses)
  (libraries mancer support alcotest))
+
+(test
+ (name shuffle)
+ (libraries mancer support alcotest))

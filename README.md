@@ -2,9 +2,9 @@
 
 Feasibility prototype for porting `freespectrogdx` (Scala 3 + libGDX) to OCaml.
 
-**Status:** the game engine + the four basic houses and the Troopers special
-are ported. `test/` covers Fire plus the distinctive Water/Air/Earth/Troopers
-mechanics. `bin/main.ml` plays Fire-vs-Fire headless games to a decisive result.
+**Status:** the game engine, the four basic houses, Troopers, and the deck
+builder are ported. `test/` covers house mechanics and shuffle constraints.
+`bin/main.ml` deals two legal decks and plays them headlessly.
 
 ```sh
 eval $(opam env --switch=mancer)   # OCaml 5.2.0 + dune 3.24.2
@@ -29,7 +29,8 @@ dune exec ./bin/main.exe -- -v     # first game with an event trace
 | `house/Air.scala` | `lib/air.ml` |
 | `house/Earth.scala` | `lib/earth.ml` |
 | `house/Troopers.scala` | `lib/troopers.ml` |
-| `CardShuffle.scala` (partly), `Tournament.scala` (HeadlessGame) | `lib/game.ml` |
+| `CardShuffle.scala` | `lib/shuffle.ml` |
+| `Tournament.scala` (HeadlessGame) | `lib/game.ml` |
 
 ## How the Scala translated
 
@@ -143,21 +144,18 @@ fixtures both share. A rules change shows up as an expect diff: review it, then
 
 - **39 of 44 houses.** Fire, Water, Air, Earth and Troopers are in; the other
   specials are not.
-- **Deck building.** Scala uses ChocoSolver to satisfy deck constraints
-  (`CardShuffle.scala`). This is the one subsystem with no natural OCaml
-  equivalent — the solver is a Java library — so `game.ml` picks a fixed cost
-  slice instead. If deck legality matters for balance work, this is the piece to
-  look at first.
 - **Bots.** The greedy bot in `game.ml` just picks the cheapest legal card into
-  the frontmost open slot. It is deterministic and first-player-biased (player 0
-  wins every game), which is why the numbers from `bin/main.exe` are not a
-  balance signal yet.
+  the frontmost open slot. It is first-player-biased, which is why the numbers
+  from `bin/main.exe` are not a balance signal yet.
 - **Networking, campaign, rendering, i18n.**
 
 ## Reading the numbers
 
-`bin/main.exe` reports the same game 20 times because both the deck and the bot
-are deterministic. It proves the loop terminates and combat resolves; it does
-not prove balance. The useful next step is a non-deterministic bot so the two
-players actually diverge, then a diff against Scala's Elo over the same
-matchups.
+`bin/main.exe` shuffles a fresh legal deck each game (the same constraints as
+Scala's Choco model) and then plays it with the greedy bot. Decks diverge;
+the bot still always takes the cheapest legal card, so the win counts are not
+a balance signal. The useful next step is a non-deterministic bot, then a diff
+against Scala's Elo over the same matchups.
+
+Tests that need a fixed hand still use `Game.make_player_desc`, which keeps the
+old cost-slice (and one special card per quarter).
