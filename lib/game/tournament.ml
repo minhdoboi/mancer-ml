@@ -477,7 +477,37 @@ let init_specials () =
   Game.init_cards Disciples.house;
   Game.init_cards Darksider.house;
   Game.init_cards Faerie.house;
-  Game.init_cards Fairy.house
+  Game.init_cards Fairy.house;
+  Game.init_cards Dudes.house;
+  Game.init_cards Vampires.house;
+  Game.init_cards Warp.house;
+  Game.init_cards Snowblood.house;
+  Game.init_cards Dreamweaver.house;
+  Game.init_cards Junk.house;
+  Game.init_cards Battlemage.house;
+  Game.init_cards ~cost_fn:Antimancer.cost_fn Antimancer.house;
+  Game.init_cards Powermancer.house;
+  Game.init_cards Shadowmage.house;
+  Game.init_cards ~cost_fn:Colors.cost_fn Colors.house;
+  Game.init_cards Limbo.house;
+  Game.init_cards Rogue.house;
+  Game.init_cards Tinker.house;
+  Game.init_cards Entomologist.house;
+  Game.init_cards Soulbinder.house;
+  Game.init_cards Shadowcaster.house;
+  Game.init_cards Spiritshaman.house;
+  Game.init_cards Conjurer.house;
+  Game.init_cards Quantumancer.house;
+  Game.init_cards Meteomancer.house;
+  Game.init_cards Seasons.house;
+  Game.init_cards Soulreaper.house;
+  Game.init_cards Sower.house;
+  Game.init_cards Shaman.house;
+  Game.init_cards Mountainking.house;
+  Game.init_cards Darkpriest.house;
+  Game.init_cards Elementalist.house;
+  Game.init_cards Highpriest.house;
+  Game.init_cards Kinetician.house
 
 let run_play a =
   let basics = [ Fire.house; Water.house; Air.house; Earth.house ] in

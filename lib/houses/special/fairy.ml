@@ -27,15 +27,6 @@ let sirin_bonus id = Attack_bonus { tag = "sirin"; pos = id; bonus = (fun a -> m
 let sirin_temper id s = add_attack s (sirin_bonus id)
 let sirin_untemper id s = remove_first_attack s (sirin_bonus id)
 
-(* Scala SlotUpdate.drain: unblockable life loss, no protect/selfProtect. *)
-let drain s d =
-  match s.value with
-  | None -> ()
-  | Some st ->
-      let newlife = st.life - d.amount in
-      if newlife < 1 then Slot.delayed_destroy s d else Slot.update s (fun x -> { x with life = newlife });
-      s.on_damage_hook st { d with amount = st.life - max newlife 0 }
-
 let add_lesovik_mod lesovik_slot opp_slot =
   match opp_slot.value with
   | None -> ()

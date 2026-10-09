@@ -57,3 +57,38 @@
  (name spell_looks)
  (modules spell_looks)
  (libraries mancer support alcotest))
+
+(test
+ (name more_houses)
+ (modules more_houses)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_b)
+ (modules houses_b)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_c)
+ (modules houses_c)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_d)
+ (modules houses_d)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_e)
+ (modules houses_e)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_f)
+ (modules houses_f)
+ (libraries mancer support alcotest))
+
+(test
+ (name houses_g)
+ (modules houses_g)
+ (libraries mancer support alcotest))

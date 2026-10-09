@@ -40,7 +40,7 @@ type phase = Direct | On_turn | On_end_turn | On_start
    attack_source mentions player_update, creature_body mentions reaction, and
    so on. *)
 
-type command_flag = Target_other
+type command_flag = Target_other | Called_element of int
 and transition = Wait_player of player_id * string option
 and mod_ = Spell_mod of (int -> int)
 
@@ -57,6 +57,34 @@ and slot_data =
   | Slot_destroyed of desc_mod
   | Slot_destroyeds of card list * desc_mod
   | Lake_mods of desc_mod list
+  (* Warp: the creature under a Cloak, restored when the Cloak dies *)
+  | Cloaked of slot_state
+  (* Warp: id of the creature a Schizo silenced, released when the Schizo leaves *)
+  | Schizo_target of int
+  (* Warp: set on the card of a silenced creature, the creature it stands for *)
+  | Mortal_of of creature
+  (* Shadowmage: Shade Stalker until it takes damage; Dark Warden after blocking once this turn *)
+  | Stealthed
+  | Absorbed
+  (* Colors: X spent on this creature, and Emerald's special-cost mod if it added one *)
+  | Color_x of int * desc_mod option
+  (* Limbo: postponed death until end of turn, or a token that cannot enter limbo *)
+  | Limbo_state
+  | No_limbo
+  (* Entomologist Mantis: house index whose growth is bridled *)
+  | Mantis_house of int
+  (* Spirit Shaman Panther Totem: owner turns survived *)
+  | Count of int
+  (* Quantumancer Spirit of Sealing: sealed (card, SealMod) pairs and the side that recorded them *)
+  | Sealed of (card * desc_mod) list * player_id
+  (* Soul Reaper Eternal Rage: lethal hits zero life and hang until a 2-turn countdown *)
+  | Eternal
+  (* Mountain King: this dwarf is in a hird with a neighbour *)
+  | Hird
+  (* High Priest Bennu: already made its dying attack *)
+  | Bennu_dead
+  (* High Priest Babi: last seen opponent mana total *)
+  | Babi_mana of int
 
 and slot_snap = {
   ss_num : int;
@@ -71,7 +99,45 @@ and slot_snap = {
 
 and board_snap = { bs_owner : slot_snap list; bs_opp : slot_snap list }
 and wind_state = { winged : bool; vortex : bool }
+
+(* Powermancer: Infernal Bargain bought, own turns finished, and the availability mod currently in the
+   player's desc mods (with the special mana it was built for) *)
+and power_data = { pw_bargain : bool; pw_turn : int; pw_mod : (int * desc_mod) option }
 and chrono_data = { previous : board_snap option; current : board_snap option }
+and shadowmage_data = { eclipse_shield : int }
+and color_player = { cp_x : int; cp_hidden : (int * desc_mod) list }
+
+(* Quantumancer: opponent spells seen, and the Cosmic Mage choice mod while it is up *)
+and played_spell = { ps_card : card; ps_input : int option; ps_target_other : bool; ps_cost : int }
+and quantum_data = { q_played : played_spell list; q_choice : desc_mod option }
+
+(* Meteomancer: Called Element, Mistwalker hide flag, Fateweaver extra-play charges and HideNonCalled *)
+and meteo_data = {
+  mt_called : int option;
+  mt_hidden : bool;
+  mt_fate : int;
+  mt_hide : desc_mod option;
+}
+
+(* Seasons: Solar Wave triple, Midnight Sun, Eternal Summer *)
+and season_data = { se_triple : bool; se_midnight : bool; se_summer : bool }
+
+(* Shaman ghost wolf: moon protection, fury, hunt heals, mate columns, shadows, rage enhancements *)
+and wolf_state = {
+  wo_protection : int;
+  wo_fury : int option;
+  wo_bonus : int;
+  wo_hunting : int;
+  wo_mates : int list;
+  wo_shadows : int list;
+  wo_enhanced : (int * int) list;
+}
+
+(* High Priest: unique opponent cards seen, and own turns counted *)
+and priest_data = { hp_revealed : (int * int) list; hp_turn : int }
+
+(* Kinetician: ChangeTarget id plus Call of the Fittest cost mods *)
+and kinetic_data = { ki_target : int option; ki_halves : (int * desc_mod) list }
 
 and player_data =
   | No_player_data
@@ -79,6 +145,22 @@ and player_data =
   | Zen_cocoons of int list
   | Wind_state of wind_state
   | Chrono_data of chrono_data
+  | Power_data of power_data
+  | Shadowmage_data of shadowmage_data
+  | Color_data of color_player
+  | Limbo_player of [ `Limbo | `No_limbo ]
+  (* Soulbinder: empty slots marked as Bound Souls *)
+  | Soulbinder_data of int list
+  (* Shadowcaster: Dark power, separate from special mana *)
+  | Shadowcaster_data of int
+  | Quantum_data of quantum_data
+  | Meteo_data of meteo_data
+  | Season_data of season_data
+  (* Soul Reaper: souls gathered from deaths *)
+  | Reaper_data of int
+  | Wolf_data of wolf_state
+  | Priest_data of priest_data
+  | Kinetic_data of kinetic_data
 
 and input_spec =
   | No_input
@@ -104,7 +186,10 @@ and attack_source =
 
 and attack_sources = { base : int option; sources : attack_source list }
 and context = { ctx_player : player_id; ctx_card : card option; ctx_selected : int }
-and damage = { amount : int; context : context; is_ability : bool; is_spell : bool }
+
+(* [redirected]: set on a spell hit that a Battlemage field mage has taken in another creature's place, so it
+   is not redirected twice (Scala's RedirectedContext) *)
+and damage = { amount : int; context : context; is_ability : bool; is_spell : bool; redirected : bool }
 and run_attack_kind = Single_target | Multi_target | Custom of (int list -> damage -> player_update -> unit)
 and run_attack = { can_attack : bool; apply_ : run_attack_kind }
 
@@ -292,6 +377,7 @@ and player_update = {
   mutable on_player_damage_hook : damage -> unit;
   mutable guard_hook : damage -> damage;
   mutable add_mana_hook : house_state -> int -> house_state;
+  mutable set_data_hook : player_data -> unit;
 }
 
 (* What a UI animates. The first ten mirror Scala's UpdateListener
@@ -345,7 +431,7 @@ let effect_at (e : phase_effects) = function
   | On_start -> e.on_start
 
 let mk_damage ?(is_ability = false) ?(is_spell = false) amount context =
-  { amount; context; is_ability; is_spell }
+  { amount; context; is_ability; is_spell; redirected = false }
 
 (* Scala keeps separate counters for Card.currentId and SlotState.currentId *)
 let card_counter = ref 0

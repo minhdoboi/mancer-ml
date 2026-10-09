@@ -1835,6 +1835,17 @@ let for_spell layout (c : command) =
       Some
         (recipe ~duration:(Float.min 3. acid_rain.duration) ~blocking:true (fun ~start ->
              spawn_particles acid_rain ~x:p.x ~y:p.y ~start))
+  | "elementalist.frost" ->
+      let mid = match target_spot layout c with Some t -> t | None -> layout.slot_center other 2 in
+      Some
+        (recipe ~duration:(lightning_duration 3) ~blocking:true (fun ~start ->
+             spawn_lightning ~style:frost [ source; mid; foe_life ] ~start))
+  | "darkpriest.BlackMass.name" ->
+      let origin = match target_spot layout c with Some t -> t | None -> source in
+      let corner = layout.slot_center other 0 in
+      Some
+        (recipe ~duration:1. ~blocking:true (fun ~start ->
+             spawn_black_mass ~source:origin ~target:corner ~w:500. ~h:100. ~start))
   | _ -> Option.map (look_recipe layout c) (Spell_looks.get c.cmd_card.key)
 
 let for_ability layout ~kind ~player ~num ~target =

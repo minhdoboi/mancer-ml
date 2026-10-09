@@ -192,7 +192,7 @@ module Slot = struct
         let amount =
           match state_inflict st d with
           | None ->
-              delayed_destroy s d;
+              s.delayed_destroy_hook d;
               st.life
           | Some ns ->
               s.value <- Some ns;
@@ -365,6 +365,7 @@ module Player = struct
       p.pstate.ps_life <- p.pstate.ps_life + amount
 
   let add_desc_mod p m = p.pstate.ps_desc.desc_mods <- p.pstate.ps_desc.desc_mods @ [ m ]
+  let insert_desc_mod p m = p.pstate.ps_desc.desc_mods <- m :: p.pstate.ps_desc.desc_mods
 
   (* PlayerState.remove (State.scala:112): only the first occurrence, so a mod
      added by two cards survives until both are gone *)
@@ -372,7 +373,7 @@ module Player = struct
     let rec drop = function [] -> [] | x :: xs when x == m -> xs | x :: xs -> x :: drop xs in
     p.pstate.ps_desc.desc_mods <- drop p.pstate.ps_desc.desc_mods
 
-  let set_data p d = p.pstate.ps_data <- d
+  let set_data p d = p.set_data_hook d
 
   (* SingleTargetAttack / MultiTargetAttack (CardSpec.scala:230-264) *)
   let run_attack p st d =
@@ -390,7 +391,7 @@ module Player = struct
               (fun num ->
                 let s = op.slots_update.slot_updates.(num) in
                 let filled = Option.is_some s.value in
-                if filled then Slot.damage_slot s d;
+                if filled then Slot.inflict s d;
                 filled)
               st.target
           in
@@ -474,7 +475,7 @@ module Player = struct
       (fun (ph, f) -> if ph = phase && Option.is_none p.updater.ended then f (mk_env p.pid p.updater))
       p.pstate.ps_effects
 
-  let submit_command p (c : command) =
+  let submit_command_default p (c : command) =
     if c.cmd_card.is_spell then emit p.updater (Ev_spell_played c);
     Houses.incr_mana p.houses_update (-c.cmd_cost) [ c.cmd_card.house_index ];
     emit p.updater (Ev_refresh { silent = true });
@@ -501,6 +502,9 @@ module Player = struct
       c.cmd_card.effects.direct;
     emit p.updater (Ev_refresh { silent = false });
     slot_id
+
+  (* PlayerUpdate.submitCommand is a var that houses decorate *)
+  let submit_command p c = p.submit_command_hook c
 
   let submit p c =
     let c =
@@ -610,7 +614,7 @@ module Updater = struct
         houses_update = { hu_player = p; hu_value = pstate.ps_houses };
         house_event_listener = listener;
         stats = { nb_dead = 0; nb_summon = 0 };
-        submit_command_hook = (fun _ -> None);
+        submit_command_hook = (fun c -> Player.submit_command_default p c);
         on_player_damage_hook = ignore;
         guard_hook =
           (fun d ->
@@ -619,6 +623,7 @@ module Updater = struct
                 | Some v -> v.reaction.on_protect { de_damage = acc; de_target = None; de_player = p }
                 | None -> acc));
         add_mana_hook = (fun h amount -> { h with mana = max 0 (h.mana + amount) });
+        set_data_hook = (fun d -> p.pstate.ps_data <- d);
       }
     in
     p.slots_update.slot_updates <- Array.init nb_slots (make_slot p.slots_update);

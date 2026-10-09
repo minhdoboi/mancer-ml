@@ -28,6 +28,36 @@ let specials =
     Darksider.house;
     Faerie.house;
     Fairy.house;
+    Dudes.house;
+    Vampires.house;
+    Warp.house;
+    Snowblood.house;
+    Dreamweaver.house;
+    Junk.house;
+    Battlemage.house;
+    Antimancer.house;
+    Powermancer.house;
+    Shadowmage.house;
+    Colors.house;
+    Limbo.house;
+    Rogue.house;
+    Tinker.house;
+    Entomologist.house;
+    Soulbinder.house;
+    Shadowcaster.house;
+    Spiritshaman.house;
+    Conjurer.house;
+    Quantumancer.house;
+    Meteomancer.house;
+    Seasons.house;
+    Soulreaper.house;
+    Sower.house;
+    Shaman.house;
+    Mountainking.house;
+    Darkpriest.house;
+    Elementalist.house;
+    Highpriest.house;
+    Kinetician.house;
   ]
 
 let all = basics @ specials
@@ -36,7 +66,45 @@ let init () =
   List.iter Game.init_cards basics;
   Game.init_cards ~cost_fn:Troopers.conscription_cost Troopers.house;
   List.iter Game.init_cards
-    [ Zen.house; Wind.house; Chronomaster.house; Disciples.house; Darksider.house; Faerie.house; Fairy.house ]
+    [
+      Zen.house;
+      Wind.house;
+      Chronomaster.house;
+      Disciples.house;
+      Darksider.house;
+      Faerie.house;
+      Fairy.house;
+      Dudes.house;
+      Vampires.house;
+      Warp.house;
+      Snowblood.house;
+      Dreamweaver.house;
+      Junk.house;
+      Battlemage.house;
+      Powermancer.house;
+      Shadowmage.house;
+      Limbo.house;
+      Rogue.house;
+      Tinker.house;
+      Entomologist.house;
+      Soulbinder.house;
+      Shadowcaster.house;
+      Spiritshaman.house;
+      Conjurer.house;
+      Quantumancer.house;
+      Meteomancer.house;
+      Seasons.house;
+      Soulreaper.house;
+      Sower.house;
+      Shaman.house;
+      Mountainking.house;
+      Darkpriest.house;
+      Elementalist.house;
+      Highpriest.house;
+      Kinetician.house;
+    ];
+  Game.init_cards ~cost_fn:Antimancer.cost_fn Antimancer.house;
+  Game.init_cards ~cost_fn:Colors.cost_fn Colors.house
 
 let create houses = { houses }
 let default () = create all

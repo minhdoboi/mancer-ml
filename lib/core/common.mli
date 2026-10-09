@@ -28,6 +28,7 @@ val creature :
   ?run_attack:run_attack ->
   ?is_altar:bool ->
   ?status:int ->
+  ?data:slot_data ->
   unit ->
   card
 
@@ -46,9 +47,50 @@ val add_attack : slot_update -> attack_source -> unit
 val remove_first_attack : slot_update -> attack_source -> unit
 val remove_any_attack : slot_update -> attack_source -> unit
 val has_source : slot_update -> (attack_source -> bool) -> bool
+
+val drain : slot_update -> damage -> unit
+(** Scala [SlotUpdate.drain]: unblockable life loss, no protect/selfProtect. *)
+
+val has_desc_mod : player_update -> desc_mod -> bool
+(** Physical equality: houses keep one value per mod. *)
+
+val remove_all_desc_mod : player_update -> desc_mod -> unit
+val hide_spell_mod : desc_mod
+val hide_creature_mod : desc_mod
+val skip_turn_mod : desc_mod
+
+val focus_slot : ?blocking:bool -> slot_update -> unit
+(** Scala [SlotUpdate.focus]. *)
+
+val remove_invincible : int -> card_effect
+(** Scala [RemoveInvincible(slotId)]. *)
+
+val remove_attack : attack_source -> card_effect
+(** Scala [RemoveAttack]: removes the source from every creature of the owner. *)
+
+val single_target_attack : int list -> damage -> player_update -> bool
+(** Scala [SingleTargetAttack.attack]: the normal attack, true if it killed a creature. *)
+
+val damage_creature_and_get : int -> damage -> player_update -> int
+(** Scala [damageCreatureAndGet]: hits the opposite creature only, 0 if empty. *)
+
+val damage_and_get : int -> damage -> player_update -> int
+(** Scala [DamageAttack.damageAndGet]: hits the opposite slot (or the player), returns the damage done. *)
+
+val init_owner_death : player_update -> unit
+(** Scala [OwnerDeathEventListener.init]: when one of [p]'s creatures dies, its other special creatures get
+    [on_death]. *)
+
+val init_opp_death : player_update -> unit
+(** Scala [OppDeathEventListener.init]: same, for deaths on the opponent's side. *)
+
+val init_any_death : player_update -> unit
+(** Scala [AnyDeathEventListener.init]: both sides. *)
+
 val slot_interval : int -> int -> int list
 val reduce_filled : slots_update -> (slot_update -> slot_update -> slot_update) -> slot_update option
 val lowest_life : slot_update -> slot_update -> slot_update
+val highest_life : slot_update -> slot_update -> slot_update
 val strongest : slot_update -> slot_update -> slot_update
 val nearest_empty : int -> player_update -> int option
 val non_special : player_id -> game_state -> int list
@@ -57,6 +99,7 @@ val ability : from_card:card -> to_card:card -> desc_mod
 val incr_basic_cost_mod : desc_mod
 val incr_fire_cost_mod : desc_mod
 val hide_basic_mod : desc_mod
+val hide_special_mod : desc_mod
 
 (** {1 Reactions} *)
 

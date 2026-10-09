@@ -113,7 +113,16 @@ module Player : sig
   val inflict : player_update -> damage -> unit
   val heal : player_update -> int -> unit
   val run_slots : player_update -> unit
+
+  val run_slot : player_update -> int -> slot_state -> unit
+  (** Scala [runSlot(num, state)]: the creature attacks now (plus its extra attacks) if it can. *)
+
   val apply_effects : player_update -> phase -> unit
+
+  val apply_effect : player_update -> phase -> int -> slot_state -> unit
+  (** Scala [applyEffect(phase, state, num)]: runs one creature's effect of that phase now (nothing if the
+      creature is blocked). *)
+
   val add_effect : player_update -> phase * card_effect -> unit
   val remove_effect : player_update -> (card_effect -> bool) -> unit
   val map_effect : player_update -> (card_effect -> card_effect) -> unit
@@ -121,11 +130,18 @@ module Player : sig
   val pop_transition : player_update -> transition option
   val block_slot : player_update -> int -> unit
   val prepare_next_turn : player_update -> unit
+
   val submit_command : player_update -> command -> int option
+  (** Goes through [submit_command_hook], which houses may wrap (Scala's decorated [submitCommand]). *)
+
   val submit : player_update -> command option -> unit
   val add_desc_mod : player_update -> desc_mod -> unit
+  val insert_desc_mod : player_update -> desc_mod -> unit
+  (** Prepends [m], like Scala [insertDescMod]. *)
   val remove_desc_mod : player_update -> desc_mod -> unit
+
   val set_data : player_update -> player_data -> unit
+  (** Goes through [set_data_hook], which houses may wrap (Scala's decorated [setData]). *)
 end
 
 module Reaction : sig

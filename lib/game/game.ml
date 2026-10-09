@@ -174,6 +174,11 @@ let player_houses pid (desc : game_desc) (state : game_state) =
       Array.to_list d.pd_houses
       |> List.map (fun h -> { h with phd_cards = List.fold_left (fun cards m -> m h cards) h.phd_cards mods })
 
+let expand_flags (cmd : command) =
+  if Meteomancer.is_meteo cmd.cmd_card && cmd.cmd_flag = None then
+    List.init 4 (fun i -> { cmd with cmd_flag = Some (Called_element i) })
+  else [ cmd ]
+
 let legal_commands pid (desc : game_desc) (state : game_state) =
   let p = state.players.(pid) in
   let houses = player_houses pid desc state in
@@ -182,19 +187,29 @@ let legal_commands pid (desc : game_desc) (state : game_state) =
       (fun h ->
         Array.to_list h.phd_cards
         |> List.filter (fun cd -> is_available cd p.ps_houses.(h.phd_house.h_index))
-        |> List.concat_map (commands_for pid state))
+        |> List.concat_map (commands_for pid state)
+        |> List.concat_map expand_flags)
       houses
   in
   order_moves ~enemy:state.players.(other pid) raw
 
 let available_commands (u : updater) (p : player_update) =
-  (* Cheapest card, frontmost open slot — not Choices interleaving. *)
+  (* Cheapest card, frontmost open slot — not Choices interleaving. Live desc
+     mods (Cosmic Mage, Fateweaver, Sealing) are applied so extra-phase offers
+     show up the same way they do in [legal_commands]. *)
   let pstate = p.pstate in
   let open_slots = Slots.get_open p.slots_update in
+  let houses =
+    match pstate.ps_desc.desc_mods with
+    | [] -> Array.to_list u.desc.gd_players.(p.pid).pd_houses
+    | mods ->
+        Array.to_list u.desc.gd_players.(p.pid).pd_houses
+        |> List.map (fun h -> { h with phd_cards = List.fold_left (fun cards m -> m h cards) h.phd_cards mods })
+  in
   let command ?(flag = None) cd input =
     { cmd_player = p.pid; cmd_card = cd.cd_card; cmd_input = input; cmd_cost = cd.cd_cost; cmd_flag = flag }
   in
-  Array.to_list u.desc.gd_players.(p.pid).pd_houses
+  houses
   |> List.concat_map (fun h ->
       Array.to_list h.phd_cards
       |> List.filter (fun cd -> is_available cd pstate.ps_houses.(h.phd_house.h_index))
@@ -215,7 +230,8 @@ let available_commands (u : updater) (p : player_update) =
               @ List.map (fun n -> command ~flag:(Some Target_other) cd (Some n)) (filled (Player.other p))
           | Select_owner f -> List.map (fun n -> command cd (Some n)) (f p.pid u.state)
           | Select_target f -> List.map (fun n -> command cd (Some n)) (f (other p.pid) u.state)
-          | No_input -> [ command cd None ]))
+          | No_input -> [ command cd None ])
+      |> List.concat_map expand_flags)
   |> List.stable_sort (fun a b -> compare a.cmd_cost b.cmd_cost)
 
 let bot_move u p = List.nth_opt (available_commands u p) 0

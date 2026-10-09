@@ -2,9 +2,8 @@
 
 Feasibility prototype for porting `freespectrogdx` (Scala 3 + libGDX) to OCaml.
 
-**Status:** the game engine, the four basic houses, Troopers, Zen, Wind,
-Chronomaster, Disciples, and the deck builder are ported. `test/` covers house
-mechanics and shuffle constraints.
+**Status:** the game engine, all 42 houses, and the deck builder are ported.
+`test/` covers house mechanics and shuffle constraints.
 `bin/main.ml` deals two legal decks and plays them headlessly.
 
 ```sh
@@ -46,6 +45,36 @@ dune exec ./bin/sync_assets.exe    # rebuild ../mancer-assets from ../freespectr
 | `house/DarkSider.scala` | `lib/houses/special/darksider.ml` |
 | `house/FaerieDruid.scala` | `lib/houses/special/faerie.ml` |
 | `house/FairyKnight.scala` | `lib/houses/special/fairy.ml` |
+| `house/DudeMancer.scala` | `lib/houses/special/dudes.ml` |
+| `house/Vampire.scala` | `lib/houses/special/vampires.ml` |
+| `house/Warp.scala` | `lib/houses/special/warp.ml` |
+| `house/SB.scala` | `lib/houses/special/snowblood.ml` |
+| `house/Dreamweaver.scala` | `lib/houses/special/dreamweaver.ml` |
+| `house/JunkMage.scala` | `lib/houses/special/junk.ml` |
+| `house/Battlemage.scala` | `lib/houses/special/battlemage.ml` |
+| `house/Antimancer.scala` | `lib/houses/special/antimancer.ml` |
+| `house/Powermancer.scala` | `lib/houses/special/powermancer.ml` |
+| `house/Shadowmage.scala` | `lib/houses/special/shadowmage.ml` |
+| `house/Colors.scala` | `lib/houses/special/colors.ml` |
+| `house/Limbo.scala` | `lib/houses/special/limbo.ml` |
+| `house/Rogue.scala` | `lib/houses/special/rogue.ml` |
+| `house/Tinker.scala` | `lib/houses/special/tinker.ml` |
+| `house/Entomologist.scala` | `lib/houses/special/entomologist.ml` |
+| `house/Soulbinder.scala` | `lib/houses/special/soulbinder.ml` |
+| `house/Shadowcaster.scala` | `lib/houses/special/shadowcaster.ml` |
+| `house/SpiritShaman.scala` | `lib/houses/special/spiritshaman.ml` |
+| `house/Conjurer.scala` | `lib/houses/special/conjurer.ml` |
+| `house/Quantumancer.scala` | `lib/houses/special/quantumancer.ml` |
+| `house/Meteomancer.scala` | `lib/houses/special/meteomancer.ml` |
+| `house/Seasons.scala` | `lib/houses/special/seasons.ml` |
+| `house/SoulReaper.scala` | `lib/houses/special/soulreaper.ml` |
+| `house/Sower.scala` | `lib/houses/special/sower.ml` |
+| `house/Shaman.scala` | `lib/houses/special/shaman.ml` |
+| `house/MountainKing.scala` | `lib/houses/special/mountainking.ml` |
+| `house/DarkPriest.scala` | `lib/houses/special/darkpriest.ml` |
+| `house/Elementalist.scala` | `lib/houses/special/elementalist.ml` |
+| `house/HighPriest.scala` | `lib/houses/special/highpriest.ml` |
+| `house/Kinetician.scala` | `lib/houses/special/kinetician.ml` |
 | `CardShuffle.scala` | `lib/game/shuffle.ml` |
 | `Tournament.scala` (HeadlessGame) | `lib/game/session.ml` (turn loop), `lib/game/game.ml` (setup, bots) |
 | `update/GameUpdate.scala` (UpdateListener) | `Sp.game_event`, `Updater.listen` |
@@ -101,7 +130,7 @@ Houses override single fields with `{ r with on_my_damage = ... }`. `AttackBonus
      ~get_bonus:(fun pos -> Attack_bonus { tag = "orc"; pos; bonus = (fun a -> a + 2) }))
 ```
 
-This is the part I flagged as "a design pass over 44 houses, not a translation",
+This is the part I flagged as "a design pass over the houses, not a translation",
 and that held up. It is per-house work, but each is a small local rewrite, not a
 rewrite of the layer the rules sit on.
 
@@ -180,10 +209,8 @@ fixtures both share. A rules change shows up as an expect diff: review it, then
 
 ## What is not ported
 
-- **32 of 44 houses.** Fire, Water, Air, Earth, Troopers, Zen, Wind,
-  Chronomaster, Disciples, Darksider, Faerie Druid and Fairy Knight are in;
-  the other specials are not. Tournament
-  `--special` selects one of those (default Troopers).
+- **All 42 houses** are in. Tournament `--special` selects one of them
+  (default Troopers).
 - **Most bots.** Summoner, Strategist, Gambler and Diviner are not
   ported. The greedy bot in `game.ml` picks the cheapest legal card into the
   frontmost open slot. Oracle (`lib/bots/oracle.ml`) is the sequential-halving
