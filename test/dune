@@ -1,3 +1,7 @@
 (test
  (name mechanics)
  (libraries mancer support alcotest))
+
+(test
+ (name houses)
+ (libraries mancer support alcotest))

@@ -4,12 +4,28 @@ open Mancer
 open Sp
 open Engine
 
-let card_by_key key = List.find (fun (c : card) -> c.key = key) Fire.house.h_cards
+let all_houses = [ Fire.house; Water.house; Air.house; Earth.house; Troopers.house ]
 
-let new_game ?(mana0 = 6) () =
+let init_all_houses () =
   Game.init_cards Fire.house;
-  let d = Game.make_player_desc Fire.house in
-  let mk () = Game.initial_player_state [ mana0; 4; 4; 4 ] d in
+  Game.init_cards Water.house;
+  Game.init_cards Air.house;
+  Game.init_cards Earth.house;
+  Game.init_cards ~cost_fn:Troopers.conscription_cost Troopers.house
+
+let card_by_key key =
+  all_houses
+  |> List.find_map (fun (h : house) ->
+      List.find_opt (fun (c : card) -> c.key = key) (h.h_cards @ h.h_additional_cards))
+  |> function
+  | Some c -> c
+  | None -> failwith ("unknown card " ^ key)
+
+let new_game ?(mana0 = 6) ?mana ?(house = Fire.house) () =
+  init_all_houses ();
+  let d = Game.make_player_desc house in
+  let m = match mana with Some xs -> xs | None -> [ mana0; 4; 4; 4 ] in
+  let mk () = Game.initial_player_state m d in
   Updater.create { players = [| mk (); mk () |] } { gd_players = [| d; d |] }
 
 let step u f = Game.step u (fun _ -> f ())

@@ -88,6 +88,10 @@ module Slots : sig
   val find_card : slots_update -> card -> slot_update option
   val find_slot_id : slots_update -> int -> slot_update option
   val finish_dead : slots_update -> dead -> unit
+
+  val add_creature : slot_update -> creature -> unit
+  (** Places [creature] in the slot without {!summon} (no [on_summon]). Used by spawn effects such as Phoenix
+      and forest spider. *)
 end
 
 (** PlayerUpdate *)

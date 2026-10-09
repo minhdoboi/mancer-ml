@@ -293,6 +293,8 @@ let fresh_slot_id () =
   !slot_counter
 
 let has_flag (st : slot_state) flag = st.status land flag <> 0
+let is_effect (d : damage) = d.is_ability || d.is_spell
+let dead_is_destroy (d : dead) = Option.is_none d.d_damage
 let is_available cd (h : house_state) = cd.cd_cost <= h.mana + cd.cd_extra_mana && cd.cd_enabled
 
 let state_to_string (s : game_state) =

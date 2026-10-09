@@ -266,6 +266,9 @@ module Slots = struct
 
   let find_card su (card : card) = find su (fun st -> st.card.c_card.id = card.id)
   let find_slot_id su id = find su (fun st -> st.slot_id = id)
+
+  (* SlotUpdate.add(card: Creature): place without going through summon (no onSummon). *)
+  let add_creature slot creature = Slot.overwrite_add slot (build_slot_state slot creature)
 end
 
 (* ----------------------------------------------------------------- player *)
@@ -506,7 +509,7 @@ module Updater = struct
         value = None;
         overridable_destroy = (fun () -> Slot.do_priv_destroy s);
         add_hook = (fun st -> Slot.add s st);
-        on_damage_hook = (fun _ _ -> ());
+        on_damage_hook = (fun st d -> st.reaction.on_my_damage d);
         remove_hook = (fun d -> Slot.remove s d);
         delayed_destroy_hook = (fun d -> Slot.delayed_destroy s d);
       }
@@ -523,7 +526,14 @@ module Updater = struct
         pid = id;
         updater = u;
         pstate;
-        slots_update = { player = p; slot_updates = [||]; logs = []; on_dead_hook = ignore };
+        slots_update =
+          {
+            player = p;
+            slot_updates = [||];
+            logs = [];
+            (* SlotsUpdate.onDead: a house replacing it decides whether onMyDeath runs *)
+            on_dead_hook = (fun dead -> dead.d_slot.reaction.on_my_death dead);
+          };
         houses_update = { hu_player = p; hu_value = pstate.ps_houses };
         house_event_listener = default_listener;
         stats = { nb_dead = 0; nb_summon = 0 };

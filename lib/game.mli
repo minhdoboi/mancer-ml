@@ -5,11 +5,15 @@ open Sp
 
 (** {1 Setup} *)
 
-val init_cards : house -> unit
+val init_cards : ?cost_fn:(int -> int) -> house -> unit
 (** Assigns cost, house index and card index to the house's cards, like Scala's House.initCards. Call once per
-    house before building decks. *)
+    house before building decks. Additional cards keep the cost they already have. *)
 
-val make_player_desc : house -> player_desc
+val empty_special : house
+(** Placeholder special house with no cards. *)
+
+val make_player_desc : ?special:house -> house -> player_desc
+(** One basic house plus a special (defaults to {!empty_special}). *)
 
 val initial_player_state : int list -> player_desc -> player_state
 (** [initial_player_state mana desc]: [mana] for the four base houses; the special house gets 2. *)

@@ -9,25 +9,37 @@ open Engine
 
 (* ------------------------------------------------------------ deck building *)
 
-(* House.initCards: cost = index + 1 *)
-let init_cards (h : house) =
+(* House.initCards: default cost = index + 1. Additional cards keep their own cost. *)
+let init_cards ?(cost_fn = fun i -> i + 1) (h : house) =
   List.iteri
     (fun i (c : card) ->
-      c.cost <- i + 1;
+      c.cost <- cost_fn i;
       c.house_index <- h.h_index;
       c.house_id <- h.h_house_id;
       c.card_index <- i)
-    h.h_cards
+    h.h_cards;
+  List.iter
+    (fun (c : card) ->
+      c.house_index <- h.h_index;
+      c.house_id <- h.h_house_id)
+    h.h_additional_cards
 
 let deck_costs = [ 1; 2; 3; 4; 5; 6 ]
+let is_special (h : house) = h.h_index = 4
+
+(* CardShuffle's HModel picks one special card from each quarter of the
+   house; we take the first of each quarter until the deck builder is ported *)
+let special_pick (h : house) =
+  let quarter = max 1 (List.length h.h_cards / 4) in
+  fun i _ -> i mod quarter = 0 && i / quarter < 4
 
 let deck_of_house (h : house) =
   h.h_cards
-  |> List.filteri (fun i _ -> List.mem (i + 1) deck_costs)
+  |> List.filteri (if is_special h then special_pick h else fun i _ -> List.mem (i + 1) deck_costs)
   |> List.map (fun c -> { cd_card = c; cd_cost = c.cost; cd_enabled = true; cd_extra_mana = 0 })
   |> Array.of_list
 
-let special_house =
+let empty_special =
   {
     h_key = "none";
     h_name = "none";
@@ -38,10 +50,13 @@ let special_house =
     h_additional_cards = [];
   }
 
-let make_player_desc (h : house) =
+let make_player_desc ?(special = empty_special) (h : house) =
   {
     pd_houses =
-      [| { phd_house = h; phd_cards = deck_of_house h }; { phd_house = special_house; phd_cards = [||] } |];
+      [|
+        { phd_house = h; phd_cards = deck_of_house h };
+        { phd_house = special; phd_cards = deck_of_house special };
+      |];
   }
 
 let initial_player_state (mana : int list) (d : player_desc) =
@@ -81,8 +96,16 @@ let available_commands (u : updater) (p : player_update) =
       Array.to_list h.phd_cards
       |> List.filter (fun cd -> is_available cd pstate.ps_houses.(h.phd_house.h_index))
       |> List.concat_map (fun cd ->
+          let filled p =
+            Array.to_list p.slots_update.slot_updates
+            |> List.filter_map (fun s -> if Option.is_some s.value then Some s.num else None)
+          in
           match cd.cd_card.input_spec with
           | Select_owner_slot -> List.map (fun n -> command cd (Some n)) open_slots
+          | Select_owner_creature -> List.map (fun n -> command cd (Some n)) (filled p)
+          | Select_target_creature | Select_target_slot ->
+              List.map (fun n -> command cd (Some n)) (filled (Player.other p))
+          | Select_any_creature -> List.map (fun n -> command cd (Some n)) (filled p @ filled (Player.other p))
           | _ -> [ command cd None ]))
   |> List.stable_sort (fun a b -> compare a.cmd_cost b.cmd_cost)
 

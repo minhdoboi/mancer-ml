@@ -2,9 +2,9 @@
 
 Feasibility prototype for porting `freespectrogdx` (Scala 3 + libGDX) to OCaml.
 
-**Status:** the game engine + the full `Fire` house are ported and verified by
-`test/` (18 Alcotest cases and 4 expect tests, all passing). `bin/main.ml` plays Fire-vs-Fire
-headless games to a decisive result.
+**Status:** the game engine + the four basic houses and the Troopers special
+are ported. `test/` covers Fire plus the distinctive Water/Air/Earth/Troopers
+mechanics. `bin/main.ml` plays Fire-vs-Fire headless games to a decisive result.
 
 ```sh
 eval $(opam env --switch=mancer)   # OCaml 5.2.0 + dune 3.24.2
@@ -25,6 +25,10 @@ dune exec ./bin/main.exe -- -v     # first game with an event trace
 | `update/{SlotUpdate,SlotsUpdate,PlayerUpdate,GameUpdate}.scala` | `lib/engine.ml` |
 | `house/Common.scala`, `house/package.scala` (shared helpers) | `lib/common.ml` |
 | `house/Fire.scala` | `lib/fire.ml` |
+| `house/Water.scala` | `lib/water.ml` |
+| `house/Air.scala` | `lib/air.ml` |
+| `house/Earth.scala` | `lib/earth.ml` |
+| `house/Troopers.scala` | `lib/troopers.ml` |
 | `CardShuffle.scala` (partly), `Tournament.scala` (HeadlessGame) | `lib/game.ml` |
 
 ## How the Scala translated
@@ -114,7 +118,8 @@ the port by inspection.
 
 ## Code layout
 
-`lib/` is the wrapped library `Mancer`. `engine.mli`, `common.mli`, `fire.mli`
+`lib/` is the wrapped library `Mancer`. `engine.mli`, `common.mli`, the house
+interfaces (`fire.mli`, `water.mli`, `air.mli`, `earth.mli`, `troopers.mli`)
 and `game.mli` are the public surface; `sp.ml` is types only and has no
 interface because all of it is meant to be public.
 
@@ -136,7 +141,8 @@ fixtures both share. A rules change shows up as an expect diff: review it, then
 
 ## What is not ported
 
-- **43 of 44 houses.** Fire only.
+- **39 of 44 houses.** Fire, Water, Air, Earth and Troopers are in; the other
+  specials are not.
 - **Deck building.** Scala uses ChocoSolver to satisfy deck constraints
   (`CardShuffle.scala`). This is the one subsystem with no natural OCaml
   equivalent — the solver is a Java library — so `game.ml` picks a fixed cost
