@@ -11,7 +11,8 @@ val load_properties : string -> (string, string) Hashtbl.t
 (** A Java [.properties] file as key → value, [\uXXXX] escapes decoded; empty if the file is missing. *)
 
 val lang : unit -> string
-(** [$MANCER_LANG] ([fr], [es], [ru], [vi]), else [en]. *)
+(** [$MANCER_LANG] when set, else the [language] key from [<home>/.mancer/user.prefs] (see {!Prefs}), else
+    [en]. A language change takes effect on restart, like the Scala settings dialog. *)
 
 val text : string -> string
 (** The string for an i18n key from [i18n/<lang>.properties], else the English one, else the key itself.

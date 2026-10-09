@@ -49,7 +49,11 @@ let load_properties file =
    with Sys_error _ -> ());
   tbl
 
-let lang () = Option.value (Sys.getenv_opt "MANCER_LANG") ~default:"en"
+let lang () =
+  match Sys.getenv_opt "MANCER_LANG" with
+  | Some l when String.trim l <> "" -> String.trim l
+  | _ -> ( match Prefs.saved_language () with Some l -> l | None -> "en")
+
 let strings lang = load_properties (path [ "i18n"; lang ^ ".properties" ])
 let english = lazy (strings "en")
 let chosen = lazy (if lang () = "en" then Lazy.force english else strings (lang ()))

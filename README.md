@@ -221,6 +221,13 @@ checkout (see below), with `$MANCER_LANG` (`fr`, `es`, `ru`, `vi`; default `en`)
 falling back to English per key; without it the UI shows i18n keys. Bots print stats to stdout, so the UI sends stdout to
 `/dev/null` and draws on a duplicate of the terminal descriptor.
 
+Like the Scala lobby, both UIs remember their setup in `~/.mancer/user.prefs`
+(the same Java-properties file as `Storage.scala`, overridable with
+`$MANCER_USER_PREFS`): seats, specials, bot budget, portraits, plus the shared
+`language`, `sound.level` and `player.portrait` keys. `$MANCER_LANG` still wins
+over the saved language when set; a language picked in the GUI settings takes
+effect on restart.
+
 ## Raylib UI
 
 `dune exec ./bin/gui.exe` has the same setup as the terminal UI, with clickable

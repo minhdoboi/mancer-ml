@@ -47,3 +47,8 @@
  (name table)
  (modules table)
  (libraries mancer alcotest))
+
+(test
+ (name prefs)
+ (modules prefs)
+ (libraries mancer alcotest))

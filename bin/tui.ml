@@ -411,9 +411,52 @@ let move_cursor ui dcol dcard =
 
 type screen = Setup of setup_ui | Game of game_ui | Quit
 
+(* The setup screen remembers its last state in ~/.mancer/user.prefs, like
+   the Scala lobby persists its choices. Unknown entries fall back. *)
+let seat_of_string ~fallback s =
+  match Prefs.parse_seat ~allowed:Tournament.bot_ids ~fallback s with
+  | `Human -> Table.Human
+  | `Bot id -> Table.Bot id
+
+let setup_from_prefs () : Table.setup =
+  let prefs = Prefs.load () in
+  let d = Table.default_setup in
+  let s0, s1 = Prefs.setup_seats prefs in
+  let fb0, fb1 =
+    match d.seats with
+    | Table.Human, Table.Bot id -> (`Human, `Bot id)
+    | Table.Bot a, Table.Bot b -> (`Bot a, `Bot b)
+    | Table.Bot a, Table.Human -> (`Bot a, `Human)
+    | Table.Human, Table.Human -> (`Human, `Human)
+  in
+  let sp0, sp1 = Prefs.setup_specials prefs in
+  let ds0, ds1 = d.specials in
+  let keep s fb =
+    try
+      ignore (Catalog.find_special s);
+      s
+    with Failure _ -> fb
+  in
+  {
+    d with
+    seats = (seat_of_string ~fallback:fb0 s0, seat_of_string ~fallback:fb1 s1);
+    specials = (keep sp0 ds0, keep sp1 ds1);
+    budget_ms = Prefs.setup_budget prefs;
+    seed = None;
+  }
+
+let persist_setup (setup : Table.setup) =
+  try
+    let p = Prefs.load () in
+    Prefs.set_setup_seats p (Table.seat_name (fst setup.Table.seats), Table.seat_name (snd setup.Table.seats));
+    Prefs.set_setup_specials p setup.specials;
+    Prefs.set_setup_budget p setup.budget_ms
+  with _ -> ()
+
 let start_from_setup su =
   let seed = if su.seed_text = "" then None else int_of_string_opt su.seed_text in
   let setup = { su.setup with seed } in
+  persist_setup setup;
   match new_game setup with
   | ui -> Game ui
   | exception Failure msg ->
@@ -560,5 +603,6 @@ let () =
   let null = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0 in
   Unix.dup2 null Unix.stdout;
   let term = Term.create ~output:tty () in
-  let su = { row = 0; setup = Table.default_setup; seed_text = ""; error = "" } in
+  let setup = try setup_from_prefs () with _ -> Table.default_setup in
+  let su = { row = 0; setup; seed_text = ""; error = "" } in
   Fun.protect ~finally:(fun () -> Term.release term) (fun () -> loop term (Setup su))

@@ -160,10 +160,14 @@ let sound name =
       Hashtbl.replace sounds name s;
       s
 
+(* Scala ScreenResources.playSound: clip volume scaled by the persisted sound
+   level. The prefs file is tiny; read it per play like Storage does. *)
+let sound_level () = try Prefs.load () |> Prefs.sound_level with _ -> 1.
+
 let play_sound ?(volume = 0.7) name =
   Option.iter
     (fun s ->
-      R.set_sound_volume s volume;
+      R.set_sound_volume s (volume *. sound_level ());
       R.play_sound s)
     (sound name)
 
@@ -574,6 +578,8 @@ type game_ui = {
   mutable paused : bool;
   mutable settings_open : bool;
   mutable budget_ms : int;
+  mutable sound_level : float;
+  mutable language : string;
   mutable message : string;
   mutable thinking : thinking option;
   mutable last_move : float;
@@ -611,6 +617,7 @@ let new_game setup portraits =
     Option.iter (fun ui -> !board_event ui e) !ui_holder
   in
   let table = Table.start ~on_event setup in
+  let prefs = Prefs.load () in
   let ui =
     {
       table;
@@ -622,6 +629,8 @@ let new_game setup portraits =
       paused = false;
       settings_open = false;
       budget_ms = setup.budget_ms;
+      sound_level = Prefs.sound_level prefs;
+      language = Prefs.language prefs;
       message = "";
       thinking = None;
       last_move = R.get_time ();
@@ -1327,10 +1336,12 @@ let draw_pass ui =
       if enabled then on_click r (fun () -> play ui None)
   | None -> button ~enabled ~size:14. r "Pass" (fun () -> play ui None)
 
+let languages = [ "en"; "fr"; "es"; "ru"; "vi" ]
+
 let draw_settings ui =
   fill (rect 0. 0. vw vh) (rgba 0 0 0 120);
   on_click (rect 0. 0. vw vh) (fun () -> ui.settings_open <- false);
-  let box = rect 206. 250. 420. 200. in
+  let box = rect 186. 190. 460. 330. in
   fill ~round:0.04 box panel;
   outline ~round:0.04 box gold;
   on_click box (fun () -> ());
@@ -1341,10 +1352,46 @@ let draw_settings ui =
       button ~selected:(ms = ui.budget_ms) ~size:13.
         (rect (box.x +. 24. +. (float k *. 62.)) (box.y +. 80.) 56. 32.)
         (if ms < 1000 then Printf.sprintf "%d ms" ms else Printf.sprintf "%d s" (ms / 1000))
-        (fun () -> ui.budget_ms <- ms))
+        (fun () ->
+          ui.budget_ms <- ms;
+          try Prefs.load () |> fun p -> Prefs.set_setup_budget p ms with _ -> ()))
     budget_options;
+  text ~size:14. ~color:muted (box.x +. 24.) (box.y +. 126.) "Sound";
+  let set_sound v =
+    let v = Float.max 0. (Float.min 1. v) in
+    ui.sound_level <- v;
+    try Prefs.set_sound_level (Prefs.load ()) v with _ -> ()
+  in
   button ~size:16.
-    (rect (box.x +. 150.) (box.y +. 140.) 120. 36.)
+    (rect (box.x +. 24.) (box.y +. 148.) 56. 32.)
+    "-"
+    (fun () -> set_sound (ui.sound_level -. 0.1));
+  text_c ~font:bold ~size:14.
+    (rect (box.x +. 88.) (box.y +. 148.) 80. 32.)
+    (box.y +. 154.)
+    (Printf.sprintf "%d%%" (int_of_float ((ui.sound_level *. 100.) +. 0.5)));
+  button ~size:16.
+    (rect (box.x +. 176.) (box.y +. 148.) 56. 32.)
+    "+"
+    (fun () -> set_sound (ui.sound_level +. 0.1));
+  button ~size:13.
+    (rect (box.x +. 244.) (box.y +. 148.) 76. 32.)
+    "test"
+    (fun () ->
+      set_sound ui.sound_level;
+      play_sound "move");
+  text ~size:14. ~color:muted (box.x +. 24.) (box.y +. 194.) "Language (takes effect on restart)";
+  List.iteri
+    (fun k code ->
+      button ~selected:(code = ui.language) ~size:13.
+        (rect (box.x +. 24. +. (float k *. 62.)) (box.y +. 216.) 56. 32.)
+        code
+        (fun () ->
+          ui.language <- code;
+          try Prefs.set_language (Prefs.load ()) code with _ -> ()))
+    languages;
+  button ~size:16.
+    (rect (box.x +. 170.) (box.y +. 264.) 120. 36.)
     "Close"
     (fun () -> ui.settings_open <- false)
 
@@ -1398,6 +1445,56 @@ let parse_shot () =
     Some
       { file = !file; wait = !wait; bots = !bots; setup_only = !setup_only; seed = !seed; special = !special }
 
+(* The setup screen remembers its last state in ~/.mancer/user.prefs, like the
+   Scala lobby persists its choices. Unknown entries fall back to defaults. *)
+let seat_of_string ~fallback s =
+  match Prefs.parse_seat ~allowed:Tournament.bot_ids ~fallback s with
+  | `Human -> Table.Human
+  | `Bot id -> Table.Bot id
+
+let setup_from_prefs () : Table.setup * (string * string) =
+  let prefs = Prefs.load () in
+  let d = Table.default_setup in
+  let s0, s1 = Prefs.setup_seats prefs in
+  let fb0, fb1 =
+    match d.seats with
+    | Table.Human, Table.Bot id -> (`Human, `Bot id)
+    | Table.Bot a, Table.Bot b -> (`Bot a, `Bot b)
+    | Table.Bot a, Table.Human -> (`Bot a, `Human)
+    | Table.Human, Table.Human -> (`Human, `Human)
+  in
+  let seats = (seat_of_string ~fallback:fb0 s0, seat_of_string ~fallback:fb1 s1) in
+  let sp0, sp1 = Prefs.setup_specials prefs in
+  let ds0, ds1 = d.specials in
+  let keep s fb =
+    try
+      ignore (Catalog.find_special s);
+      s
+    with Failure _ -> fb
+  in
+  let portraits =
+    let p0, p1 = Prefs.setup_portraits prefs in
+    let seat0, seat1 = seats in
+    (clamp_portrait seat0 p0, clamp_portrait seat1 p1)
+  in
+  ( {
+      d with
+      seats;
+      specials = (keep sp0 ds0, keep sp1 ds1);
+      budget_ms = Prefs.setup_budget prefs;
+      seed = None;
+    },
+    portraits )
+
+let persist_setup (setup : Table.setup) portraits =
+  try
+    let p = Prefs.load () in
+    Prefs.set_setup_seats p (Table.seat_name (fst setup.Table.seats), Table.seat_name (snd setup.Table.seats));
+    Prefs.set_setup_specials p setup.specials;
+    Prefs.set_setup_budget p setup.budget_ms;
+    Prefs.set_setup_portraits p portraits
+  with _ -> ()
+
 let () =
   let shot = parse_shot () in
   R.set_trace_log_level R.TraceLogLevel.Warning;
@@ -1409,22 +1506,25 @@ let () =
   R.set_target_fps 60;
   R.init_audio_device ();
   load_fonts ();
+  let prefs_setup, prefs_portraits =
+    try setup_from_prefs () with _ -> (Table.default_setup, ("ember", "oracle"))
+  in
   let screen =
     ref
       (Setup
          {
            setup =
              (match shot with
-             | None -> Table.default_setup
+             | None -> prefs_setup
              | Some sh ->
-                 let d = Table.default_setup in
+                 let d = prefs_setup in
                  {
                    d with
                    seats = (if sh.bots then (Table.Bot "oracle", Table.Bot "oracle") else d.seats);
                    specials = (match sh.special with Some h -> (h, h) | None -> d.specials);
                    budget_ms = (if sh.bots then 100 else d.budget_ms);
                  });
-           portraits = ("ember", "oracle");
+           portraits = (match shot with None -> prefs_portraits | Some _ -> ("ember", "oracle"));
            seed_text = (match shot with Some { seed = Some n; _ } -> string_of_int n | _ -> "");
            seed_focus = false;
            error = "";
@@ -1432,7 +1532,9 @@ let () =
   in
   let start su () =
     let seed = if su.seed_text = "" then None else int_of_string_opt su.seed_text in
-    match new_game { su.setup with seed } su.portraits with
+    let setup = { su.setup with seed } in
+    (match shot with None -> persist_setup setup su.portraits | Some _ -> ());
+    match new_game setup su.portraits with
     | ui -> screen := Game ui
     | exception Failure msg -> su.error <- msg
   in
