@@ -22,6 +22,29 @@ val default_setup : setup
 val seat_name : seat -> string
 (** ["human"] or the bot id. *)
 
+val player_portraits : string list
+(** The faces a human seat can wear (Scala [Portraits.players]). *)
+
+type opponent = { opp_bot : string; opp_kind : string; opp_portrait : string; opp_level : int }
+(** An AI face and the bot behind it, like Scala's [AiFace] over [AiLevel]. [opp_kind] is the display family
+    for [ai.<kind>] names ([greedy] wears [summoner] faces). *)
+
+val duel_opponents : opponent list
+(** The AI faces for the duel dialog, in level order. *)
+
+val faces_for_bot : string -> string list
+(** The portraits associated with a bot id; unknown ids get greedy's faces. *)
+
+val bot_of_portrait : string -> string option
+(** The bot behind an AI face, if it is one. *)
+
+val house_groups : (string * house list) list
+(** Ported special houses grouped by author, in the Scala settings order. Only groups with ported houses
+    appear, so this grows as houses are ported. *)
+
+val group_of_house : string -> string option
+(** The author group of a house key, if it is ported. *)
+
 val special_houses : unit -> house list
 (** The ported special houses, initialised. *)
 

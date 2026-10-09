@@ -25,6 +25,92 @@ let default_setup =
 
 let seat_name = function Human -> "human" | Bot id -> id
 
+(* Portrait rosters for the duel dialog, mirroring Scala [Portraits]. *)
+let player_portraits =
+  [
+    "ember";
+    "tide";
+    "gale";
+    "grove";
+    "old-thinker";
+    "stout-hearth";
+    "night-scholar";
+    "ash-wanderer";
+    "mist-seer";
+    "lamp-scribe";
+    "river-aunt";
+    "grove-crone";
+  ]
+
+type opponent = { opp_bot : string; opp_kind : string; opp_portrait : string; opp_level : int }
+
+(* The AI faces, in level order. Only ported bots appear: greedy wears the
+   summoner faces (1), lecturer and oracle their own (4 and 5, as in Scala's
+   [AiLevel] list). *)
+let duel_opponents =
+  [
+    { opp_bot = "greedy"; opp_kind = "summoner"; opp_portrait = "summoner"; opp_level = 1 };
+    { opp_bot = "greedy"; opp_kind = "summoner"; opp_portrait = "summoner-f"; opp_level = 1 };
+    { opp_bot = "lecturer"; opp_kind = "lecturer"; opp_portrait = "lecturer"; opp_level = 4 };
+    { opp_bot = "lecturer"; opp_kind = "lecturer"; opp_portrait = "lecturer-f"; opp_level = 4 };
+    { opp_bot = "oracle"; opp_kind = "oracle"; opp_portrait = "oracle"; opp_level = 5 };
+    { opp_bot = "oracle"; opp_kind = "oracle"; opp_portrait = "oracle-f"; opp_level = 5 };
+  ]
+
+(* The faces associated with a bot id; unknown ids get greedy's. *)
+let faces_for_bot bot =
+  match List.filter_map (fun o -> if o.opp_bot = bot then Some o.opp_portrait else None) duel_opponents with
+  | [] -> [ "summoner"; "summoner-f" ]
+  | faces -> faces
+
+let bot_of_portrait portrait =
+  List.find_opt (fun o -> o.opp_portrait = portrait) duel_opponents |> Option.map (fun o -> o.opp_bot)
+
+(* Special houses by author, in the Scala settings order ([House.sinist],
+   ...). Only groups with ported houses appear, keyed by house key so newly
+   ported houses land in their group on their own. *)
+let house_groups =
+  let by_key = List.map (fun (h : house) -> (Catalog.token h.h_key, h)) Catalog.specials in
+  let find keys = List.filter_map (fun k -> List.assoc_opt (Catalog.token k) by_key) keys in
+  List.filter_map
+    (fun (author, keys) -> match find keys with [] -> None | hs -> Some (author, hs))
+    [
+      ( "sinist",
+        [
+          "darkpriest";
+          "darksider";
+          "elementalist";
+          "fairy";
+          "highpriest";
+          "kinetician";
+          "mountainking";
+          "shaman";
+          "sower";
+          "vampires";
+          "wind";
+          "reaper";
+        ] );
+      ("Wavelength", [ "seasons"; "meteomancer"; "dreamweaver"; "quantumancer"; "faerie" ]);
+      ("sfault", [ "conjurer" ]);
+      ("Redrook", [ "tinker"; "soulbinder"; "entomologist"; "shadowcaster"; "spiritshaman" ]);
+      ("valentine", [ "rogue" ]);
+      ("fuzzer", [ "limbo" ]);
+      ("Madhatter97", [ "colors" ]);
+      ("lordvanmaru", [ "shadowmage" ]);
+      ("tiapoka", [ "antimancer"; "powermancer" ]);
+      ("CyberneticPony", [ "battlemage" ]);
+      ("panderson", [ "chronomaster" ]);
+      ("olds", [ "Dudes"; "Troopers" ]);
+      ("badsleep", [ "junk"; "disciples"; "snowblood"; "warp"; "zen" ]);
+    ]
+
+let group_of_house key =
+  List.find_map
+    (fun (author, hs) ->
+      if List.exists (fun (h : house) -> Catalog.token h.h_key = Catalog.token key) hs then Some author
+      else None)
+    house_groups
+
 (* Game.init_cards must run once per house *)
 let catalog = lazy (Catalog.init ())
 

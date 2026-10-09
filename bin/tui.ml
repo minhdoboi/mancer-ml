@@ -41,21 +41,11 @@ let lines attr w ss = I.vcat (List.map (text ~attr w) ss)
 let cap s = String.capitalize_ascii s
 let player_label pid = Printf.sprintf "P%d" (pid + 1)
 
-(* --------------------------------------------------------------- setup ui *)
+(* --------------------------------------------------------------- lobby ui *)
 
 let seat_options = Table.Human :: List.map (fun id -> Table.Bot id) Tournament.bot_ids
 let budget_options = [ 100; 250; 500; 1000; 2000; 5000 ]
-
-type row = Seat0 | Special0 | Seat1 | Special1 | Budget | Seed | Start
-
-let rows = [| Seat0; Special0; Seat1; Special1; Budget; Seed; Start |]
-
-type setup_ui = {
-  mutable row : int;
-  mutable setup : Table.setup;
-  mutable seed_text : string;
-  mutable error : string;
-}
+let languages = [ "en"; "fr"; "es"; "ru"; "vi" ]
 
 let cycle options current delta =
   let a = Array.of_list options in
@@ -64,60 +54,203 @@ let cycle options current delta =
   a.((((i + delta) mod n) + n) mod n)
 
 let special_names () = List.map (fun (h : house) -> cap h.h_name) (Table.special_houses ())
+let faces_for = function Table.Human -> Table.player_portraits | Table.Bot id -> Table.faces_for_bot id
 
-let change_setup ui delta =
-  let s = ui.setup in
-  let seat0, seat1 = s.seats and sp0, sp1 = s.specials in
-  let special cur = cycle (special_names ()) (cap cur) delta in
-  ui.setup <-
-    (match rows.(ui.row) with
-    | Seat0 -> { s with seats = (cycle seat_options seat0 delta, seat1) }
-    | Seat1 -> { s with seats = (seat0, cycle seat_options seat1 delta) }
-    | Special0 -> { s with specials = (special sp0, sp1) }
-    | Special1 -> { s with specials = (sp0, special sp1) }
-    | Budget -> { s with budget_ms = cycle budget_options s.budget_ms delta }
-    | Seed | Start -> s)
+let clamp_face seat id =
+  let ids = faces_for seat in
+  if List.mem id ids then id else List.hd ids
 
-let render_setup (w, _) ui =
-  let s = ui.setup in
-  let seat0, seat1 = s.seats and sp0, sp1 = s.specials in
-  let row i label value =
-    let selected = ui.row = i in
-    let mark = if selected then "> " else "  " in
-    let value_attr = if selected then rev else A.empty in
-    I.(
-      string (if selected then accent else A.empty) (mark ^ label)
-      |> hsnap ~align:`Left 22
-      <|> string value_attr (" " ^ value ^ " ")
-      <|> if selected && rows.(i) <> Seed && rows.(i) <> Start then string dim "  <- ->" else empty)
+(* Duel dialog: seats with portraits (a bot seat wears its own faces). *)
+type duel_ui = {
+  mutable seat0 : Table.seat;
+  mutable seat1 : Table.seat;
+  mutable port0 : string;
+  mutable port1 : string;
+  mutable drow : int;
+}
+
+(* Game settings: house choices, bot budget, seed and language. *)
+type settings_ui = {
+  mutable sp0 : string;
+  mutable sp1 : string;
+  mutable budget : int;
+  mutable seed_text : string;
+  mutable lang : string;
+  mutable srow : int;
+}
+
+type lobby_ui = { mutable row : int; duel : duel_ui; gs : settings_ui }
+
+let seat_of_string ~fallback s =
+  match Prefs.parse_seat ~allowed:Tournament.bot_ids ~fallback s with
+  | `Human -> Table.Human
+  | `Bot id -> Table.Bot id
+
+let valid_special s fb =
+  try
+    ignore (Catalog.find_special s);
+    s
+  with Failure _ -> fb
+
+let settings_from_prefs () =
+  let prefs = Prefs.load () in
+  let d = Table.default_setup in
+  let sp0, sp1 = Prefs.setup_specials prefs in
+  let ds0, ds1 = d.specials in
+  {
+    sp0 = valid_special sp0 ds0;
+    sp1 = valid_special sp1 ds1;
+    budget = Prefs.setup_budget prefs;
+    seed_text = "";
+    lang = Prefs.language prefs;
+    srow = 0;
+  }
+
+let duel_from_prefs () =
+  let prefs = Prefs.load () in
+  let d = Table.default_setup in
+  let s0, s1 = Prefs.setup_seats prefs in
+  let fb0, fb1 =
+    match d.seats with
+    | Table.Human, Table.Bot id -> (`Human, `Bot id)
+    | Table.Bot a, Table.Bot b -> (`Bot a, `Bot b)
+    | Table.Bot a, Table.Human -> (`Bot a, `Human)
+    | Table.Human, Table.Human -> (`Human, `Human)
   in
-  let seed = if ui.seed_text = "" then "random" else ui.seed_text in
-  let start =
-    let selected = rows.(ui.row) = Start in
+  let p0, p1 = Prefs.setup_portraits prefs in
+  let seat0 = seat_of_string ~fallback:fb0 s0 in
+  (* The AI side follows its saved face and the face's bot. *)
+  let seat1, port1 =
+    match Table.bot_of_portrait (Prefs.ai_opponent prefs) with
+    | Some b when List.mem b Tournament.bot_ids ->
+        let seat = Table.Bot b in
+        (seat, clamp_face seat (Prefs.ai_opponent prefs))
+    | _ ->
+        let seat = seat_of_string ~fallback:fb1 s1 in
+        (seat, clamp_face seat p1)
+  in
+  { seat0; seat1; port0 = clamp_face seat0 p0; port1; drow = 0 }
+
+let new_lobby () = { row = 1; duel = duel_from_prefs (); gs = settings_from_prefs () }
+
+let persist_duel lobby =
+  try
+    let d = lobby.duel in
+    let p = Prefs.load () in
+    Prefs.set_setup_seats p (Table.seat_name d.seat0, Table.seat_name d.seat1);
+    Prefs.set_setup_portraits p (d.port0, d.port1);
+    match d.seat1 with Table.Bot _ -> Prefs.set_ai_opponent p d.port1 | Table.Human -> ()
+  with _ -> ()
+
+let menu_row current i ~enabled label =
+  let selected = current = i in
+  let mark = if selected then "> " else "  " in
+  I.string (if not enabled then dim else if selected then accent else A.empty) (mark ^ label)
+
+let render_lobby (w, _) ui =
+  I.vcat
+    [
+      I.string A.(st bold ++ fg lightcyan) (clean (Assets.text "lobby.title"));
+      text ~attr:dim w (Assets.text "lobby.message");
+      I.void 1 1;
+      menu_row ui.row 0 ~enabled:false (Assets.text "button.campaign" ^ "  (soon)");
+      menu_row ui.row 1 ~enabled:true (Assets.text "button.duel");
+      menu_row ui.row 2 ~enabled:true (Assets.text "button.settings");
+      menu_row ui.row 3 ~enabled:true (Assets.text "button.quit");
+      I.void 1 1;
+      text ~attr:dim w "up/down select   enter open   q quit";
+    ]
+  |> I.pad ~l:2 ~t:1
+
+let duel_rows = 6
+
+let duel_row drow i label value =
+  let selected = drow = i in
+  let mark = if selected then "> " else "  " in
+  let value_attr = if selected then rev else A.empty in
+  I.(
+    string (if selected then accent else A.empty) (mark ^ label)
+    |> hsnap ~align:`Left 16
+    <|> string value_attr (" " ^ value ^ " ")
+    <|> if selected && i < 4 then string dim "  <- ->" else empty)
+
+let render_duel (w, _) ui =
+  let d = ui.duel in
+  let go i label =
+    let selected = d.drow = i in
     I.(
       string (if selected then accent else A.empty) (if selected then "> " else "  ")
-      <|> string (if selected then A.(rev ++ st bold) else bold) " Start game ")
+      <|> string (if selected then A.(rev ++ st bold) else bold) (" " ^ label ^ " "))
   in
   I.vcat
     [
-      I.string A.(st bold ++ fg lightcyan) "mancer";
-      I.string dim "new game";
+      I.string A.(st bold ++ fg lightcyan) (clean (Assets.text "button.duel"));
       I.void 1 1;
-      row 0 "P1 (bottom, first)" (Table.seat_name seat0);
-      row 1 "P1 special" (cap sp0);
-      row 2 "P2 (top)" (Table.seat_name seat1);
-      row 3 "P2 special" (cap sp1);
-      row 4 "Bot budget" (Printf.sprintf "%d ms" s.budget_ms);
-      row 5 "Seed" (seed ^ if rows.(ui.row) = Seed then "_" else "");
+      duel_row d.drow 0 "P1 seat" (Table.seat_name d.seat0);
+      duel_row d.drow 1 "P1 portrait" d.port0;
+      duel_row d.drow 2 "P2 seat" (Table.seat_name d.seat1);
+      duel_row d.drow 3 "P2 portrait" d.port1;
       I.void 1 1;
-      start;
+      go 4 (Assets.text "button.fight");
+      go 5 (Assets.text "button.back");
       I.void 1 1;
-      text ~attr:bad w ui.error;
-      I.void 1 1;
-      text ~attr:dim w
-        "up/down select   left/right change   0-9 seed (backspace clears)   enter start   q quit";
+      text ~attr:dim w "up/down select   left/right change   enter fight   esc back";
     ]
   |> I.pad ~l:2 ~t:1
+
+let change_duel ui delta =
+  let d = ui.duel in
+  match d.drow with
+  | 0 ->
+      d.seat0 <- cycle seat_options d.seat0 delta;
+      d.port0 <- clamp_face d.seat0 d.port0
+  | 1 -> d.port0 <- cycle (faces_for d.seat0) d.port0 delta
+  | 2 ->
+      d.seat1 <- cycle seat_options d.seat1 delta;
+      d.port1 <- clamp_face d.seat1 d.port1
+  | 3 -> d.port1 <- cycle (faces_for d.seat1) d.port1 delta
+  | _ -> ()
+
+let settings_rows = 6
+let special_label sp = match Table.group_of_house sp with Some g -> cap sp ^ " (" ^ g ^ ")" | None -> cap sp
+
+let render_settings (w, _) ui =
+  let gs = ui.gs in
+  let seed = if gs.seed_text = "" then "random" else gs.seed_text in
+  I.vcat
+    [
+      I.string A.(st bold ++ fg lightcyan) (clean (Assets.text "settings.title"));
+      I.void 1 1;
+      duel_row gs.srow 0 "P1 special" (special_label gs.sp0);
+      duel_row gs.srow 1 "P2 special" (special_label gs.sp1);
+      duel_row gs.srow 2 "Bot budget" (Printf.sprintf "%d ms" gs.budget);
+      duel_row gs.srow 3 "Seed" (seed ^ if gs.srow = 3 then "_" else "");
+      duel_row gs.srow 4 "Language" gs.lang;
+      duel_row gs.srow 5 "Back" "";
+      I.void 1 1;
+      text ~attr:dim w (Assets.text "settings.lang.restart");
+      I.void 1 1;
+      text ~attr:dim w "up/down select   left/right change   0-9 seed   enter back   esc back";
+    ]
+  |> I.pad ~l:2 ~t:1
+
+let persist_settings gs =
+  try
+    let p = Prefs.load () in
+    Prefs.set_setup_specials p (gs.sp0, gs.sp1);
+    Prefs.set_setup_budget p gs.budget;
+    Prefs.set_language p gs.lang
+  with _ -> ()
+
+let change_settings ui delta =
+  let gs = ui.gs in
+  (match gs.srow with
+  | 0 -> gs.sp0 <- cycle (special_names ()) (cap gs.sp0) delta
+  | 1 -> gs.sp1 <- cycle (special_names ()) (cap gs.sp1) delta
+  | 2 -> gs.budget <- cycle budget_options gs.budget delta
+  | 4 -> gs.lang <- cycle languages gs.lang delta
+  | _ -> ());
+  persist_settings gs
 
 (* ---------------------------------------------------------------- game ui *)
 
@@ -157,6 +290,13 @@ let new_game setup =
   let on_event e = Option.iter (fun l -> log := l :: !log) (Table.event_line ~name:card_name e) in
   let table = Table.start ~on_event setup in
   { table; log; col = 0; card = 0; mode = Browse; paused = false; message = "" }
+
+let fight lobby =
+  persist_duel lobby;
+  let d = lobby.duel and gs = lobby.gs in
+  let seed = if gs.seed_text = "" then None else int_of_string_opt gs.seed_text in
+  let dflt = Table.default_setup in
+  new_game { dflt with seats = (d.seat0, d.seat1); specials = (gs.sp0, gs.sp1); budget_ms = gs.budget; seed }
 
 let flag_names st =
   [
@@ -324,12 +464,12 @@ let status_line ui =
 let keys_line ui =
   let k =
     match (Session.status (Table.session ui.table), ui.mode) with
-    | Over _, _ -> "r replay seed   n new deal   w save game   s setup   q quit"
+    | Over _, _ -> "r replay seed   n new deal   w save game   l lobby   q quit"
     | _, Target _ -> "arrows/0-5 choose   enter play   esc cancel"
     | _, Browse ->
         let both_bots = Option.is_none (human_to_move ui) in
-        if both_bots then "space pause/resume   w save game   s setup   q quit"
-        else "arrows select   enter play   p pass   w save   s setup   q quit"
+        if both_bots then "space pause/resume   w save game   l lobby   q quit"
+        else "arrows select   enter play   p pass   w save   l lobby   q quit"
   in
   I.string dim k
 
@@ -409,99 +549,71 @@ let move_cursor ui dcol dcard =
     let m = Array.length h.(ui.col).phd_cards in
     if m > 0 then ui.card <- (min ui.card (m - 1) + dcard + m) mod m)
 
-type screen = Setup of setup_ui | Game of game_ui | Quit
+type screen = Lobby of lobby_ui | Duel of lobby_ui | Settings of lobby_ui | Game of game_ui | Quit
 
-(* The setup screen remembers its last state in ~/.mancer/user.prefs, like
-   the Scala lobby persists its choices. Unknown entries fall back. *)
-let seat_of_string ~fallback s =
-  match Prefs.parse_seat ~allowed:Tournament.bot_ids ~fallback s with
-  | `Human -> Table.Human
-  | `Bot id -> Table.Bot id
-
-let setup_from_prefs () : Table.setup =
-  let prefs = Prefs.load () in
-  let d = Table.default_setup in
-  let s0, s1 = Prefs.setup_seats prefs in
-  let fb0, fb1 =
-    match d.seats with
-    | Table.Human, Table.Bot id -> (`Human, `Bot id)
-    | Table.Bot a, Table.Bot b -> (`Bot a, `Bot b)
-    | Table.Bot a, Table.Human -> (`Bot a, `Human)
-    | Table.Human, Table.Human -> (`Human, `Human)
-  in
-  let sp0, sp1 = Prefs.setup_specials prefs in
-  let ds0, ds1 = d.specials in
-  let keep s fb =
-    try
-      ignore (Catalog.find_special s);
-      s
-    with Failure _ -> fb
-  in
-  {
-    d with
-    seats = (seat_of_string ~fallback:fb0 s0, seat_of_string ~fallback:fb1 s1);
-    specials = (keep sp0 ds0, keep sp1 ds1);
-    budget_ms = Prefs.setup_budget prefs;
-    seed = None;
-  }
-
-let persist_setup (setup : Table.setup) =
-  try
-    let p = Prefs.load () in
-    Prefs.set_setup_seats p (Table.seat_name (fst setup.Table.seats), Table.seat_name (snd setup.Table.seats));
-    Prefs.set_setup_specials p setup.specials;
-    Prefs.set_setup_budget p setup.budget_ms
-  with _ -> ()
-
-let start_from_setup su =
-  let seed = if su.seed_text = "" then None else int_of_string_opt su.seed_text in
-  let setup = { su.setup with seed } in
-  persist_setup setup;
-  match new_game setup with
-  | ui -> Game ui
-  | exception Failure msg ->
-      su.error <- msg;
-      Setup su
-
-let setup_of_game ui =
-  let s = Table.setup ui.table in
-  Setup
-    {
-      row = 0;
-      setup = s;
-      seed_text = (match s.seed with Some n -> string_of_int n | None -> "");
-      error = "";
-    }
-
-let on_setup_key su = function
+let on_lobby_key ui = function
   | `Key (`Arrow `Up, _) ->
-      su.row <- (su.row + Array.length rows - 1) mod Array.length rows;
-      Setup su
+      ui.row <- (if ui.row <= 1 then 3 else ui.row - 1);
+      Lobby ui
   | `Key (`Arrow `Down, _) | `Key (`Tab, _) ->
-      su.row <- (su.row + 1) mod Array.length rows;
-      Setup su
-  | `Key (`Arrow `Left, _) ->
-      change_setup su (-1);
-      Setup su
-  | `Key (`Arrow `Right, _) ->
-      change_setup su 1;
-      Setup su
-  | `Key (`ASCII ('0' .. '9' as c), _) when rows.(su.row) = Seed ->
-      if String.length su.seed_text < 9 then su.seed_text <- su.seed_text ^ String.make 1 c;
-      Setup su
-  | `Key (`Backspace, _) when rows.(su.row) = Seed ->
-      let n = String.length su.seed_text in
-      if n > 0 then su.seed_text <- String.sub su.seed_text 0 (n - 1);
-      Setup su
-  | `Key (`Enter, _) -> start_from_setup su
+      ui.row <- (if ui.row >= 3 then 1 else ui.row + 1);
+      Lobby ui
+  | `Key (`Enter, _) -> ( match ui.row with 1 -> Duel ui | 2 -> Settings ui | _ -> Quit)
   | `Key (`ASCII 'q', _) | `Key (`Escape, _) -> Quit
-  | _ -> Setup su
+  | _ -> Lobby ui
+
+let on_duel_key ui = function
+  | `Key (`Arrow `Up, _) ->
+      ui.duel.drow <- (ui.duel.drow + duel_rows - 1) mod duel_rows;
+      Duel ui
+  | `Key (`Arrow `Down, _) ->
+      ui.duel.drow <- (ui.duel.drow + 1) mod duel_rows;
+      Duel ui
+  | `Key (`Arrow `Left, _) ->
+      change_duel ui (-1);
+      Duel ui
+  | `Key (`Arrow `Right, _) ->
+      change_duel ui 1;
+      Duel ui
+  | `Key (`Enter, _) -> (
+      match ui.duel.drow with
+      | 4 -> ( match fight ui with game -> Game game | exception Failure _ -> Duel ui)
+      | 5 -> Lobby ui
+      | _ ->
+          change_duel ui 1;
+          Duel ui)
+  | `Key (`Escape, _) -> Lobby ui
+  | _ -> Duel ui
+
+let on_settings_key ui = function
+  | `Key (`Arrow `Up, _) ->
+      ui.gs.srow <- (ui.gs.srow + settings_rows - 1) mod settings_rows;
+      Settings ui
+  | `Key (`Arrow `Down, _) ->
+      ui.gs.srow <- (ui.gs.srow + 1) mod settings_rows;
+      Settings ui
+  | `Key (`Arrow `Left, _) ->
+      change_settings ui (-1);
+      Settings ui
+  | `Key (`Arrow `Right, _) ->
+      change_settings ui 1;
+      Settings ui
+  | `Key (`ASCII ('0' .. '9' as c), _) when ui.gs.srow = 3 ->
+      if String.length ui.gs.seed_text < 9 then ui.gs.seed_text <- ui.gs.seed_text ^ String.make 1 c;
+      Settings ui
+  | `Key (`Backspace, _) when ui.gs.srow = 3 ->
+      let n = String.length ui.gs.seed_text in
+      if n > 0 then ui.gs.seed_text <- String.sub ui.gs.seed_text 0 (n - 1);
+      Settings ui
+  | `Key (`Enter, _) -> if ui.gs.srow = 5 then Lobby ui else Settings ui
+  | `Key (`Escape, _) -> Lobby ui
+  | _ -> Settings ui
 
 let on_game_key ui ev =
   let over = Option.is_none (Table.to_move ui.table) in
   match (ui.mode, ev) with
   | _, `Key (`ASCII 'q', _) -> Quit
-  | _, `Key (`ASCII 's', _) -> setup_of_game ui
+  | _, `Key (`ASCII 'l', _) -> Lobby (new_lobby ())
   | _, `Key (`ASCII 'w', _) ->
       guarded ui (fun () -> save_record ui);
       Game ui
@@ -565,7 +677,9 @@ let input_ready term secs =
   | exception Unix.Unix_error (Unix.EINTR, _, _) -> false
 
 let render term = function
-  | Setup su -> Term.image term (render_setup (Term.size term) su)
+  | Lobby ui -> Term.image term (render_lobby (Term.size term) ui)
+  | Duel ui -> Term.image term (render_duel (Term.size term) ui)
+  | Settings ui -> Term.image term (render_settings (Term.size term) ui)
   | Game ui -> Term.image term (render_game (Term.size term) ui)
   | Quit -> ()
 
@@ -575,7 +689,12 @@ let rec loop term screen =
     | `End -> Quit
     | `Resize _ -> screen
     | ev -> (
-        match screen with Setup su -> on_setup_key su ev | Game ui -> on_game_key ui ev | Quit -> Quit)
+        match screen with
+        | Lobby ui -> on_lobby_key ui ev
+        | Duel ui -> on_duel_key ui ev
+        | Settings ui -> on_settings_key ui ev
+        | Game ui -> on_game_key ui ev
+        | Quit -> Quit)
   in
   match screen with
   | Quit -> ()
@@ -603,6 +722,4 @@ let () =
   let null = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0 in
   Unix.dup2 null Unix.stdout;
   let term = Term.create ~output:tty () in
-  let setup = try setup_from_prefs () with _ -> Table.default_setup in
-  let su = { row = 0; setup; seed_text = ""; error = "" } in
-  Fun.protect ~finally:(fun () -> Term.release term) (fun () -> loop term (Setup su))
+  Fun.protect ~finally:(fun () -> Term.release term) (fun () -> loop term (Lobby (new_lobby ())))

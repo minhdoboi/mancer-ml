@@ -208,11 +208,13 @@ old cost-slice (and one special card per quarter).
 
 ## Terminal UI
 
-`dune exec ./bin/tui.exe` opens a setup screen: each seat is `human`, `greedy`,
-`oracle` or `lecturer`, each side picks its special house, plus the bot budget and
-an optional seed. Two humans is hot-seat; two bots is a game to watch (space
-pauses). On your move, pick a card with the arrows and press enter, then choose a
-highlighted slot (arrows or 0-5) and enter again; `p` passes. `w` saves the game
+`dune exec ./bin/tui.exe` opens the lobby: campaign (grayed out, not ported),
+duel and settings. Duel picks each seat (`human`, `greedy`, `oracle` or
+`lecturer`) with its portrait, then fights; settings picks both special houses,
+the bot budget, an optional seed and the language. Two humans is hot-seat; two
+bots is a game to watch (space pauses). On your move, pick a card with the arrows
+and press enter, then choose a highlighted slot (arrows or 0-5) and enter again;
+`p` passes. `w` saves the game
 to `tui-games/` in the tournament format, so it feeds `replay.exe` and
 `compare_engines`. After a game, `r` replays the same seed and `n` deals again.
 
@@ -230,8 +232,9 @@ effect on restart.
 
 ## Raylib UI
 
-`dune exec ./bin/gui.exe` has the same setup as the terminal UI, with clickable
-seats and special houses. Click a lit card to play it; when it needs a target the
+`dune exec ./bin/gui.exe` opens the same lobby, with the duel portrait pickers
+and the game-settings dialog (classes grouped by author with their background
+art, a game tab with bot time and seed, sound, language). Click a lit card to play it; when it needs a target the
 legal slots light up, and right click or Esc cancels. Hovering a card shows its
 text. Saved games go to `gui-games/`. The window scales a fixed 1440x900 layout.
 

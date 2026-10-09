@@ -54,6 +54,11 @@ let red = rgba 236 98 92 255
 let green = rgba 108 210 128 255
 let shade = rgba 0 0 0 150
 
+(* Dark ink on paper dialogs (Scala uiskin ink/inkSoft). *)
+let ink = rgba 46 28 23 255
+let ink_soft = rgba 87 64 54 255
+let paper_line = rgba 122 90 40 255
+
 (* fire, water, air, earth, special *)
 let house_color = function
   | 0 -> rgba 232 104 60 255
@@ -188,6 +193,14 @@ let image ?(tint = R.Color.white) tex r =
 let image_at ?(tint = R.Color.white) tex r =
   let src = R.Rectangle.create 0. 0. (float (R.Texture.width tex)) (float (R.Texture.height tex)) in
   R.draw_texture_pro tex src (screen r) (R.Vector2.create 0. 0.) 0. tint
+
+(* Backdrop stretched over the whole window, letterbox bands included: the
+   832×768 world only covers the fitted area, and window decorations can
+   shrink the drawable area below the requested size. *)
+let cover tex =
+  let sw = float (R.get_screen_width ()) and sh = float (R.get_screen_height ()) in
+  let src = R.Rectangle.create 0. 0. (float (R.Texture.width tex)) (float (R.Texture.height tex)) in
+  R.draw_texture_pro tex src (R.Rectangle.create 0. 0. sw sh) (R.Vector2.create 0. 0.) 0. R.Color.white
 
 (* Scala combat/slot is 112×140 with the gold well only in the middle. Crop
    to that well so an empty slot can be drawn at card size. *)
@@ -367,30 +380,35 @@ let button ?(selected = false) ?(enabled = true) ?(size = 17.) r label f =
   text_c ~font:bold ~size ~color:(if enabled then fg else faint) r (r.y +. ((r.h -. size) /. 2.) -. 2.) label;
   if enabled then on_click r f
 
+(* Paper scroll dialog box, like the Scala dialogs: parchment.png is a
+   nine-patch with a 48px deckled edge, stretched middle. *)
+let paper r =
+  match texture (Assets.ui "parchment") with
+  | None -> fill r panel
+  | Some t ->
+      let b = 32. in
+      let xs = [| r.x; r.x +. b; r.x +. r.w -. b |] and ws = [| b; r.w -. (2. *. b); b |] in
+      let ys = [| r.y; r.y +. b; r.y +. r.h -. b |] and hs = [| b; r.h -. (2. *. b); b |] in
+      let t0 = [| 0.; 48.; 144. |] and tw = [| 48.; 96.; 48. |] in
+      for i = 0 to 2 do
+        for j = 0 to 2 do
+          let src = R.Rectangle.create t0.(i) t0.(j) tw.(i) tw.(j) in
+          let dst = screen { x = xs.(i); y = ys.(j); w = ws.(i); h = hs.(j) } in
+          R.draw_texture_pro t src dst (R.Vector2.create 0. 0.) 0. R.Color.white
+        done
+      done
+
+(* Button on a paper dialog: transparent until hovered, dark ink text. *)
+let pbutton ?(selected = false) ?(enabled = true) ?(size = 17.) r label f =
+  let hot = enabled && inside r in
+  if selected || hot then fill r (if selected then rgba 190 152 100 255 else rgba 222 196 150 255);
+  outline r (if selected then ink else if hot then ink_soft else paper_line);
+  text_c ~font:bold ~size ~color:(if enabled then ink else faint) r (r.y +. ((r.h -. size) /. 2.) -. 2.) label;
+  if enabled then on_click r f
+
 (* ------------------------------------------------------------- portraits *)
 
-let player_portraits =
-  [
-    "ember";
-    "tide";
-    "gale";
-    "grove";
-    "old-thinker";
-    "stout-hearth";
-    "night-scholar";
-    "ash-wanderer";
-    "mist-seer";
-    "lamp-scribe";
-    "river-aunt";
-    "grove-crone";
-  ]
-
-let portraits_for = function
-  | Table.Human -> player_portraits
-  | Table.Bot "lecturer" -> [ "lecturer"; "lecturer-f" ]
-  | Table.Bot "oracle" -> [ "oracle"; "oracle-f" ]
-  | Table.Bot _ -> [ "summoner"; "summoner-f" ]
-
+let portraits_for = function Table.Human -> Table.player_portraits | Table.Bot id -> Table.faces_for_bot id
 let cap = String.capitalize_ascii
 
 let portrait_label id =
@@ -412,127 +430,378 @@ let draw_face ?tint id r =
       fill r panel;
       text_c ~size:11. ~color:muted r (r.y +. (r.h /. 2.) -. 6.) "?"
 
-let draw_portrait_chooser ~x ~y ~size ~col_w id ids set =
+let draw_portrait_chooser ~x ~y ~size ~col_w ?(sub = "") id ids set =
   let ctrl = 28. and gap = 8. in
   let total = ctrl +. gap +. size +. gap +. ctrl in
   let x0 = x +. ((col_w -. total) /. 2.) in
   let mid_y = y +. ((size -. 32.) /. 2.) in
-  button ~size:16. (rect x0 mid_y ctrl 32.) "<" (fun () -> set (cycle_portrait ids id (-1)));
+  pbutton ~size:16. (rect x0 mid_y ctrl 32.) "<" (fun () -> set (cycle_portrait ids id (-1)));
   let face = rect (x0 +. ctrl +. gap) y size size in
   draw_face id face;
-  outline ~round:0.04 face (if inside face then muted else line);
+  outline ~round:0.04 face (if inside face then ink_soft else paper_line);
   on_click face (fun () -> set (cycle_portrait ids id 1));
-  button ~size:16. (rect (face.x +. size +. gap) mid_y ctrl 32.) ">" (fun () -> set (cycle_portrait ids id 1));
-  text_c ~size:13. ~color:muted (rect x (y +. size) col_w 0.) (y +. size +. 8.) (portrait_label id)
+  pbutton ~size:16.
+    (rect (face.x +. size +. gap) mid_y ctrl 32.)
+    ">"
+    (fun () -> set (cycle_portrait ids id 1));
+  text_c ~size:13. ~color:ink_soft (rect x (y +. size) col_w 0.) (y +. size +. 8.) (portrait_label id);
+  if sub <> "" then text_c ~size:12. ~color:ink_soft (rect x (y +. size) col_w 0.) (y +. size +. 26.) sub
 
-(* ------------------------------------------------------------- setup ui *)
+(* ------------------------------------------------------------ lobby ui *)
 
 let seat_options = Table.Human :: List.map (fun id -> Table.Bot id) Tournament.bot_ids
 let budget_options = [ 100; 250; 500; 1000; 2000; 5000 ]
+let languages = [ "en"; "fr"; "es"; "ru"; "vi" ]
 
-type setup_ui = {
-  mutable setup : Table.setup;
-  mutable portraits : string * string;
+(* [ai.<kind>] strings take the level, like Scala's [AiFace.name]. *)
+let fill_level s level =
+  let want = string_of_int level in
+  let b = Buffer.create (String.length s + 2) in
+  let n = String.length s in
+  let rec go i =
+    if i >= n then ()
+    else if i + 2 < n && s.[i] = '{' && s.[i + 1] = '0' && s.[i + 2] = '}' then (
+      Buffer.add_string b want;
+      go (i + 3))
+    else (
+      Buffer.add_char b s.[i];
+      go (i + 1))
+  in
+  go 0;
+  Buffer.contents b
+
+let ai_label portrait =
+  match List.find_opt (fun (o : Table.opponent) -> o.Table.opp_portrait = portrait) Table.duel_opponents with
+  | Some o -> fill_level (Assets.text ("ai." ^ o.Table.opp_kind)) o.Table.opp_level
+  | None -> portrait_label portrait
+
+(* One side of the duel dialog: a human/bot seat with its portrait. A bot
+   seat wears one of its own faces, so picking an AI portrait always brings
+   its bot along. *)
+type duel_side = { mutable seat : Table.seat; mutable portrait : string }
+type duel_ui = { sides : duel_side * duel_side }
+
+(* Game settings (the Scala Settings dialog): house choices, bot budget,
+   seed, sound and language. Everything persists except the seed. *)
+type game_settings = {
+  mutable specials : string * string;
+  mutable budget_ms : int;
   mutable seed_text : string;
   mutable seed_focus : bool;
-  mutable error : string;
+  mutable sound : float;
+  mutable lang : string;
+  mutable tab : int;
 }
 
-let seed_field = rect 430. 560. 180. 34.
+type lobby_ui = {
+  duel : duel_ui;
+  gs : game_settings;
+  mutable menu : int;
+  mutable show_duel : bool;
+  mutable show_settings : bool;
+  mutable message : string;
+}
 
-let draw_setup su ~start =
-  let s = su.setup in
-  text_c ~font:bold ~size:40. (rect 0. 0. vw 0.) 28. "mancer";
-  text_c ~size:16. ~color:muted (rect 0. 0. vw 0.) 72. "new game";
-  let specials = Table.special_houses () in
-  let side i label seat special set_seat set_special =
-    let x = if i = 0 then 16. else 424. in
-    let box = rect x 96. 392. 300. in
-    fill ~round:0.04 box panel;
-    outline ~round:0.04 box line;
-    text ~font:bold ~size:18. (x +. 16.) 108. label;
-    text ~size:14. ~color:muted (x +. 16.) 140. "Seat";
+let seat_of_string ~fallback s =
+  match Prefs.parse_seat ~allowed:Tournament.bot_ids ~fallback s with
+  | `Human -> Table.Human
+  | `Bot id -> Table.Bot id
+
+let valid_special s fb =
+  try
+    ignore (Catalog.find_special s);
+    s
+  with Failure _ -> fb
+
+let game_settings_from_prefs () =
+  let prefs = Prefs.load () in
+  let d = Table.default_setup in
+  let sp0, sp1 = Prefs.setup_specials prefs in
+  let ds0, ds1 = d.specials in
+  {
+    specials = (valid_special sp0 ds0, valid_special sp1 ds1);
+    budget_ms = Prefs.setup_budget prefs;
+    seed_text = "";
+    seed_focus = false;
+    sound = Prefs.sound_level prefs;
+    lang = Prefs.language prefs;
+    tab = 0;
+  }
+
+let duel_from_prefs () =
+  let prefs = Prefs.load () in
+  let d = Table.default_setup in
+  let s0, s1 = Prefs.setup_seats prefs in
+  let fb0, fb1 =
+    match d.seats with
+    | Table.Human, Table.Bot id -> (`Human, `Bot id)
+    | Table.Bot a, Table.Bot b -> (`Bot a, `Bot b)
+    | Table.Bot a, Table.Human -> (`Bot a, `Human)
+    | Table.Human, Table.Human -> (`Human, `Human)
+  in
+  let p0, p1 = Prefs.setup_portraits prefs in
+  let seat0 = seat_of_string ~fallback:fb0 s0 in
+  (* The AI side follows its saved face and the face's bot. *)
+  let seat1, portrait1 =
+    match Table.bot_of_portrait (Prefs.ai_opponent prefs) with
+    | Some b when List.mem b Tournament.bot_ids ->
+        let seat = Table.Bot b in
+        (seat, clamp_portrait seat (Prefs.ai_opponent prefs))
+    | _ ->
+        let seat = seat_of_string ~fallback:fb1 s1 in
+        (seat, clamp_portrait seat p1)
+  in
+  { sides = ({ seat = seat0; portrait = clamp_portrait seat0 p0 }, { seat = seat1; portrait = portrait1 }) }
+
+let new_lobby () =
+  {
+    duel = duel_from_prefs ();
+    gs = game_settings_from_prefs ();
+    menu = 1;
+    show_duel = false;
+    show_settings = false;
+    message = "";
+  }
+
+let persist_duel lobby =
+  try
+    let s0, s1 = lobby.duel.sides in
+    let p = Prefs.load () in
+    Prefs.set_setup_seats p (Table.seat_name s0.seat, Table.seat_name s1.seat);
+    Prefs.set_setup_portraits p (s0.portrait, s1.portrait);
+    match s1.seat with Table.Bot _ -> Prefs.set_ai_opponent p s1.portrait | Table.Human -> ()
+  with _ -> ()
+
+(* One special-house card that keeps its background picture. *)
+let draw_special_card ?(name_size = 11.) ?(bar_h = 22.) r (h : house) selected set =
+  (match texture (Assets.background h) with
+  | Some t -> image ~tint:(if selected then R.Color.white else rgba 150 150 150 255) t r
+  | None -> fill r panel);
+  R.draw_rectangle_rec (screen (rect r.x (r.y +. r.h -. bar_h) r.w bar_h)) shade;
+  text_c ~font:bold ~size:name_size r (r.y +. r.h -. (bar_h -. 4.)) (cap h.h_name);
+  outline ~round:0.06
+    ~thick:(if selected then 3. else 1.5)
+    r
+    (if selected then gold else if inside r then muted else line);
+  on_click r set
+
+let lobby_menu = [ "campaign"; "duel"; "settings" ]
+
+let draw_lobby lobby =
+  (match texture (Assets.ui "lobby-elements") with Some t -> cover t | None -> ());
+  (* Plain text over the art, like Scala's text menu: no boxes, with a dark
+     offset so it reads over the bright vista. *)
+  text_c ~font:bold ~size:44. ~color:(rgba 0 0 0 200) (rect 2. 2. vw 0.) 42. (Assets.text "lobby.title");
+  text_c ~font:bold ~size:44. (rect 0. 0. vw 0.) 40. (Assets.text "lobby.title");
+  List.iteri
+    (fun i l ->
+      text_c ~size:15. ~color:(rgba 0 0 0 200) (rect 1. 1. vw 0.) (97. +. (float i *. 20.)) l;
+      text_c ~size:15. (rect 0. 0. vw 0.) (96. +. (float i *. 20.)) l)
+    (List.filteri (fun i _ -> i < 2) (wrap 15. 700. (Assets.text "lobby.message")));
+  (* A soft wash behind the text menu, like Scala's menu box. *)
+  fill ~round:0.04 (rect 28. (vh -. 184.) 208. 144.) (rgba 0 0 0 115);
+  List.iteri
+    (fun i key ->
+      let r = rect 40. (vh -. 176. +. (float i *. 40.)) 184. 36. in
+      let enabled = key <> "campaign" in
+      let hot = enabled && inside r in
+      if hot then hovering := true;
+      (* Scala's text menu: white, gold on hover, grey when disabled. *)
+      let color =
+        if not enabled then rgba 128 128 128 255
+        else if lobby.menu = i || hot then rgba 255 214 89 255
+        else R.Color.white
+      in
+      let label = Assets.text ("button." ^ key) in
+      text ~size:24. ~color:(rgba 0 0 0 200) 50. (r.y +. 10.) label;
+      text ~size:24. ~color 48. (r.y +. 8.) label;
+      if enabled then
+        on_click r (fun () ->
+            lobby.menu <- i;
+            if key = "duel" then lobby.show_duel <- true
+            else if key = "settings" then (
+              lobby.show_settings <- true;
+              lobby.gs.tab <- 0)))
+    lobby_menu;
+  if lobby.message <> "" then text ~size:13. ~color:red 48. (vh -. 60.) lobby.message;
+  text_c ~size:14. ~color:faint (rect 0. 0. vw 0.) (vh -. 28.) "↑↓ choose · Enter opens · Esc quits"
+
+let lobby_keys lobby =
+  if R.is_key_pressed R.Key.Up then lobby.menu <- (if lobby.menu <= 1 then 2 else lobby.menu - 1);
+  if R.is_key_pressed R.Key.Down then lobby.menu <- (if lobby.menu >= 2 then 1 else lobby.menu + 1);
+  if R.is_key_pressed R.Key.Enter then
+    if lobby.menu = 1 then lobby.show_duel <- true
+    else (
+      lobby.show_settings <- true;
+      lobby.gs.tab <- 0)
+
+(* Duel setup (Scala DuelDialog): each side picks a human/bot seat and a
+   portrait; a bot seat wears its own faces. *)
+let draw_duel lobby ~fight =
+  fill (rect 0. 0. vw vh) (rgba 0 0 0 120);
+  on_click (rect 0. 0. vw vh) (fun () -> lobby.show_duel <- false);
+  let box = rect 106. 180. 620. 420. in
+  paper box;
+  on_click box (fun () -> ());
+  text_c ~font:bold ~size:20. ~color:ink box (box.y +. 16.) (Assets.text "button.duel");
+  let side x label (sd : duel_side) =
+    text ~font:bold ~size:16. ~color:ink (x +. 16.) (box.y +. 52.) label;
     List.iteri
       (fun k opt ->
-        button ~selected:(opt = seat) ~size:13.
-          (rect (x +. 16. +. (float k *. 90.)) 160. 84. 32.)
+        pbutton ~selected:(opt = sd.seat) ~size:11.
+          (rect (x +. 16. +. (float k *. 68.)) (box.y +. 78.) 62. 30.)
           (cap (Table.seat_name opt))
-          (fun () -> set_seat opt))
+          (fun () ->
+            sd.seat <- opt;
+            sd.portrait <- clamp_portrait opt sd.portrait))
       seat_options;
-    text ~size:14. ~color:muted (x +. 16.) 206. "Special house";
-    List.iteri
-      (fun k (h : house) ->
-        let r = rect (x +. 16. +. (float k *. 72.)) 226. 66. 96. in
-        let selected = Catalog.token h.h_name = Catalog.token special in
-        (match texture (Assets.background h) with
-        | Some t -> image ~tint:(if selected then R.Color.white else rgba 150 150 150 255) t r
-        | None -> fill r panel);
-        R.draw_rectangle_rec (screen (rect r.x (r.y +. r.h -. 24.) r.w 24.)) shade;
-        text_c ~font:bold ~size:12. r (r.y +. r.h -. 20.) (cap h.h_name);
-        outline ~round:0.06
-          ~thick:(if selected then 3. else 1.5)
-          r
-          (if selected then gold else if inside r then muted else line);
-        on_click r (fun () -> set_special h.h_name))
-      specials
+    let ids = portraits_for sd.seat in
+    let sub = match sd.seat with Table.Human -> "" | Table.Bot _ -> ai_label sd.portrait in
+    draw_portrait_chooser ~x ~y:(box.y +. 122.) ~size:100. ~col_w:280. ~sub sd.portrait ids (fun v ->
+        sd.portrait <- v)
   in
-  let seat0, seat1 = s.seats and sp0, sp1 = s.specials in
-  let p0, p1 = su.portraits in
-  let set_seat i v =
-    let a, b = su.setup.seats and pa, pb = su.portraits in
-    if i = 0 then (
-      su.setup <- { su.setup with seats = (v, b) };
-      su.portraits <- (clamp_portrait v pa, pb))
-    else (
-      su.setup <- { su.setup with seats = (a, v) };
-      su.portraits <- (pa, clamp_portrait v pb))
-  in
-  side 0 "P1 · bottom, first" seat0 sp0 (set_seat 0) (fun v ->
-      su.setup <- { su.setup with specials = (v, snd su.setup.specials) });
-  side 1 "P2 · top" seat1 sp1 (set_seat 1) (fun v ->
-      su.setup <- { su.setup with specials = (fst su.setup.specials, v) });
-  draw_portrait_chooser ~x:16. ~y:408. ~size:96. ~col_w:392. p0 (portraits_for seat0) (fun v ->
-      su.portraits <- (v, p1));
-  draw_portrait_chooser ~x:424. ~y:408. ~size:96. ~col_w:392. p1 (portraits_for seat1) (fun v ->
-      su.portraits <- (p0, v));
-  text ~size:14. ~color:muted 16. 540. "Bot time per move";
-  List.iteri
-    (fun k ms ->
-      button ~selected:(ms = s.budget_ms) ~size:13.
-        (rect (16. +. (float k *. 66.)) 560. 60. 32.)
-        (if ms < 1000 then Printf.sprintf "%d ms" ms else Printf.sprintf "%d s" (ms / 1000))
-        (fun () -> su.setup <- { su.setup with budget_ms = ms }))
-    budget_options;
-  text ~size:14. ~color:muted 430. 540. "Seed";
-  fill seed_field (if su.seed_focus then panel_hi else panel);
-  outline seed_field (if su.seed_focus then accent else line);
-  let caret = if su.seed_focus && Float.rem (R.get_time ()) 1. < 0.5 then "|" else "" in
-  text ~size:16.
-    ~color:(if su.seed_text = "" && not su.seed_focus then muted else fg)
-    440. 566.
-    (if su.seed_text = "" && not su.seed_focus then "random" else su.seed_text ^ caret);
-  on_click seed_field (fun () -> su.seed_focus <- true);
-  button ~size:14. (rect 618. 560. 90. 34.) "Random" (fun () ->
-      su.seed_text <- "";
-      su.seed_focus <- false);
-  button ~size:20. (rect 316. 640. 200. 48.) "Start" start;
-  if su.error <> "" then text_c ~color:red (rect 0. 0. vw 0.) (vh -. 90.) su.error;
-  text_c ~size:14. ~color:faint (rect 0. 0. vw 0.) (vh -. 28.) "Enter starts   ·   Esc quits"
+  let s0, s1 = lobby.duel.sides in
+  side 126. (Assets.text "lobby.you") s0;
+  side 426. (Assets.text "lobby.opponent") s1;
+  pbutton ~size:18. (rect 256. 540. 150. 44.) (Assets.text "button.fight") fight;
+  pbutton ~size:18. (rect 416. 540. 150. 44.) (Assets.text "button.cancel") (fun () ->
+      lobby.show_duel <- false)
 
-let setup_keys su ~start =
-  if su.seed_focus then (
+(* Game settings (the classes/game/sound/language tabs of the Scala Settings
+   dialog). The game tab holds the bot budget and seed from the old setup
+   screen. House choices keep their background pictures. *)
+let settings_box = rect 76. 104. 680. 560.
+let gs_seed_field = rect 200. 294. 200. 34.
+
+let set_special gs which name =
+  let a, b = gs.specials in
+  let next = if which = 0 then (name, b) else (a, name) in
+  gs.specials <- next;
+  try Prefs.set_setup_specials (Prefs.load ()) next with _ -> ()
+
+let set_budget gs ms on_budget =
+  gs.budget_ms <- ms;
+  (try Prefs.set_setup_budget (Prefs.load ()) ms with _ -> ());
+  on_budget ms
+
+let set_sound gs v =
+  let v = Float.max 0. (Float.min 1. v) in
+  gs.sound <- v;
+  try Prefs.set_sound_level (Prefs.load ()) v with _ -> ()
+
+let set_lang gs code =
+  gs.lang <- code;
+  try Prefs.set_language (Prefs.load ()) code with _ -> ()
+
+let draw_game_settings gs ~show_seed ~on_budget ~close =
+  fill (rect 0. 0. vw vh) (rgba 0 0 0 120);
+  on_click (rect 0. 0. vw vh) close;
+  let box = settings_box in
+  paper box;
+  on_click box (fun () -> ());
+  text_c ~font:bold ~size:20. ~color:ink box (box.y +. 16.) (Assets.text "settings.title");
+  let tabs = [ "settings.classes"; "Game"; "settings.sound"; "settings.lang" ] in
+  List.iteri
+    (fun k key ->
+      pbutton ~selected:(gs.tab = k) ~size:14.
+        (rect (box.x +. 24. +. (float k *. 158.)) (box.y +. 44.) 150. 34.)
+        (Assets.text key)
+        (fun () -> gs.tab <- k))
+    tabs;
+  (match gs.tab with
+  | 0 ->
+      (* Houses grouped by author like the Scala settings, one row per
+         house with a P1/P2 card pair. *)
+      let col1 = box.x +. 300. and col2 = box.x +. 410. in
+      text ~font:bold ~size:14. ~color:ink col1 (box.y +. 96.) "P1";
+      text ~font:bold ~size:14. ~color:ink col2 (box.y +. 96.) "P2";
+      let y = ref (box.y +. 118.) in
+      let shown = ref "" in
+      List.iter
+        (fun (author, houses) ->
+          List.iter
+            (fun (h : house) ->
+              if author <> !shown then (
+                shown := author;
+                text ~size:13. ~color:ink_soft (box.x +. 24.) (!y +. 4.) author);
+              draw_special_card ~name_size:9. ~bar_h:15. (rect col1 !y 52. 68.) h
+                (Catalog.token h.h_name = Catalog.token (fst gs.specials))
+                (fun () -> set_special gs 0 h.h_name);
+              draw_special_card ~name_size:9. ~bar_h:15. (rect col2 !y 52. 68.) h
+                (Catalog.token h.h_name = Catalog.token (snd gs.specials))
+                (fun () -> set_special gs 1 h.h_name);
+              y := !y +. 74.)
+            houses)
+        Table.house_groups
+  | 1 ->
+      text ~size:14. ~color:ink_soft (box.x +. 24.) (box.y +. 96.) "Bot time per move";
+      List.iteri
+        (fun k ms ->
+          pbutton ~selected:(ms = gs.budget_ms) ~size:13.
+            (rect (box.x +. 24. +. (float k *. 100.)) (box.y +. 116.) 92. 30.)
+            (if ms < 1000 then Printf.sprintf "%d ms" ms else Printf.sprintf "%d s" (ms / 1000))
+            (fun () -> set_budget gs ms on_budget))
+        budget_options;
+      if show_seed then (
+        text ~size:14. ~color:ink_soft (box.x +. 24.) (box.y +. 170.) "Seed";
+        fill gs_seed_field (if gs.seed_focus then rgba 255 252 242 255 else rgba 235 209 140 255);
+        outline gs_seed_field (if gs.seed_focus then accent else paper_line);
+        let caret = if gs.seed_focus && Float.rem (R.get_time ()) 1. < 0.5 then "|" else "" in
+        text ~size:16.
+          ~color:(if gs.seed_text = "" && not gs.seed_focus then ink_soft else ink)
+          (gs_seed_field.x +. 10.) (gs_seed_field.y +. 6.)
+          (if gs.seed_text = "" && not gs.seed_focus then "random" else gs.seed_text ^ caret);
+        on_click gs_seed_field (fun () -> gs.seed_focus <- true);
+        pbutton ~size:14.
+          (rect (gs_seed_field.x +. 210.) gs_seed_field.y 90. 34.)
+          "Random"
+          (fun () ->
+            gs.seed_text <- "";
+            gs.seed_focus <- false))
+  | 2 ->
+      text ~size:14. ~color:ink_soft (box.x +. 24.) (box.y +. 220.) (Assets.text "sound.level");
+      pbutton ~size:16.
+        (rect (box.x +. 24.) (box.y +. 242.) 56. 32.)
+        "-"
+        (fun () -> set_sound gs (gs.sound -. 0.1));
+      text_c ~font:bold ~size:14. ~color:ink
+        (rect (box.x +. 88.) (box.y +. 242.) 80. 32.)
+        (box.y +. 248.)
+        (Printf.sprintf "%d%%" (int_of_float ((gs.sound *. 100.) +. 0.5)));
+      pbutton ~size:16.
+        (rect (box.x +. 176.) (box.y +. 242.) 56. 32.)
+        "+"
+        (fun () -> set_sound gs (gs.sound +. 0.1));
+      pbutton ~size:13.
+        (rect (box.x +. 244.) (box.y +. 242.) 76. 32.)
+        "test"
+        (fun () ->
+          set_sound gs gs.sound;
+          play_sound "move")
+  | _ ->
+      List.iteri
+        (fun k code ->
+          pbutton ~selected:(code = gs.lang) ~size:13.
+            (rect (box.x +. 24. +. (float k *. 100.)) (box.y +. 220.) 92. 32.)
+            code
+            (fun () -> set_lang gs code))
+        languages;
+      text ~size:13. ~color:ink_soft (box.x +. 24.) (box.y +. 268.) (Assets.text "settings.lang.restart"));
+  pbutton ~size:16. (rect (box.x +. 260.) (box.y +. 496.) 160. 40.) "Close" close
+
+let settings_seed_keys gs =
+  if gs.seed_focus then (
     let rec chars () =
       let c = Uchar.to_int (R.get_char_pressed ()) in
       if c <> 0 then (
-        if c >= Char.code '0' && c <= Char.code '9' && String.length su.seed_text < 9 then
-          su.seed_text <- su.seed_text ^ String.make 1 (Char.chr c);
+        if c >= Char.code '0' && c <= Char.code '9' && String.length gs.seed_text < 9 then
+          gs.seed_text <- gs.seed_text ^ String.make 1 (Char.chr c);
         chars ())
     in
     chars ();
-    if R.is_key_pressed R.Key.Backspace && su.seed_text <> "" then
-      su.seed_text <- String.sub su.seed_text 0 (String.length su.seed_text - 1));
-  if R.is_mouse_button_pressed R.MouseButton.Left && not (inside seed_field) then su.seed_focus <- false;
-  if R.is_key_pressed R.Key.Enter then start ()
+    if R.is_key_pressed R.Key.Backspace && gs.seed_text <> "" then
+      gs.seed_text <- String.sub gs.seed_text 0 (String.length gs.seed_text - 1));
+  if R.is_mouse_button_pressed R.MouseButton.Left && not (inside gs_seed_field) then gs.seed_focus <- false
 
 (* --------------------------------------------------------------- game ui *)
 
@@ -576,10 +845,8 @@ type game_ui = {
   discovered : (player_id * string, unit) Hashtbl.t;
   mutable mode : mode;
   mutable paused : bool;
-  mutable settings_open : bool;
+  mutable settings : game_settings option;
   mutable budget_ms : int;
-  mutable sound_level : float;
-  mutable language : string;
   mutable message : string;
   mutable thinking : thinking option;
   mutable last_move : float;
@@ -617,7 +884,6 @@ let new_game setup portraits =
     Option.iter (fun ui -> !board_event ui e) !ui_holder
   in
   let table = Table.start ~on_event setup in
-  let prefs = Prefs.load () in
   let ui =
     {
       table;
@@ -627,10 +893,8 @@ let new_game setup portraits =
       discovered;
       mode = Browse;
       paused = false;
-      settings_open = false;
+      settings = None;
       budget_ms = setup.budget_ms;
-      sound_level = Prefs.sound_level prefs;
-      language = Prefs.language prefs;
       message = "";
       thinking = None;
       last_move = R.get_time ();
@@ -1155,6 +1419,10 @@ let draw_house_header ui pid hd col header_y =
 let draw_hand_at ui pid ~cards_y ~header_y =
   let reveal_all = reveal_hand ui pid in
   let can_choose = human_to_move ui = Some pid in
+  (* In a game with a human, only the side to move looks active; a bot-only
+     table keeps the informative tint on both sides. *)
+  let human_game = Table.seat ui.table owner = Human || Table.seat ui.table opponent = Human in
+  let turn_on = (not human_game) || Table.to_move ui.table = Some pid in
   let selected = match ui.mode with Target (c :: _) -> Some c.cmd_card.key | _ -> None in
   List.iteri
     (fun col hd ->
@@ -1176,6 +1444,8 @@ let draw_hand_at ui pid ~cards_y ~header_y =
               else if active && inside r then fill ~round:0.08 r (rgba 255 255 255 28);
               draw_card_face (desc ui) r c ~cost:(Some cd.cd_cost) ~attack:(printed_attack c)
                 ~life:(printed_life c) ~life_color:life_ok ~tint;
+              (* Gray-out veil while another side is to move, over art and text alike. *)
+              if not turn_on then fill ~round:0.08 r (rgba 168 168 178 125);
               if is_selected then outline ~round:0.08 ~thick:3. r accent
               else if active && inside r then outline ~round:0.08 ~thick:2. r accent;
               if inside r then (
@@ -1336,68 +1606,9 @@ let draw_pass ui =
       if enabled then on_click r (fun () -> play ui None)
   | None -> button ~enabled ~size:14. r "Pass" (fun () -> play ui None)
 
-let languages = [ "en"; "fr"; "es"; "ru"; "vi" ]
-
-let draw_settings ui =
-  fill (rect 0. 0. vw vh) (rgba 0 0 0 120);
-  on_click (rect 0. 0. vw vh) (fun () -> ui.settings_open <- false);
-  let box = rect 186. 190. 460. 330. in
-  fill ~round:0.04 box panel;
-  outline ~round:0.04 box gold;
-  on_click box (fun () -> ());
-  text_c ~font:bold ~size:20. box (box.y +. 16.) "Settings";
-  text ~size:14. ~color:muted (box.x +. 24.) (box.y +. 56.) "Bot time per move (next game)";
-  List.iteri
-    (fun k ms ->
-      button ~selected:(ms = ui.budget_ms) ~size:13.
-        (rect (box.x +. 24. +. (float k *. 62.)) (box.y +. 80.) 56. 32.)
-        (if ms < 1000 then Printf.sprintf "%d ms" ms else Printf.sprintf "%d s" (ms / 1000))
-        (fun () ->
-          ui.budget_ms <- ms;
-          try Prefs.load () |> fun p -> Prefs.set_setup_budget p ms with _ -> ()))
-    budget_options;
-  text ~size:14. ~color:muted (box.x +. 24.) (box.y +. 126.) "Sound";
-  let set_sound v =
-    let v = Float.max 0. (Float.min 1. v) in
-    ui.sound_level <- v;
-    try Prefs.set_sound_level (Prefs.load ()) v with _ -> ()
-  in
-  button ~size:16.
-    (rect (box.x +. 24.) (box.y +. 148.) 56. 32.)
-    "-"
-    (fun () -> set_sound (ui.sound_level -. 0.1));
-  text_c ~font:bold ~size:14.
-    (rect (box.x +. 88.) (box.y +. 148.) 80. 32.)
-    (box.y +. 154.)
-    (Printf.sprintf "%d%%" (int_of_float ((ui.sound_level *. 100.) +. 0.5)));
-  button ~size:16.
-    (rect (box.x +. 176.) (box.y +. 148.) 56. 32.)
-    "+"
-    (fun () -> set_sound (ui.sound_level +. 0.1));
-  button ~size:13.
-    (rect (box.x +. 244.) (box.y +. 148.) 76. 32.)
-    "test"
-    (fun () ->
-      set_sound ui.sound_level;
-      play_sound "move");
-  text ~size:14. ~color:muted (box.x +. 24.) (box.y +. 194.) "Language (takes effect on restart)";
-  List.iteri
-    (fun k code ->
-      button ~selected:(code = ui.language) ~size:13.
-        (rect (box.x +. 24. +. (float k *. 62.)) (box.y +. 216.) 56. 32.)
-        code
-        (fun () ->
-          ui.language <- code;
-          try Prefs.set_language (Prefs.load ()) code with _ -> ()))
-    languages;
-  button ~size:16.
-    (rect (box.x +. 170.) (box.y +. 264.) 120. 36.)
-    "Close"
-    (fun () -> ui.settings_open <- false)
-
 (* ------------------------------------------------------------- main loop *)
 
-type screen = Setup of setup_ui | Game of game_ui
+type screen = Lobby of lobby_ui | Game of game_ui
 
 let background ui =
   let house = (desc ui).gd_players.(owner).pd_houses |> fun hs -> hs.(Array.length hs - 1).phd_house in
@@ -1434,7 +1645,7 @@ let parse_shot () =
       ("--shot", Arg.Set_string file, "FILE  save a screenshot to FILE and exit");
       ("--wait", Arg.Set_float wait, "SECS  seconds to wait before the shot (default 2)");
       ("--bots", Arg.Set bots, " two oracle bots play, so the board fills up");
-      ("--setup", Arg.Set setup_only, " shoot the setup screen instead of a game");
+      ("--setup", Arg.Set setup_only, " shoot the lobby instead of a game");
       ("--seed", Arg.Int (fun n -> seed := Some n), "N  seed for the deal");
       ("--special", Arg.String (fun h -> special := Some h), "NAME  special house for both players");
     ]
@@ -1444,56 +1655,6 @@ let parse_shot () =
   else
     Some
       { file = !file; wait = !wait; bots = !bots; setup_only = !setup_only; seed = !seed; special = !special }
-
-(* The setup screen remembers its last state in ~/.mancer/user.prefs, like the
-   Scala lobby persists its choices. Unknown entries fall back to defaults. *)
-let seat_of_string ~fallback s =
-  match Prefs.parse_seat ~allowed:Tournament.bot_ids ~fallback s with
-  | `Human -> Table.Human
-  | `Bot id -> Table.Bot id
-
-let setup_from_prefs () : Table.setup * (string * string) =
-  let prefs = Prefs.load () in
-  let d = Table.default_setup in
-  let s0, s1 = Prefs.setup_seats prefs in
-  let fb0, fb1 =
-    match d.seats with
-    | Table.Human, Table.Bot id -> (`Human, `Bot id)
-    | Table.Bot a, Table.Bot b -> (`Bot a, `Bot b)
-    | Table.Bot a, Table.Human -> (`Bot a, `Human)
-    | Table.Human, Table.Human -> (`Human, `Human)
-  in
-  let seats = (seat_of_string ~fallback:fb0 s0, seat_of_string ~fallback:fb1 s1) in
-  let sp0, sp1 = Prefs.setup_specials prefs in
-  let ds0, ds1 = d.specials in
-  let keep s fb =
-    try
-      ignore (Catalog.find_special s);
-      s
-    with Failure _ -> fb
-  in
-  let portraits =
-    let p0, p1 = Prefs.setup_portraits prefs in
-    let seat0, seat1 = seats in
-    (clamp_portrait seat0 p0, clamp_portrait seat1 p1)
-  in
-  ( {
-      d with
-      seats;
-      specials = (keep sp0 ds0, keep sp1 ds1);
-      budget_ms = Prefs.setup_budget prefs;
-      seed = None;
-    },
-    portraits )
-
-let persist_setup (setup : Table.setup) portraits =
-  try
-    let p = Prefs.load () in
-    Prefs.set_setup_seats p (Table.seat_name (fst setup.Table.seats), Table.seat_name (snd setup.Table.seats));
-    Prefs.set_setup_specials p setup.specials;
-    Prefs.set_setup_budget p setup.budget_ms;
-    Prefs.set_setup_portraits p portraits
-  with _ -> ()
 
 let () =
   let shot = parse_shot () in
@@ -1506,66 +1667,82 @@ let () =
   R.set_target_fps 60;
   R.init_audio_device ();
   load_fonts ();
-  let prefs_setup, prefs_portraits =
-    try setup_from_prefs () with _ -> (Table.default_setup, ("ember", "oracle"))
-  in
-  let screen =
-    ref
-      (Setup
-         {
-           setup =
-             (match shot with
-             | None -> prefs_setup
-             | Some sh ->
-                 let d = prefs_setup in
-                 {
-                   d with
-                   seats = (if sh.bots then (Table.Bot "oracle", Table.Bot "oracle") else d.seats);
-                   specials = (match sh.special with Some h -> (h, h) | None -> d.specials);
-                   budget_ms = (if sh.bots then 100 else d.budget_ms);
-                 });
-           portraits = (match shot with None -> prefs_portraits | Some _ -> ("ember", "oracle"));
-           seed_text = (match shot with Some { seed = Some n; _ } -> string_of_int n | _ -> "");
-           seed_focus = false;
-           error = "";
-         })
-  in
-  let start su () =
-    let seed = if su.seed_text = "" then None else int_of_string_opt su.seed_text in
-    let setup = { su.setup with seed } in
-    (match shot with None -> persist_setup setup su.portraits | Some _ -> ());
-    match new_game setup su.portraits with
+  let screen = ref (Lobby (new_lobby ())) in
+  let fight ?(persist = true) lobby =
+    if persist then persist_duel lobby;
+    lobby.show_duel <- false;
+    lobby.message <- "";
+    let s0, s1 = lobby.duel.sides in
+    let seed = if lobby.gs.seed_text = "" then None else int_of_string_opt lobby.gs.seed_text in
+    let d = Table.default_setup in
+    let setup =
+      {
+        d with
+        seats = (s0.seat, s1.seat);
+        specials = lobby.gs.specials;
+        budget_ms = lobby.gs.budget_ms;
+        seed;
+      }
+    in
+    match new_game setup (s0.portrait, s1.portrait) with
     | ui -> screen := Game ui
-    | exception Failure msg -> su.error <- msg
+    | exception Failure msg -> lobby.message <- msg
   in
   let quit = ref false in
-  (match (shot, !screen) with Some { setup_only = false; _ }, Setup su -> start su () | _ -> ());
+  (* A game shot skips the lobby without persisting its flags. *)
+  (match shot with
+  | Some sh when not sh.setup_only -> (
+      match !screen with
+      | Lobby lobby ->
+          let s0, s1 = lobby.duel.sides in
+          if sh.bots then (
+            s0.seat <- Table.Bot "oracle";
+            s0.portrait <- clamp_portrait s0.seat "ember";
+            s1.seat <- Table.Bot "oracle";
+            s1.portrait <- clamp_portrait s1.seat "oracle");
+          (match sh.special with Some h -> lobby.gs.specials <- (h, h) | None -> ());
+          if sh.bots then lobby.gs.budget_ms <- 100;
+          lobby.gs.seed_text <- (match sh.seed with Some n -> string_of_int n | None -> "");
+          fight ~persist:false lobby
+      | Game _ -> ())
+  | _ -> ());
   let t0 = R.get_time () in
   while not (!quit || R.window_should_close ()) do
     fit_frame ();
     pending := None;
     hovering := false;
     (match !screen with
-    | Setup su ->
-        setup_keys su ~start:(start su);
-        if R.is_key_pressed R.Key.Escape then quit := true
+    | Lobby lobby ->
+        if lobby.show_settings then settings_seed_keys lobby.gs;
+        if R.is_key_pressed R.Key.Escape then
+          if lobby.show_settings then (
+            lobby.show_settings <- false;
+            lobby.gs.seed_focus <- false)
+          else if lobby.show_duel then lobby.show_duel <- false
+          else quit := true
+        else if lobby.show_duel && R.is_key_pressed R.Key.Enter then fight lobby
+        else if (not lobby.show_duel) && not lobby.show_settings then lobby_keys lobby
     | Game ui ->
         drive_bot ui;
         tick_slides ui;
         let wheel = R.get_mouse_wheel_move () in
         if wheel <> 0. then ui.scroll_y <- Float.min max_scroll (Float.max 0. (ui.scroll_y +. (wheel *. 48.)));
         if R.is_key_pressed R.Key.Escape then
-          if ui.settings_open then ui.settings_open <- false else ui.mode <- Browse
+          match ui.settings with Some _ -> ui.settings <- None | None -> ui.mode <- Browse
         else if R.is_mouse_button_pressed R.MouseButton.Right then ui.mode <- Browse;
         if R.is_key_pressed R.Key.Space && both_bots ui then ui.paused <- not ui.paused);
     R.begin_drawing ();
     R.clear_background bg;
     (match !screen with
-    | Setup su -> draw_setup su ~start:(start su)
-    | Game ui ->
-        (match background ui with
-        | Some t -> image ~tint:(rgba 90 90 100 255) t (rect 0. 0. vw vh)
-        | None -> ());
+    | Lobby lobby ->
+        draw_lobby lobby;
+        if lobby.show_duel then draw_duel lobby ~fight:(fun () -> fight lobby);
+        if lobby.show_settings then
+          draw_game_settings lobby.gs ~show_seed:true ~on_budget:ignore ~close:(fun () ->
+              lobby.show_settings <- false;
+              lobby.gs.seed_focus <- false)
+    | Game ui -> (
+        (match background ui with Some t -> cover t | None -> ());
         ui.hover <- None;
         ui.hover_opp <- false;
         lay := make_layout ui.table;
@@ -1575,18 +1752,9 @@ let () =
         | Some { card = Some c; _ } when inside (last_played_rect ui) -> ui.hover <- Some c
         | _ -> ());
         let setup_now () = { (Table.setup ui.table) with budget_ms = ui.budget_ms } in
-        let to_setup () =
+        let to_lobby () =
           settle ui;
-          let s = setup_now () in
-          screen :=
-            Setup
-              {
-                setup = s;
-                portraits = ui.portraits;
-                seed_text = (match s.seed with Some n -> string_of_int n | None -> "");
-                seed_focus = false;
-                error = "";
-              }
+          screen := Lobby (new_lobby ())
         in
         let restart seed portraits =
           settle ui;
@@ -1606,12 +1774,17 @@ let () =
         draw_preview ui;
         draw_last_played ui;
         draw_menu ui
-          ~quit:(fun () -> to_setup ())
-          ~settings:(fun () -> ui.settings_open <- not ui.settings_open)
+          ~quit:(fun () -> to_lobby ())
+          ~settings:(fun () -> ui.settings <- Some (game_settings_from_prefs ()))
           ~switch
           ~replay:(fun () -> restart (Some (Table.seed ui.table)) ui.portraits)
           ~start_new:(fun () -> restart None ui.portraits);
-        if ui.settings_open then draw_settings ui);
+        match ui.settings with
+        | Some gs ->
+            draw_game_settings gs ~show_seed:false
+              ~on_budget:(fun ms -> ui.budget_ms <- ms)
+              ~close:(fun () -> ui.settings <- None)
+        | None -> ()));
     R.end_drawing ();
     (match shot with
     | Some sh when R.get_time () -. t0 >= sh.wait ->
@@ -1626,7 +1799,7 @@ let () =
        leaving a game settles the search first *)
     Option.iter (fun f -> f ()) !pending
   done;
-  (match !screen with Game ui -> settle ui | Setup _ -> ());
+  (match !screen with Game ui -> settle ui | Lobby _ -> ());
   Hashtbl.iter (fun _ s -> Option.iter R.unload_sound s) sounds;
   R.close_audio_device ();
   R.close_window ()

@@ -54,6 +54,39 @@ let human_choices () =
   Table.play_bot t;
   check_bool "human again" true (Table.to_move t = Some owner)
 
+(* The duel dialog's AI roster: faces, levels and their bots *)
+let duel_roster () =
+  let opps = Table.duel_opponents in
+  check_int "six faces" 6 (List.length opps);
+  check_bool "level order" true
+    (let sorted =
+       List.sort
+         (fun a b ->
+           compare (a.Table.opp_level, a.Table.opp_portrait) (b.Table.opp_level, b.Table.opp_portrait))
+         opps
+     in
+     opps = sorted);
+  List.iter
+    (fun (o : Table.opponent) ->
+      check_bool ("face for " ^ o.Table.opp_bot) true
+        (List.mem o.Table.opp_portrait (Table.faces_for_bot o.Table.opp_bot));
+      check_bool ("bot of " ^ o.Table.opp_portrait) true
+        (Table.bot_of_portrait o.Table.opp_portrait = Some o.Table.opp_bot))
+    opps;
+  check_bool "unknown face" true (Table.bot_of_portrait "ember" = None);
+  check_bool "unknown bot" true (Table.faces_for_bot "nope" = Table.faces_for_bot "greedy");
+  check_int "twelve player faces" 12 (List.length Table.player_portraits)
+
+(* The settings classes tab groups special houses by author like Scala. *)
+let house_groups () =
+  let grouped = List.map (fun (h : house) -> h.h_key) (List.concat_map snd Table.house_groups) in
+  let specials = List.map (fun (h : house) -> h.h_key) (Table.special_houses ()) in
+  List.iter (fun h -> check_bool h true (List.mem h grouped)) specials;
+  Alcotest.(check (option string)) "Troopers" (Some "olds") (Table.group_of_house "Troopers");
+  Alcotest.(check (option string)) "zen" (Some "badsleep") (Table.group_of_house "zen");
+  Alcotest.(check (option string)) "Wind" (Some "sinist") (Table.group_of_house "Wind");
+  check_bool "Chronomaster present" true (List.exists (fun (a, _) -> a = "panderson") Table.house_groups)
+
 let () =
   Alcotest.run "table"
     [
@@ -61,5 +94,7 @@ let () =
         [
           Alcotest.test_case "seed replays" `Quick seed_replays;
           Alcotest.test_case "human choices" `Quick human_choices;
+          Alcotest.test_case "duel roster" `Quick duel_roster;
+          Alcotest.test_case "house groups" `Quick house_groups;
         ] );
     ]
