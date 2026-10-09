@@ -371,12 +371,13 @@ let write_summary path stats elos (cards : card_rate list) special_names =
 
 let ordered_pair first second game_index = if game_index mod 2 = 0 then (first, second) else (second, first)
 
-type bot_kind = Greedy | Oracle
+type bot_kind = Greedy | Oracle | Lecturer
 
 let bot_kind = function
   | "greedy" | "apprentice" -> Greedy
   | "oracle" -> Oracle
-  | id -> failwith ("unknown bot '" ^ id ^ "' (want greedy or oracle)")
+  | "lecturer" -> Lecturer
+  | id -> failwith ("unknown bot '" ^ id ^ "' (want greedy, oracle or lecturer)")
 
 let make_mover kind budget =
   match kind with
@@ -387,6 +388,12 @@ let make_mover kind budget =
       s.logging <- false;
       s.stats_log <- true;
       Oracle.mover s
+  | Lecturer ->
+      let s = Lecturer.default_settings () in
+      s.duration <- budget;
+      s.logging <- false;
+      s.stats_log <- true;
+      Lecturer.mover s
 
 let pairings bots =
   match bots with

@@ -5,7 +5,7 @@ open Mancer
 let () =
   Printexc.record_backtrace true;
   let usage =
-    "main.exe [--games N] [--bots greedy,oracle] [--budget MS] [--maxTurns N]\n\
+    "main.exe [--games N] [--bots greedy,oracle,lecturer] [--budget MS] [--maxTurns N]\n\
     \          [--out DIR] [--resume DIR] [--seed N] [--mode play|summary] [--dir DIR] [-v]"
   in
   (* Tournament.parse already reads the flags; Arg is only here so unknown
@@ -17,8 +17,8 @@ let () =
          ("-v", Arg.Unit ignore, " verbose event trace on the first game");
          ("--seed", Arg.Int ignore, "N replay the deals of a previous run");
          ("--games", Arg.Int ignore, "N games per pairing (default 20)");
-         ("--bots", Arg.String ignore, "IDS comma-separated (greedy, oracle)");
-         ("--budget", Arg.Int ignore, "MS oracle time budget per move (default 1000)");
+         ("--bots", Arg.String ignore, "IDS comma-separated (greedy, oracle, lecturer)");
+         ("--budget", Arg.Int ignore, "MS search bots' time budget per move (default 1000)");
          ("--maxTurns", Arg.Int ignore, "N (default 300)");
          ("--out", Arg.String ignore, "DIR (default tournament-results/<timestamp>)");
          ("--resume", Arg.String ignore, "DIR continue a previous run");

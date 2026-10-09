@@ -22,3 +22,8 @@
  (name test_tournament)
  (modules test_tournament)
  (libraries mancer support alcotest unix))
+
+(test
+ (name test_lecturer)
+ (modules test_lecturer)
+ (libraries mancer support alcotest))

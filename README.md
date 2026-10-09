@@ -36,6 +36,7 @@ dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
 | `GameRecord.scala` | `lib/game_record.ml` |
 | `Tournament.scala` (CLI, Elo, JSON logs) | `lib/tournament.ml` |
 | `bot/oracle/OracleBot.scala` | `lib/oracle.ml` |
+| `bot/lecturer/LecturerBot.scala` | `lib/lecturer.ml` |
 
 ## How the Scala translated
 
@@ -149,11 +150,14 @@ fixtures both share. A rules change shows up as an expect diff: review it, then
 
 - **39 of 44 houses.** Fire, Water, Air, Earth and Troopers are in; the other
   specials are not.
-- **Most bots.** Lecturer, Summoner, Strategist, Gambler and Diviner are not
+- **Most bots.** Summoner, Strategist, Gambler and Diviner are not
   ported. The greedy bot in `game.ml` picks the cheapest legal card into the
   frontmost open slot. Oracle (`lib/oracle.ml`) is the sequential-halving
   rollout bot from Scala; it searches with perfect information of both decks
-  (Scala's Choco card-guesser is not ported).
+  (Scala's Choco card-guesser is not ported). Lecturer (`lib/lecturer.ml`) is
+  the UCT tree search, reworked: per-player (negamax) node values, Oracle's
+  eval as expansion priors and leaf score, depth 4 instead of 2. Tune with
+  `LECTURER_OPTS=exploration=0.7,maxDepth=4,...`.
 - **Networking, campaign, rendering, i18n.**
 
 ## Reading the numbers
@@ -161,8 +165,8 @@ fixtures both share. A rules change shows up as an expect diff: review it, then
 `bin/main.exe` is the Scala tournament driver: it shuffles legal decks, plays
 the requested bots, and writes `game-NNN.json` plus `summary.json` (W/L/D and
 Elo, K=16) under `tournament-results/<timestamp>/`. Default is greedy vs
-greedy. `--bots greedy,oracle` is the interesting matchup; `--budget` is the
-oracle's milliseconds per move (default 1000, same as Scala).
+greedy. `--bots greedy,oracle,lecturer` is the interesting matchup; `--budget` is the
+search bots' milliseconds per move (default 1000, same as Scala).
 
 The greedy bot always takes the cheapest legal card, so greedy-vs-greedy win
 counts are not a balance signal. Oracle vs greedy is.
