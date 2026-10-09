@@ -49,10 +49,12 @@ bin=_build/default/bin/gui.exe
 
 rm -rf "$out"
 mkdir -p "$out"
+cp LICENSE "$out/LICENSE"
 
 copy_assets() {
   dest=$1
   mkdir -p "$dest"
+  [ -f assets/LICENSE ] && cp assets/LICENSE "$dest/LICENSE"
   for d in backgrounds campaign cards combat fonts i18n particle portraits shaders sounds ui; do
     [ -d "assets/$d" ] || continue
     cp -R "assets/$d" "$dest/"

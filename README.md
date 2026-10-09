@@ -89,6 +89,15 @@ win counts are not a balance signal. Oracle vs greedy is.
 matchup. Lecturer is a UCT tree search; tune with
 `LECTURER_OPTS=exploration=0.7,maxDepth=4,...`.
 
+## License
+
+The game engine, tools, and original assets are under the
+[GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0).
+You may use and modify them in open source projects; if you ship a
+product or hosted service that includes this code or the mancer-assets
+media, you must publish corresponding source under the same license.
+Bundled fonts keep their own terms (`assets/fonts/IMFellEnglish-OFL.txt`).
+
 ## Assets
 
 Art, sounds, and text come from the
