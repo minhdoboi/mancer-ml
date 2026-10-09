@@ -98,7 +98,8 @@ module Board = struct
   let finish_dead (su : slots_update) dead =
     su.on_dead_hook dead;
     Option.iter
-      (fun st -> emit su.player.updater (Ev_replaced { num = dead.d_num; player = su.player.pid; creature = st.card }))
+      (fun st ->
+        emit su.player.updater (Ev_replaced { num = dead.d_num; player = su.player.pid; creature = st.card }))
       su.slot_updates.(dead.d_num).value
 
   let log (su : slots_update) e = su.logs <- e :: su.logs
@@ -285,7 +286,12 @@ module Slots = struct
   let swap slot dest_slot =
     emit slot.slots.player.updater
       (Ev_swap
-         { num = slot.num; dest = dest_slot.num; player = slot.slots.player.pid; dest_player = dest_slot.slots.player.pid });
+         {
+           num = slot.num;
+           dest = dest_slot.num;
+           player = slot.slots.player.pid;
+           dest_player = dest_slot.slots.player.pid;
+         });
     let removed = Slot.remove slot None in
     let removed2 = Slot.remove dest_slot None in
     priv_move removed dest_slot;

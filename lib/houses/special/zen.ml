@@ -16,7 +16,12 @@ let set_cocoons p xs = Player.set_data p (Zen_cocoons xs)
 let spark env (s : slot_update) =
   emit env.env_updater
     (Ev_ability
-       { kind = "zen.spark"; player = env.env_player; num = env.env_selected; target = Some (s.slots.player.pid, s.num) })
+       {
+         kind = "zen.spark";
+         player = env.env_player;
+         num = env.env_selected;
+         target = Some (s.slots.player.pid, s.num);
+       })
 
 let elem_attack target d player =
   match target with

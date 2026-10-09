@@ -153,6 +153,7 @@ module Updater : sig
 
   val player : updater -> player_id -> player_update
   val ended : updater -> player_id option
+
   val focus : updater -> int -> player_id -> bool -> unit
   (** Emits {!Sp.Ev_focus}. *)
 

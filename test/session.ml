@@ -59,8 +59,8 @@ let game_over_once () =
   check_int "game over sent once" 1
     (List.length (List.filter (function Ev_game_over _ -> true | _ -> false) (events ())));
   check_bool "no legal moves" true (Session.legal_commands s = []);
-  Alcotest.check_raises "submit after the end" (Invalid_argument "Session.submit: the game is over") (fun () ->
-      Session.submit s None)
+  Alcotest.check_raises "submit after the end" (Invalid_argument "Session.submit: the game is over")
+    (fun () -> Session.submit s None)
 
 let rejects_wrong_player () =
   let s = Session.create (fire_desc ()) in
@@ -86,7 +86,9 @@ let listener_does_not_change_game () =
         incr peeks
     | _ -> ()
   in
-  let s = Session.create ~mana0:r.mana.(0) ~mana1:r.mana.(1) ~rng:(Dice.make seed) ~max_turns:60 ~on_event desc in
+  let s =
+    Session.create ~mana0:r.mana.(0) ~mana1:r.mana.(1) ~rng:(Dice.make seed) ~max_turns:60 ~on_event desc
+  in
   s_ref := Some s;
   play_out s;
   check_bool "peeked" true (!peeks > 0);
@@ -108,7 +110,8 @@ let custom_targets_get_a_slot () =
 let target_slot_offers_open_slots () =
   init_all_houses ();
   let probe =
-    Common.spell ~key:"test.probe" ~description:"" ~input_spec:Select_target_slot ~effects:Engine.no_effects ()
+    Common.spell ~key:"test.probe" ~description:"" ~input_spec:Select_target_slot ~effects:Engine.no_effects
+      ()
   in
   probe.cost <- 1;
   probe.house_index <- 0;
@@ -136,7 +139,8 @@ let run_slot_and_die () =
   step u (fun () -> Player.run_slots (player u 0));
   check_bool "run slot" true (List.mem (Ev_run_slot { num = 0; player = 0 }) (events ()));
   step u (fun () ->
-      Slot.inflict (slot u 1 2) (mk_damage 100 { ctx_player = 0; ctx_card = None; ctx_selected = no_selection }));
+      Slot.inflict (slot u 1 2)
+        (mk_damage 100 { ctx_player = 0; ctx_card = None; ctx_selected = no_selection }));
   check_bool "die" true (List.mem (Ev_die { num = 2; player = 1 }) (events ()))
 
 let move_event () =
@@ -152,7 +156,10 @@ let summon_and_refresh () =
   play u 0 "fire.goblin" ~input:(Some 1) ~cost:1;
   let evs = events () in
   check_bool "summon" true
-    (List.exists (function Ev_summon { num = 1; player = 0; creature } -> creature.c_card.key = "fire.goblin" | _ -> false) evs);
+    (List.exists
+       (function
+         | Ev_summon { num = 1; player = 0; creature } -> creature.c_card.key = "fire.goblin" | _ -> false)
+       evs);
   match List.rev evs with
   | Ev_refresh { silent = false } :: _ -> ()
   | _ -> Alcotest.fail "a submit ends with a loud refresh"

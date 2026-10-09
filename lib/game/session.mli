@@ -1,9 +1,9 @@
-(** A live game driven one move at a time (HeadlessGame's turn loop, Tournament.scala). This is the API a UI or
-    a bot loop uses: create a session, read {!status}, {!submit} a move, and watch the event stream.
+(** A live game driven one move at a time (HeadlessGame's turn loop, Tournament.scala). This is the API a UI
+    or a bot loop uses: create a session, read {!status}, {!submit} a move, and watch the event stream.
 
-    Events: [on_event] receives every {!Sp.game_event}. The engine events mirror Scala's [UpdateListener];
-    the session adds {!Sp.Ev_to_move}, {!Sp.Ev_submitted} and {!Sp.Ev_game_over}. Listeners run mid-step: read
-    the board with {!peek}, not {!state}, and never call {!submit} from one. Bot simulations build their own
+    Events: [on_event] receives every {!Sp.game_event}. The engine events mirror Scala's [UpdateListener]; the
+    session adds {!Sp.Ev_to_move}, {!Sp.Ev_submitted} and {!Sp.Ev_game_over}. Listeners run mid-step: read the
+    board with {!peek}, not {!state}, and never call {!submit} from one. Bot simulations build their own
     updaters and emit nothing. *)
 
 open Sp
@@ -23,11 +23,12 @@ val create :
     [max_turns] caps the number of moves (default unlimited); [rng] is as in {!Engine.Updater.create}. *)
 
 val status : t -> status
-(** [Over] once a player is dead ([reason = "ended"]) or [max_turns] moves were played ([reason = "maxTurns"]). *)
+(** [Over] once a player is dead ([reason = "ended"]) or [max_turns] moves were played
+    ([reason = "maxTurns"]). *)
 
 val legal_commands : t -> command list
-(** The player to move's legal commands, cheapest first; [[]] when the game is over. Passing ([None]) is always
-    legal. *)
+(** The player to move's legal commands, cheapest first; [[]] when the game is over. Passing ([None]) is
+    always legal. *)
 
 val submit : t -> command option -> unit
 (** Plays the move for the player to move, then resolves it: attacks and the end-of-turn chain, or a hand-over

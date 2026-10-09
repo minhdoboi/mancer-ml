@@ -86,7 +86,8 @@ let submit s cmd =
       Option.iter
         (fun c ->
           if c.cmd_player <> pid then
-            invalid_arg (Printf.sprintf "Session.submit: player %d to move, got a command for %d" pid c.cmd_player))
+            invalid_arg
+              (Printf.sprintf "Session.submit: player %d to move, got a command for %d" pid c.cmd_player))
         cmd;
       let t = s.turns + 1 in
       s.moves <- Game_record.move_of ~t ~player:pid cmd s.u.state s.desc :: s.moves;
@@ -101,15 +102,16 @@ let trace_line = function
   | Ev_summon { num; creature; _ } -> Some (Printf.sprintf "summon %d %s" num creature.c_card.name)
   | Ev_spell_played c -> Some (Printf.sprintf "spell %s" c.cmd_card.name)
   | Ev_focus { num; _ } -> Some (Printf.sprintf "focus %d" num)
-  | Ev_replaced { num; creature; _ } -> Some (Printf.sprintf "slot %d refilled with %s" num creature.c_card.name)
+  | Ev_replaced { num; creature; _ } ->
+      Some (Printf.sprintf "slot %d refilled with %s" num creature.c_card.name)
   | _ -> None
 
 (* ------------------------------------------------------------------- driver *)
 
 type result = { winner : player_id option; turns : int; reason : string; moves : Game_record.move list }
 
-let play_game ?mana0 ?mana1 ?rng ?(bots = (Game.greedy_mover, Game.greedy_mover)) (desc : game_desc) ~max_turns
-    ~verbose =
+let play_game ?mana0 ?mana1 ?rng ?(bots = (Game.greedy_mover, Game.greedy_mover)) (desc : game_desc)
+    ~max_turns ~verbose =
   let on_event = if verbose then fun e -> Option.iter print_endline (trace_line e) else ignore in
   let s = create ?mana0 ?mana1 ?rng ~max_turns ~on_event desc in
   let mover pid = if pid = owner then fst bots else snd bots in
