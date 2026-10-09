@@ -206,8 +206,10 @@ let available_commands (u : updater) (p : player_update) =
           match cd.cd_card.input_spec with
           | Select_owner_slot -> List.map (fun n -> command cd (Some n)) open_slots
           | Select_owner_creature -> List.map (fun n -> command cd (Some n)) (filled p)
-          | Select_target_creature | Select_target_slot ->
-              List.map (fun n -> command cd (Some n)) (filled (Player.other p))
+          | Select_target_creature -> List.map (fun n -> command cd (Some n)) (filled (Player.other p))
+          | Select_target_slot ->
+              (* Bot.scala:229: the opponent's open slots *)
+              List.map (fun n -> command cd (Some n)) (Slots.get_open (Player.other p).slots_update)
           | Select_any_creature -> List.map (fun n -> command cd (Some n)) (filled p @ filled (Player.other p))
           | Select_owner f -> List.map (fun n -> command cd (Some n)) (f p.pid u.state)
           | Select_target f -> List.map (fun n -> command cd (Some n)) (f (other p.pid) u.state)

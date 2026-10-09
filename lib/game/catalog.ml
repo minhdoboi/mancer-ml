@@ -61,4 +61,7 @@ let find_special name =
   let n = token name in
   match List.find_opt (fun (h : house) -> token h.h_name = n || token h.h_key = n) specials with
   | Some h -> h
-  | None -> failwith ("unknown special house " ^ name)
+  | None ->
+      failwith
+        (Printf.sprintf "unknown special house %s (known: %s)" name
+           (String.concat ", " (List.map (fun (h : house) -> h.h_key) specials)))

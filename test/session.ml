@@ -103,6 +103,24 @@ let custom_targets_get_a_slot () =
       done)
     [ "wind"; "disciples" ]
 
+(* Bot.scala:229: a target-slot card is offered the opponent's open slots.
+   No ported card uses this input yet, so the test brings its own spell. *)
+let target_slot_offers_open_slots () =
+  init_all_houses ();
+  let probe =
+    Common.spell ~key:"test.probe" ~description:"" ~input_spec:Select_target_slot ~effects:Engine.no_effects ()
+  in
+  probe.cost <- 1;
+  probe.house_index <- 0;
+  let cd = { cd_card = probe; cd_cost = 1; cd_enabled = true; cd_extra_mana = 0 } in
+  let d = { pd_houses = [| { phd_house = Fire.house; phd_cards = [| cd |] } |] } in
+  let s = Session.create { gd_players = [| d; d |] } in
+  let u = Session.updater s in
+  place u 1 "fire.goblin" 0;
+  place u 1 "fire.goblin" 3;
+  let slots = List.filter_map (fun c -> c.cmd_input) (Session.legal_commands s) in
+  Alcotest.(check (list int)) "opponent's open slots" [ 1; 2; 4; 5 ] (List.sort compare slots)
+
 (* ------------------------------------------------------------ engine events *)
 
 let listen u =
@@ -167,6 +185,7 @@ let () =
           test_case "wrong player" `Quick rejects_wrong_player;
           test_case "listener keeps game" `Quick listener_does_not_change_game;
           test_case "custom targets" `Quick custom_targets_get_a_slot;
+          test_case "target slot" `Quick target_slot_offers_open_slots;
           test_case "simulations silent" `Quick simulations_are_silent;
         ] );
       ( "events",

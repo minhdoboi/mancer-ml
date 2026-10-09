@@ -6,7 +6,7 @@ let () =
   Printexc.record_backtrace true;
   let usage =
     "main.exe [--games N] [--bots greedy,oracle,lecturer] [--budget MS] [--maxTurns N]\n\
-    \          [--out DIR] [--resume DIR] [--seed N] [--mode play|summary] [--dir DIR] [-v]"
+    \          [--out DIR] [--resume DIR] [--seed N] [--special HOUSE] [--mode play|summary] [--dir DIR] [-v]"
   in
   (* Tournament.parse already reads the flags; Arg is only here so unknown
      tokens still produce a usage line. *)
@@ -22,6 +22,7 @@ let () =
          ("--maxTurns", Arg.Int ignore, "N (default 300)");
          ("--out", Arg.String ignore, "DIR (default tournament-results/<timestamp>)");
          ("--resume", Arg.String ignore, "DIR continue a previous run");
+         ("--special", Arg.String ignore, "HOUSE special house for both players (default Troopers)");
          ("--mode", Arg.String ignore, "play|summary (default play)");
          ("--dir", Arg.String ignore, "DIR summary input");
          ("--include", Arg.String ignore, "specials");

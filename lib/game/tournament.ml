@@ -465,14 +465,6 @@ let run_summary a =
   print_string (cards_report cards);
   print_string (cards_report ~title:"top special cards" (special_card_rates cards special_names))
 
-let special_houses = [ Troopers.house; Zen.house; Wind.house; Chronomaster.house; Disciples.house ]
-
-let find_special name =
-  let n = String.lowercase_ascii name in
-  List.find
-    (fun (h : house) -> String.lowercase_ascii h.h_name = n || String.lowercase_ascii h.h_key = n)
-    special_houses
-
 let init_specials () =
   Game.init_cards ~cost_fn:Troopers.conscription_cost Troopers.house;
   Game.init_cards Zen.house;
@@ -487,7 +479,7 @@ let run_play a =
   Game.init_cards Air.house;
   Game.init_cards Earth.house;
   init_specials ();
-  let special = find_special a.special in
+  let special = Catalog.find_special a.special in
   let seed = match a.seed with Some n -> n | None -> Random.State.bits (Random.State.make_self_init ()) in
   Printf.printf "seed %d\n%!" seed;
   let rng = Random.State.make [| seed |] in
