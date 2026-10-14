@@ -2,13 +2,14 @@
 
 `lib/bots/oracle.ml`, 423 lignes. Portage de `priv/sp/bot/oracle/OracleBot.scala`.
 
-> **L'idée en une phrase :** ne pas construire d'arbre — noter chaque coup à la
-> racine en le jouant, puis en laissant un joueur glouton (*greedy* : il joue à chaque fois le coup qui paraît le meilleur sur le moment, sans réfléchir plus loin) bon marché jouer *les
-> deux camps* pendant cinq plies (demi-coups) à travers le vrai moteur, et
-> désigner le vainqueur par **élimination successive (successive halving)** sous
-> une limite de temps réel.
+> **L'idée en une phrase :** ne pas construire d'arbre — évaluer chaque coup à
+> la racine en le jouant, puis en laissant un joueur glouton (*greedy* : à
+> chaque tour, il joue le coup qui paraît le meilleur sur le moment, sans
+> réfléchir plus loin) bon marché jouer *les deux camps* pendant cinq plies
+> (demi-coups) à travers le vrai moteur, et désigner le vainqueur par
+> **élimination successive (successive halving)** sous une limite de temps réel.
 
-C'est toute la conception. Tout ce qui suit n'est que détail.
+C'est toute la conception. Tout ce qui suit n'est que du détail.
 
 ### Quelques termes qui se traduisent mal
 
@@ -17,10 +18,10 @@ dans le code et dans les logs. Voici ce qu'ils recouvrent.
 
 | terme | explication |
 |---|---|
-| **screening** | « criblage » : première évaluation *rapide* de chaque coup légal — on le joue une fois, on avance de quatre passes, on note le résultat. C'est un tri grossier, fait avant les vrais rollouts, pour savoir lesquels méritent qu'on y passe du temps. |
-| **shortlist** (« présélection ») | la courte liste de coups retenus après le screening : le meilleur placement de chaque carte, limité aux 8 meilleures cartes plus le pass. Seuls ces coups-là passent aux rollouts. |
+| **screening** | « criblage » : première évaluation *rapide* de chaque coup légal — on le joue une fois, on avance de quatre passes, on note le résultat. C'est un tri grossier, fait avant les vrais rollouts, pour savoir lesquels méritent qu'on y consacre du temps. |
+| **shortlist** (« présélection ») | la courte liste de coups retenus après le screening : le meilleur placement de chaque carte, limité aux 8 meilleures cartes plus le pass. Seuls ces coups passent aux rollouts. |
 | **lethal** (« raccourci létal ») | si un coup gagne la partie sur-le-champ, inutile de réfléchir : on le joue. Ce test se fait pendant le screening, avant toute recherche. |
-| **chaîne de fin de tour** | quand un joueur *passe*, le tour ne se contente pas de changer de main : le moteur déroule toute une série d'effets automatiques (attaques des créatures, effets de maison, mort des créatures et leurs déclencheurs, gain de mana…). `Game.simulate` exécute cette chaîne en entier, c'est pourquoi même « passer » peut tuer l'adversaire. |
+| **chaîne de fin de tour** | quand un joueur *passe*, le tour ne fait pas que changer de main : le moteur déroule toute une série d'effets automatiques (attaques des créatures, effets de maison, mort des créatures et leurs déclencheurs, gain de mana…). `Game.simulate` exécute cette chaîne en entier, c'est pourquoi même « passer » peut tuer l'adversaire. |
 | **playout / rollout** | une courte partie imaginaire jouée par la politique gloutonne (*greedy*, voir document 3). |
 | **successive halving** | « élimination successive » : on essaie tous les candidats un peu, on écarte la moitié la plus faible, on recommence avec plus d'essais pour les survivants. |
 
@@ -46,12 +47,13 @@ dans le code et dans les logs. Voici ce qu'ils recouvrent.
     `-- max_by cand_mean survivors -> the command
 ```
 
-`None` (passer) est un candidat à part entière à chaque étape. Il a sa propre
+`None` (passer) est un candidat à part entière à chaque étape : il a sa propre
 entrée dans le screening et son propre groupe dans la shortlist.
 
 ### Étape 1 : le screening (le criblage)
 
-On joue chaque coup légal une seule fois, juste pour avoir une première note rapide.
+On joue chaque coup légal une seule fois, juste pour obtenir une première note
+rapide.
 
 ```ocaml
 let all = None :: List.map (fun c -> Some c) (Game.legal_commands bot_id desc start) in
@@ -61,7 +63,7 @@ let screened : (step * float) list =
 
 Chaque commande légale est jouée une fois dans un fork, puis `value` pousse le
 résultat de quatre passes en avant et le note. Cela coûte
-`(|legal| + 1) * 5` simulations — le coup d'ouverture ci-dessus a pris 15 sims
+`(|legal| + 1) * 5` simulations — le coup d'ouverture ci-dessus en a pris 15
 lors d'une exécution — et c'est ce qui rend tout le reste abordable.
 
 ### Étape 2 : le raccourci « lethal » (la victoire immédiate)
@@ -71,8 +73,8 @@ match List.find_opt (fun ((s : step), _) -> s.ended = Some bot_id) screened with
 | Some (s, _) -> log_line settings t0 "lethal" s.cmd 1.0 0 stats; s.cmd
 ```
 
-Si un coup termine immédiatement la partie, il est joué sans rien dépenser
-d'autre. Noter que cela peut produire `cmd=pass` : une exécution réelle se
+Si un coup termine immédiatement la partie, il est joué sans rien dépenser de
+plus. Noter que cela peut produire `cmd=pass` : une exécution réelle se
 termine par
 
 ```text
@@ -80,15 +82,15 @@ oracle-stats lethal playouts=0 wins=0 losses=0 sims=15 rounds=0 spentMs=0/budget
 ```
 
 parce que la *chaîne de fin de tour* (l'enchaînement automatique d'effets que
-le moteur déroule quand on passe : attaques, effets de maison, morts de
+le moteur déroule quand on passe : attaques, effets de maison, morts des
 créatures et leurs déclencheurs — un *death-rattle*, par exemple) a tué
-l'adversaire. `Game.simulate` exécute
-toute la chaîne ; le bot voit donc des victoires qui ne résultent pas
-directement de la carte jouée.
+l'adversaire. `Game.simulate` exécute toute la chaîne ; le bot voit donc des
+victoires qui ne résultent pas directement de la carte jouée.
 
-### Étape 3 : la shortlist (la shortlist)
+### Étape 3 : la shortlist (la présélection)
 
-On ne garde que les coups les plus prometteurs du screening ; eux seuls recevront des rollouts.
+On ne garde que les coups les plus prometteurs du screening ; eux seuls
+recevront des rollouts.
 
 ```ocaml
 let per_card =
@@ -98,18 +100,20 @@ let per_card =
 ```
 
 Les candidats sont regroupés par **identifiant de carte**, et seul le
-*placement* le mieux noté de chaque carte survit. Comme `Game.legal_commands`
-renvoie une commande distincte par emplacement cible, Oracle choisit en réalité
-à la fois *quelle carte* et *où la poser* à partir du seul screening. C'est le
-plus gros raccourci heuristique du bot, et c'est pourquoi un coup dont la
-meilleure cible paraît médiocre mais dont les autres cibles seraient excellentes
-n'est jamais exploré.
+*placement* le mieux noté de chaque carte survit. Comme
+`Game.legal_commands` renvoie une commande distincte par emplacement cible,
+Oracle choisit en réalité à la fois *quelle carte* jouer et *où* la poser à
+partir du seul screening. C'est le plus gros raccourci heuristique du bot, et
+c'est pourquoi un coup dont la meilleure cible paraît médiocre alors que ses
+autres cibles seraient excellentes n'est jamais exploré.
 
 Les `root_cards` (8) meilleures plus le pass forment les `survivors`.
 
 ### Étape 4 : élimination successive (successive halving)
 
-Principe : on essaie chaque survivant un peu, on écarte la moitié la plus faible, puis on recommence en donnant plus d'essais aux survivants, jusqu'à la fin du temps.
+Principe : on essaie chaque survivant un peu, on écarte la moitié la plus
+faible, puis on recommence en donnant plus d'essais aux survivants, jusqu'à
+épuisement du temps.
 
 ```ocaml
 let per_round = ref !Params.first_round_samples in
@@ -131,14 +135,14 @@ done;
 
 Deux détails en douze lignes :
 
-- `rank = c.n mod 3` fait tourner le rang de la réponse adverse à chaque
-  échantillon : les premiers échantillons sont donc répartis entre la
-  meilleure, la deuxième et la troisième meilleure réponse plutôt que
+- `rank = c.n mod 3` fait tourner le rang de la réponse adverse d'un
+  échantillon à l'autre : les premiers échantillons sont donc répartis entre la
+  meilleure, la deuxième et la troisième meilleure réponse, plutôt que
   concentrés sur une seule.
 - `keep = 2` quand `n <= 2`. Les deux derniers candidats ne sont jamais
   éliminés ; ils accumulent simplement un échantillon par round jusqu'à l'arrêt
-  de l'horloge. **L'étape finale est un duel en tête-à-tête, et son résultat est
-  monotone** — davantage d'échantillons ne peuvent qu'améliorer l'estimation.
+  de l'horloge. **L'étape finale est un duel en tête-à-tête, et son résultat
+  est monotone** — davantage d'échantillons ne peuvent qu'affiner l'estimation.
 
 ## 2. La fonction d'évaluation
 
@@ -168,14 +172,15 @@ let score ~projected ~before ~bot_id =
 
 ### Terme par terme
 
-**`life_term` est concave : un point de vie vaut plus quand il en reste moins.**
-Le terme se compose de deux parties : d'abord la vie *telle quelle* (« valeur
-faciale » : 50 points de vie comptent pour 50, comme le chiffre inscrit sur une
-pièce vaut ce chiffre), puis on en **retranche une pénalité** qui grandit très
-vite avec la vie déjà perdue (`lost`, au carré). Exemple à 40 vie : valeur
-faciale 40, vie perdue 20, pénalité 20²/60 = 6,67, donc `life_term` = 33,33.
-Plus on est bas, plus chaque point manquant pèse. Avec les poids par défaut (`life_w = life_curve = 1.0`,
-`life_term x = x - (60-x)²/60`, dérivée seconde −1/30) :
+**`life_term` est concave : un point de vie vaut plus quand il en reste
+moins.** Le terme se compose de deux parties : d'abord la vie *telle quelle*
+(« valeur faciale » : 50 points de vie comptent pour 50, comme une pièce vaut
+le chiffre inscrit dessus), puis on en **retranche une pénalité** qui croît
+très vite avec la vie déjà perdue (`lost`, au carré). Exemple à 40 de vie :
+valeur faciale 40, vie perdue 20, pénalité 20²/60 = 6,67, donc `life_term` =
+33,33. Plus on est bas, plus chaque point manquant pèse. Avec les poids par
+défaut (`life_w = life_curve = 1.0`, `life_term x = x - (60-x)²/60`, dérivée
+seconde −1/30) :
 
 | vie | `lost` | `life_term` | valeur du prochain point de vie |
 |---|---|---|---|
@@ -194,15 +199,15 @@ Remarquer ce que ce n'est *pas* : la différence
 `life_term bot - life_term opp` change de signe quand on échange les deux
 joueurs (si le bot mène de +10, l'adversaire, vu de son côté, est à −10), de
 sorte qu'une avance et le déficit inverse s'annulent toujours exactement. La
-courbure n'incline pas la balance vers la prudence — elle rend une hémorragie
-lente de plus en plus coûteuse à supporter, ce qui est le comportement voulu :
-le bot cesse d'accepter des échanges qui ne semblent abordables que parce qu'il
-est encore en bonne santé.
+courbure ne fait pas pencher la balance vers la prudence — elle rend une
+hémorragie lente de plus en plus coûteuse à supporter, ce qui est le
+comportement voulu : le bot cesse d'accepter des échanges qui ne semblent
+abordables que parce qu'il est encore en bonne santé.
 
 **`board` décote les créatures immobilisées.** Une créature étourdie, bloquée
 ou en pause contribue pour son attaque multipliée par `held_factor` (0.3), car
-elle ne frappera pas au tour suivant. Sa vie compte en revanche en totalité.
-Noter que cela lit le plateau *à la feuille*, c'est donc un jugement sur la
+elle ne frappera pas au tour suivant. Sa vie compte, en revanche, en totalité.
+Noter que cela lit le plateau *à la feuille* : c'est donc un jugement sur la
 position projetée, pas sur les intentions.
 
 **`stock` et `income`** sont le mana en main et la croissance par tour. La
@@ -214,9 +219,9 @@ fonction ; voir le tableau de réglage.
 
 **`tanh (raw / 60)`** ramène le score brut (non borné) dans l'intervalle
 `(-1, 1)`, en l'écrasant progressivement. `raw = 60` donne `0.76`, `raw = 120`
-donne `0.96`. Rien ne sature à ±1, ce qui garde informative la moyenne de
-nombreux échantillons — un rollout qui gagne la course mais pas la partie
-obtient quand même un score bien supérieur à un nul.
+donne `0.96`. Rien ne sature à ±1, ce qui garde la moyenne de nombreux
+échantillons informative — un rollout qui gagne la course sans gagner la partie
+obtient quand même un score nettement supérieur à un nul.
 
 ### Le couple `projected` / `before`
 
@@ -228,10 +233,10 @@ let b_life = float_of_int bot.ps_life +. (!extrapolate *. (float_of_int bot.ps_l
 après quatre passes simulées. Le **delta de vie est doublé** avec
 `extrapolate = 1.0`. Si le bot est entré dans le rollout à 50 et se trouve à 45
 à la feuille, le score utilise `45 + (45 - 50) = 40`. Justification : un pass
-n'est pas un coup nul, il fait avancer l'enchaînement des tours, si bien que la vie
-lue sur une feuille en milieu d'enchaînement est en retard sur la position réelle.
-L'extrapolation atténue ce bruit. Avec `extrapolate=0`, c'est la feuille brute
-qui est notée.
+n'est pas un coup nul, il fait avancer l'enchaînement des tours, si bien que la
+vie lue sur une feuille en milieu d'enchaînement est en retard sur la position
+réelle. L'extrapolation atténue ce bruit. Avec `extrapolate=0`, c'est la feuille
+brute qui est notée.
 
 ### Une évaluation détaillée
 
@@ -247,7 +252,7 @@ growth_w * (6 - 5)           = 6.0 * 1     =   +6.00
 score = tanh(27 / 60) = tanh(0.45)          ~=  +0.42
 ```
 
-Un avantage net mais pas absurde se lit environ à quatre dixièmes. C'est
+Un avantage net mais pas absurde se lit à environ quatre dixièmes. C'est
 l'échelle sur laquelle vit chaque échantillon de rollout.
 
 ### Valeurs terminales
@@ -258,24 +263,27 @@ let terminal ~bot_id winner ply =
   if winner = bot_id then v else -.v
 ```
 
-Un rollout terminé **n'est pas** noté par `Eval.score` ; il reçoit une valeur **fixe**, indépendante de l'état du plateau à la fin (seul
-le vainqueur compte) : **+v** si le bot gagne, **−v** s'il perd, où v décroît avec le ply auquel la partie s'est achevée. Gagner au ply 1 vaut
-`0.98`, au ply 5 `0.90`, et le plancher est `0.5` (atteint au ply 25). La
-rapidité a de la valeur, mais jamais plus du double. Exemple : une victoire
-rapide au ply 1 vaut +0,98, une victoire tardive +0,50 ; une défaite rapide vaut
-−0,98 (la pire), une défaite tardive −0,50 (moins grave : on a tenu longtemps).
+Un rollout terminé **n'est pas** noté par `Eval.score` ; il reçoit une valeur
+**fixe**, indépendante de l'état du plateau à la fin (seul le vainqueur
+compte) : **+v** si le bot gagne, **−v** s'il perd, où v décroît avec le ply
+auquel la partie s'est achevée. Gagner au ply 1 vaut `0.98`, au ply 5 `0.90`,
+et le plancher est `0.5` (atteint au ply 25). La rapidité a de la valeur, mais
+jamais plus du double. Exemple : une victoire rapide au ply 1 vaut +0,98, une
+victoire tardive +0,50 ; une défaite rapide vaut −0,98 (la pire), une défaite
+tardive −0,50 (moins grave : on a tenu longtemps).
 
 ## 3. La politique de base
 
-Un rollout consiste en cinq plies de jeu glouton (*greedy*) pour les deux camps, à partir
-de l'ensemble de coups élagué propre à Oracle (`oracle.ml:190-213`) :
+Un rollout consiste en cinq plies de jeu glouton (*greedy*) pour les deux
+camps, à partir de l'ensemble de coups élagué propre à Oracle
+(`oracle.ml:190-213`) :
 
 ```ocaml
 None :: List.concat_map (fun id -> placements (Hashtbl.find by_card id) p enemy) order
 ```
 
-Pass, plus au plus `placements_per_card` (2) cibles par carte jouable. Les deux
-cibles sont choisies par `placements` (`oracle.ml:152-188`) :
+Le pass, plus au plus `placements_per_card` (2) cibles par carte jouable. Les
+deux cibles sont choisies par `placements` (`oracle.ml:152-188`) :
 
 - **Cible côté allié** (`Select_owner_slot`, `Select_owner_creature`) :
   1. la créature ennemie à l'**attaque la plus élevée** dans cet emplacement —
@@ -305,8 +313,8 @@ step := if pid <> bot_id && not !opponent_replied then (
 ```
 
 `signed ~bot_id v pid` inverse le signe quand le camp qui joue n'est pas le
-bot ; `scored` classe donc toujours les coups **du point de vue du joueur sur le
-point de jouer**. `nth_best scored 0` est ainsi la *meilleure* réponse de
+bot ; `scored` classe donc toujours les coups **du point de vue du joueur sur
+le point de jouer**. `nth_best scored 0` est ainsi la *meilleure* réponse de
 l'adversaire, le rang 1 sa deuxième meilleure, le rang 2 sa troisième.
 
 Les échantillons font tourner `rank = n mod 3`, avec les poids
@@ -345,10 +353,9 @@ played = 0.475
 mean   = (2.0*0.10 + 0.475) / 3.0          = 0.225
 ```
 
-Les rollouts ont donc fait passer le candidat de `0.10` à `0.225` — le screening
-est tiré vers les observations échantillonnées avec un poids
-`screen_weight : 1`, et avec assez d'échantillons il n'a plus aucune
-importance.
+Les rollouts ont donc fait passer le candidat de `0.10` à `0.225` — le
+screening est tiré vers les observations échantillonnées avec un poids
+`screen_weight : 1`, et avec assez d'échantillons il ne compte plus.
 
 L'intérêt des réponses classées : **un coup qui n'est bon que parce que la
 meilleure réponse de l'adversaire est mauvaise ne doit pas recevoir tout le
@@ -370,11 +377,11 @@ houses 6,5,5,2,2, life 60, slots .,.,.,.,.,.
 
 Comment lire cette sortie :
 
-- `screen:` comporte une entrée par carte (meilleur placement de chacune), plus
-  le pass, dans l'ordre du screening. Six cartes en main → six entrées.
+- `screen:` comporte une entrée par carte (le meilleur placement de chacune),
+  plus le pass, dans l'ordre du screening. Six cartes en main → six entrées.
 - `final:` liste les survivants, triés par `cand_mean`. Ici les six ont survécu
   — l'horloge a expiré pendant le round 1, donc **aucune élimination n'a eu
-  lieu**. C'est normal à 60 ms et c'est la propriété anytime en action : un
+  lieu**. C'est normal à 60 ms, et c'est la propriété anytime en action : un
   classement exploitable existe dès le premier échantillon.
 - `n=` est le nombre de rollouts reçus par chaque candidat. Des valeurs de 1 à 3
   signifient que c'est le budget, et non l'algorithme, qui était la contrainte
@@ -390,18 +397,19 @@ ply ultérieur :
 
 `fire.wave` est arrivée **première** au screening avec `0.983` et a fini
 **huitième** avec `0.655` ; `fire.monk` était deuxième avec `0.956` et a fini
-dernière avec `0.477`. Autrement dit, le screening ne regarde que quatre passes (quatre tours où l'on
-ne joue plus rien) après la pose de la carte : il ne voit donc pas ce qui se
-passe ensuite dans la partie, et les rollouts, eux, le voient — ils jouent les
-cinq plies suivantes avec de vrais coups des deux camps.
+dernière avec `0.477`. Autrement dit, le screening ne regarde que quatre
+passes (quatre tours où l'on ne joue plus rien) après la pose de la carte : il
+ne voit donc pas ce qui se passe ensuite dans la partie, alors que les
+rollouts, eux, le voient — ils jouent les cinq plies suivantes avec de vrais
+coups des deux camps.
 
 (Pourquoi le screening ne pouvait pas les départager : dans cet exemple, le bot
 était déjà nettement en avance, et *tous* les candidats avaient une note
-supérieure à 0.9. Or `tanh` écrase les scores près de 1 : quand une position est
-vue comme très bonne, les bons et les excellents coups obtiennent presque la
-même note, et le screening n'a plus de quoi les distinguer. Ce sont alors les
-petits écarts apparus pendant les rollouts qui font la différence.) Ce renversement est la raison
-d'être de la conception en deux étapes.
+supérieure à 0.9. Or `tanh` écrase les scores près de 1 : quand une position
+paraît très bonne, les bons et les excellents coups obtiennent presque la même
+note, et le screening n'a plus de quoi les distinguer. Ce sont alors les petits
+écarts apparus pendant les rollouts qui font la différence.) Ce renversement
+est la raison d'être de la conception en deux étapes.
 
 ## 6. Coût
 
@@ -414,8 +422,8 @@ l'ensemble élagué est joué (un fork chacun) puis projeté de quatre passes :
 ```
 
 Avec `horizon = 5` et un branching de 7 (pass + 2 placements × 3 cartes
-jouables), cela donne environ **180 simulations par rollout**, avant la phase de
-screening. Chiffres réels pour un budget de 200 ms sur cette machine :
+jouables), cela donne environ **180 simulations par rollout**, avant la phase
+de screening. Chiffres réels pour un budget de 200 ms sur cette machine :
 
 ```text
 oracle-stats search playouts=60  wins=0 losses=0 sims=28640 rounds=2  spentMs=200/budgetMs=200 best=0.354 n=14 cmd=0> water.sprite at 5
@@ -424,19 +432,19 @@ oracle-stats search playouts=273 wins=273 losses=0 sims=21701 rounds=129 spentMs
 
 Environ 10⁵ simulations/seconde. La première ligne a effectué deux rounds
 d'élimination et donné 14 échantillons au gagnant ; la seconde a réduit les
-candidats jusqu'au duel final puis dépensé 129 rounds supplémentaires à
-échantillonner cette paire — `rounds=129` avec `n=134` est l'étape de
+candidats jusqu'au duel final, puis a dépensé 129 rounds supplémentaires à
+échantillonner cette paire — `rounds=129` avec `n=134`, c'est l'étape de
 tête-à-tête qui fait son travail.
 
-Utiliser `sims=` comme véritable compteur de coût lorsqu'on modifie des
+Utilisez `sims=` comme véritable compteur de coût quand vous modifiez des
 paramètres. Doubler `horizon` double les sims par rollout et divise par deux le
 nombre de rounds terminés.
 
 ## 7. Réglage
 
-`ORACLE_OPTS` est une liste `clé=valeur` séparée par des virgules, lue une seule
-fois au chargement du module (`oracle.ml:68-99`). Les clés inconnues provoquent
-simplement un avertissement.
+`ORACLE_OPTS` est une liste `clé=valeur` séparée par des virgules, lue une
+seule fois au chargement du module (`oracle.ml:68-99`). Les clés inconnues ne
+provoquent qu'un avertissement.
 
 ```sh
 ORACLE_OPTS=horizon=3,rootCards=4,projectPlies=2 \
@@ -465,9 +473,9 @@ ORACLE_OPTS=horizon=3,rootCards=4,projectPlies=2 \
 
 Deux choses à savoir avant de régler :
 
-- Les `Params` sont des `ref`, donc `ORACLE_OPTS` affecte **aussi Diviner** — il
-  réutilise `Oracle.Params.root_cards`, `reply_weights` et `screen_weight`.
-- Ils sont globaux au processus. Il n'existe pas de réglage par siège.
+- Les `Params` sont des `ref`, donc `ORACLE_OPTS` affecte **aussi Diviner** —
+  il réutilise `Oracle.Params.root_cards`, `reply_weights` et `screen_weight`.
+- Ils sont globaux au processus : il n'existe pas de réglage par siège.
 
 Expériences peu coûteuses qui valent la peine d'être menées :
 
@@ -487,30 +495,32 @@ ORACLE_OPTS=replyWeights=1;1;1 dune exec ./bin/main.exe -- --bots greedy,oracle 
 
 - **Chaque carte n'est testée par les rollouts que sur un seul emplacement.**
   La shortlist ne garde, pour chaque carte, que l'emplacement le mieux noté par
-  le screening ; les autres emplacements ne sont jamais essayés. Si le bon
-  emplacement n'apparaît comme tel qu'après la réponse de l'adversaire, la
-  recherche passe à côté.
+  le screening ; les autres ne sont jamais essayés. Si le bon emplacement
+  n'apparaît comme tel qu'après la réponse de l'adversaire, la recherche passe
+  à côté.
 - **Les rollouts gloutons (*greedy*) font tous la même erreur.** Tous les
   rollouts d'un coup sont joués par le même joueur glouton, qui se trompe
   toujours de la même manière. Faire 100 rollouts ne corrige donc pas ce biais,
-  de même qu'interroger 100 fois le même conseiller qui a un préjugé ne le rend
-  pas plus juste : l'estimation paraît très précise (les échantillons se
-  ressemblent) mais reste fausse sur ce point (on parle d'erreur *corrélée*). Un schéma de réponses à poids uniformes
-  (`replyWeights=1;1;1`) atténue un peu ce défaut ; une politique de base
-  aléatoire, comme celle de Lecturer, l'atténue davantage.
-- **Aucune réutilisation d'un coup à l'autre.** Chaque `execute` repart de zéro.
-  Un bot qui conserverait les statistiques de la recherche précédente d'un tour
-  à l'autre serait plus affûté, au prix d'un `mover` à état.
+  pas plus qu'interroger 100 fois le même conseiller, qui a un préjugé, ne le
+  rend plus juste : l'estimation paraît très précise (les échantillons se
+  ressemblent) mais reste fausse sur ce point (on parle d'erreur *corrélée*).
+  Un schéma de réponses à poids uniformes (`replyWeights=1;1;1`) atténue un peu
+  ce défaut ; une politique de base aléatoire, comme celle de Lecturer,
+  l'atténue davantage.
+- **Aucune réutilisation d'un coup à l'autre.** Chaque `execute` repart de
+  zéro. Un bot qui conserverait les statistiques de la recherche du tour
+  précédent serait plus affûté, au prix d'un `mover` à état.
 - **Il joue contre un seul deck deviné, surdimensionné.** Comme le
   `BotKnowledge` de Scala, le `mover` ne cherche jamais sur le vrai deck de
   l'adversaire. `Belief.blind` le remplace par l'union de quelques donnes
   légales (`Belief.superset_samples`, 4), chacune contenant toutes les cartes
-  adverses vues jusque-là, et garde cette supposition jusqu'à ce qu'une nouvelle
-  carte apparaisse. L'adversaire peut alors répondre avec plus de cartes qu'une
-  vraie main n'en contient, ce qui pèche par prudence, mais une carte qu'aucune
-  donne n'a tirée reste invisible. Diviner prend l'autre voie et garde les donnes
-  séparées, en mondes distincts ([Diviner](05-diviner.fr.md)). (Les premières versions du portage cherchaient sur le
-  vrai deck, ce qui faisait de chaque bot une borne haute ; le plateau, lui,
-  reste réel, voir Diviner §8.)
+  adverses vues jusque-là, et garde cette supposition jusqu'à ce qu'une
+  nouvelle carte apparaisse. L'adversaire peut alors répondre avec plus de
+  cartes qu'une vraie main n'en contient, ce qui pèche par prudence, mais une
+  carte qu'aucune donne n'a tirée reste invisible. Diviner prend l'autre voie
+  et garde les donnes séparées, en mondes distincts ([Diviner](05-diviner.fr.md)).
+  (Les premières versions du portage cherchaient sur le vrai deck, ce qui
+  faisait de chaque bot une borne haute ; le plateau, lui, reste réel, voir
+  Diviner §8.)
 
 Suite : [05-diviner.fr.md](05-diviner.fr.md).

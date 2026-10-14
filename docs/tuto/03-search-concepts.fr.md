@@ -9,8 +9,8 @@ lire avant les documents 4 et 5, ou à sauter si le vocabulaire est déjà connu
 La conception évidente — construire l'arbre de jeu, faire du minimax ou du MCTS
 à profondeur fixe — échoue ici pour deux raisons.
 
-**Le facteur de branchement est énorme.** Une main compte quatre cartes de base
-plus une spéciale ; chaque carte a jusqu'à six cibles. Avec trois cartes
+**Le facteur de branchement est énorme.** Une main compte quatre cartes de
+base plus une spéciale ; chaque carte a jusqu'à six cibles. Avec trois cartes
 jouables, `Game.legal_commands` renvoie une vingtaine de commandes. Une
 profondeur de 5 donnerait 20⁵ ≈ 3,2 millions de positions, et chaque position
 coûte un `Game.simulate` complet — une copie d'état plus toute la chaîne de fin
@@ -21,9 +21,7 @@ l'issue de ce jeu ; personne ne gagne au tour 3. La valeur d'une feuille doit
 être *jugée*, et juger suppose une opinion sur ce qui se passe ensuite.
 
 Tous les bots font donc le même compromis : **ne pas chercher en profondeur,
-chercher large et peu profond, et rester honnête sur la feuille.** C'est tout
-l'espace de conception, et les bots ne diffèrent que par la manière de
-dépenser leur budget à l'intérieur.
+chercher large et peu profond, et rester honnête sur la feuille.** C'est dans cet espace que toute la conception se joue, et les bots ne diffèrent que par la manière de dépenser leur budget à l'intérieur.
 
 ## 2. Évaluation des feuilles
 
@@ -31,7 +29,8 @@ Un **score de feuille** associe un nombre à une position. Exigences dans ce
 jeu :
 
 - **Borné.** `(-1, 1)` ou `[0, 1]`, pour que les moyennes de nombreux
-  échantillons restent interprétables et qu'une valeur aberrante ne domine pas.
+  échantillons restent interprétables et qu'une valeur aberrante ne domine
+  pas.
 - **Continu et monotone.** De petites différences doivent produire de petites
   différences de score, faute de quoi la moyenne n'a pas de sens.
 - **Centré sur zéro.** Avantage du bot, et non « bon pour le joueur 0 » —
@@ -57,8 +56,8 @@ l'évaluation, ignore totalement les cartes et se demande « qui gagne la course
 ## 3. Rollouts
 
 Un **rollout** est une courte partie jouée par une **politique de base** peu
-coûteuse. Sa valeur est le score de feuille en fin de partie. Les rollouts sont
-le moyen d'acheter de la profondeur sans la payer.
+coûteuse. Sa valeur est le score de feuille en fin de partie. Les rollouts
+sont le moyen d'acheter de la profondeur sans la payer.
 
 ```text
    root move
@@ -86,11 +85,11 @@ suffisant pour un jugement à un ply. Les politiques aléatoires donnent un brui
 *non biaisé*, ce dont le MCTS a besoin pour que les nombres de visites aient un
 sens.
 
-## 4. Algorithmes anytime et horloge murale
+## 4. Algorithmes anytime et horloge murale (interruptibles et temps réel et pas cpu)
 
-Chaque bot reçoit un budget en millisecondes et est testé contre
-`now_ms () < deadline` dans sa boucle. Ils sont donc **anytime** : ils doivent
-renvoyer une réponse utilisable quel que soit le moment où on les interrompt.
+Chaque bot reçoit un budget en millisecondes et teste `now_ms () < deadline`
+dans sa boucle. Ils sont donc **anytime** : ils doivent renvoyer une réponse
+utilisable quel que soit le moment où on les interrompt.
 
 La conséquence est que le levier est l'*algorithme*, non la *profondeur*. On ne
 peut pas demander « cherche à profondeur 5 » ; on demande « continue
@@ -136,8 +135,8 @@ Pourquoi ne pas donner le même budget à chaque coup ? Parce que les mauvais
 coups sont plus nombreux que les bons : avec 9 candidats et 100 rollouts fixes,
 on en dépense environ 11 pour chacun et la plupart sont des perdants évidents.
 Le halving dépense le budget là où la décision est encore ouverte. Si la
-réponse est déjà connue — la passe de screening — tout l'ordonnancement est
-bon marché.
+réponse est déjà connue — la passe de screening — tout l'ordonnancement est bon
+marché.
 
 Ce que le successive halving ne sait pas faire, c'est réutiliser : il jette
 complètement les statistiques des candidats éliminés. C'est le compromis face
@@ -153,8 +152,8 @@ trois façons à la fois.
 fois et évalué (`oracle.ml:277-284`). C'est la première coupe bon marché qui
 rend le reste abordable, et c'est là que meurent la plupart des candidats
 écartés. La valeur de screening est aussi conservée et mélangée à la moyenne
-finale, ce qui explique qu'un coup qui paraît mauvais à la lecture superficielle
-ne soit pas aussitôt jeté.
+finale, ce qui explique qu'un coup qui paraît mauvais à la lecture
+superficielle ne soit pas aussitôt jeté.
 
 **Réponses classées.** Dans un rollout, la *première* réponse de l'adversaire
 n'est ni tirée au hasard ni prise de façon gloutonne — le rollout est exécuté à
@@ -168,14 +167,14 @@ let played = !acc +. (c.screen *. (1.0 -. !w))     (* oracle.ml:117 *)
 ```
 
 Ainsi, « la meilleure réponse de l'adversaire est mauvaise pour nous » ne vaut
-crédit plein que si cela tient aussi face à ses 2ᵉ et 3ᵉ meilleures réponses.
+plein crédit que si cela tient aussi face à ses 2ᵉ et 3ᵉ meilleures réponses.
 C'est une approximation économique d'un minimax souple : jouer surtout la
 meilleure ligne de l'adversaire, mais relativiser le coup si seule cette ligne
 lui est défavorable.
 
 **Glouton ensuite.** Les coups du bot et tous les coups adverses suivants sont
-l'argmax du score de feuille (`max_by snd scored`, `oracle.ml:337`). Personne ne
-modélise une stratégie adverse profonde ; on modélise la suivante.
+l'argmax du score de feuille (`max_by snd scored`, `oracle.ml:337`). Personne
+ne modélise une stratégie adverse profonde ; on modélise la suivante.
 
 ## 7. UCT et MCTS
 
@@ -216,19 +215,19 @@ Trois détails le font fonctionner ici :
   l'ensemble de `Game.legal_commands` ; tout ce qui est plus profond utilise
   l'ensemble élagué d'Oracle. L'arbre reste abordable et le code est partagé.
 
-Lecturer choisit son coup par **nombre de visites**, non par valeur moyenne — le
-enfant de la racine le plus visité est celui sur lequel l'arbre s'accorde.
+Lecturer choisit son coup par **nombre de visites**, non par valeur moyenne —
+l'enfant de la racine le plus visité est celui sur lequel l'arbre s'accorde.
 
-## 8. Recherche meilleur-d'abord et approfondissement itératif
+## 8. Recherche meilleur d'abord et approfondissement itératif
 
-Summoner (et Strategist, qui en reprend la forme) est une recherche arborescente
-plus simple :
+Summoner (et Strategist, qui en reprend la forme) est une recherche
+arborescente plus simple :
 
 - **Approfondissement itératif** : reconstruire de zéro à la profondeur 2, 3,
   4, … tant que le budget dure, et n'accepter la réponse d'une passe que si
   cette passe s'est *entièrement stabilisée* (`summoner.ml:242-269`). Une passe
   inachevée est écartée plutôt que crue.
-- **Meilleur-d'abord au sein d'une passe** : au lieu d'un ordre fixe,
+- **Meilleur d'abord au sein d'une passe** : au lieu d'un ordre fixe,
   `should_open` et `contender` choisissent le nœud non développé le plus
   prometteur, de sorte que les victoires faciles sont résolues en premier.
 - **Remontée min/max selon le camp au trait** (`pull`, `summoner.ml:96-113`),
@@ -237,7 +236,7 @@ plus simple :
   (`plan.gamma ** depth`, `strategist.ml:308`), afin que « à deux coups de la
   victoire » vaille moins que « à un coup de la victoire ».
 
-Reconstruire à chaque passe est un gaspillage et Summoner en est le bot de
+Reconstruire à chaque passe est un gaspillage et Summoner est le bot de
 recherche le plus faible, mais il possède une propriété que les autres n'ont
 pas : il sait s'il a terminé.
 
@@ -285,9 +284,9 @@ rigoureuse ? C'est exactement ce qu'implémente Diviner, et le vocabulaire vaut
 d'être appris pour lui-même.
 
 **Partiellement observable.** Les vingt cartes de l'adversaire sont cachées. Le
-bot connaît sa maison spéciale et les cartes qu'il a révélées, rien d'autre. La
-recherche à information complète est optimiste : elle évalue « l'adversaire a
-exactement les cartes qu'il a », ce qui n'est qu'un échantillon dans un espace
+bot connaît sa maison spéciale et les cartes qu'il a révélées, rien d'autre.
+La recherche à information complète est optimiste : elle évalue « l'adversaire
+a exactement les cartes qu'il a », ce qui n'est qu'un échantillon dans un espace
 énorme.
 
 **Espace de croyances.** Au lieu d'un unique état caché, on conserve un
@@ -307,26 +306,27 @@ séparément. Trois hypothèses rendent cela praticable :
    Diviner, celui d'Oracle, avec ses propres statistiques.
 
 **L'espérance ne suffit pas.** Moyenner sur les mondes est l'agrégation
-évidente, et elle est mauvaise pour jouer : un coup qui gagne dans 2 mondes sur
-3 et perd lourdement dans le troisième est bien pire qu'un coup modérément bon
-dans les trois, car le troisième monde pourrait être le vrai. Donc :
+évidente, et elle est mauvaise pour jouer : un coup qui gagne dans 2 mondes
+sur 3 et perd lourdement dans le troisième est bien pire qu'un coup modérément
+bon dans les trois, car le troisième monde pourrait être le vrai. Donc :
 
 ```text
 score(move) = mean(world values) - risk_aversion * (mean - worst world)
 ```
 
 Le terme de pénalité croît avec la dispersion et disparaît quand tous les
-mondes s'accordent. Avec `risk_aversion = 0`, on retombe sur l'espérance simple
-— le bot optimiste, de type Oracle. Avec `risk_aversion = 1`, on obtient un
-minimax pur sur les mondes, beaucoup trop timoré. `0.35` est un compromis
+mondes s'accordent. Avec `risk_aversion = 0`, on retombe sur l'espérance
+simple — le bot optimiste, de type Oracle. Avec `risk_aversion = 1`, on obtient
+un minimax pur sur les mondes, beaucoup trop timoré. `0.35` est un compromis
 jouable.
 
 Noter aussi que les mondes ne sont **rééchantillonnés que lorsqu'une nouvelle
-carte est révélée**, sans pondération reportée d'un tour à l'autre. Ils sont contraints de contenir les cartes
-révélées, mais rien n'est déduit de ce que l'adversaire n'a *pas* joué. Un
-filtrage particulaire complet (pondérer les mondes par la vraisemblance du jeu
-observé, puis rééchantillonner) serait strictement meilleur et constitue la
-prochaine étape évidente pour affûter Diviner.
+carte est révélée**, sans pondération reportée d'un tour à l'autre. Ils sont
+contraints de contenir les cartes révélées, mais rien n'est déduit de ce que
+l'adversaire n'a *pas* joué. Un filtrage particulaire complet (pondérer les
+mondes par la vraisemblance du jeu observé, puis rééchantillonner) serait
+strictement meilleur et constitue la prochaine étape évidente pour affûter
+Diviner.
 
 ## 11. Comment les six bots diffèrent, en un tableau
 
@@ -336,7 +336,7 @@ prochaine étape évidente pour affûter Diviner.
 | **profondeur** | 0 | 2–8, approfondissement itératif | 2–3 | 4 (`maxDepth`) | 5 (`horizon`) | 5 |
 | **rollout** | aucun | aucun (arbre seul) | aucun (arbre seul) | aléatoire, 6 plies | glouton | glouton |
 | **feuille** | aucune | `Heuris.of_state` | course + synergie, actualisée par gamma | 4 passes + `Eval.score` | 4 passes + `Eval.score` | `Eval.score` par monde |
-| **contrôleur** | aucun | meilleur-d'abord | meilleur-d'abord + bandit UCB | UCT / MCTS | **successive halving** | successive halving × mondes |
+| **contrôleur** | aucun | meilleur d'abord | meilleur d'abord + bandit UCB | UCT / MCTS | **successive halving** | successive halving × mondes |
 | **modèle d'adversaire** | aucun | deck deviné | deck deviné | deck deviné | réponses classées | réponses classées, par monde |
 | **information cachée** | aucune | une supposition | une supposition | une supposition | une supposition | **en échantillonne plusieurs** |
 | **arbre entre les coups** | non | non | bandit seulement | non (reconstruit) | non | non |
@@ -353,7 +353,7 @@ Les scores de feuille vivent dans `(-1, 1)`, mais ne sont pas uniformes sur cet
 intervalle. En pratique, un rollout glouton à 5 plies tombe à quelques dixièmes
 de la moyenne de son candidat, avec une queue lourde quand le rollout termine
 parfois la partie d'emblée. Prendre `σ ≈ 0.4` comme valeur réaliste par
-échantillon et lire les tableaux ci-dessous comme « l'écart qu'il faut pour que
+échantillon, et lire les tableaux ci-dessous comme « l'écart qu'il faut pour que
 cela vaille quelque chose à ce budget ».
 
 Deux candidats avec `n` échantillons indépendants chacun ont
@@ -380,7 +380,7 @@ dont les vraies valeurs diffèrent de `Δ`, il faut
 n  ≥  2 · (1.96 · σ / Δ)²      samples per move
 ```
 
-échantillons par coup, donc `Δ = 0.3` coûte 14 rollouts par coup, `Δ = 0.1`
+échantillons par coup — donc `Δ = 0.3` coûte 14 rollouts par coup, `Δ = 0.1`
 en coûte 123, et `Δ = 0.02` en coûte 3 000. **Aucun budget de l'interface de ce
 jeu ne peut défendre les deux derniers.** Il n'en résulte pas que les bots sont
 défaillants, mais que *le bon coup n'est généralement pas le deuxième meilleur*,
@@ -406,24 +406,24 @@ golem:   (2·0.325 + played) / 3 = 0.342  ->  played = 0.376   (2 rollouts)
 
 Les rollouts préféraient en réalité le golem de 0,086, et l'avance de 0,061 du
 screening l'a emporté. C'est la conception qui fonctionne comme prévu à un
-budget de 60 ms — la lecture superficielle est crue, la lecture coûteuse ne sert
-qu'à départager — mais il faut bien voir qu'à ce budget les rollouts ne
+budget de 60 ms — la lecture superficielle est crue, la lecture coûteuse ne
+sert qu'à départager — mais il faut bien voir qu'à ce budget les rollouts ne
 choisissent pas le coup.
 
 ### La corrélation aggrave les choses
 
 Avec une politique de base gloutonne, tous les échantillons d'un coup partagent
-le même biais, ils ne sont donc pas indépendants. Pour des échantillons
+le même biais : ils ne sont donc pas indépendants. Pour des échantillons
 équicorrélés, l'erreur standard est
 
 ```text
 SE = σ · √( (1 + (n−1)·ρ) / n )       →  σ·√ρ   as n → ∞
 ```
 
-ce qui est la formulation utile : **un estimateur corrélé a un plancher de bruit
-que davantage d'échantillons ne permettent pas de franchir.** `ρ = 0.3` plafonne
-déjà l'erreur standard à `0.4·√0.3 = 0.22`, de sorte que doubler le budget
-n'apporte rien. C'est exactement la limite que le [document 4](04-oracle.fr.md)
+ce qui en est la formulation utile : **un estimateur corrélé a un plancher de
+bruit que davantage d'échantillons ne permettent pas de franchir.** `ρ = 0.3`
+plafonne déjà l'erreur standard à `0.4·√0.3 = 0.22`, de sorte que doubler le
+budget n'apporte rien. C'est exactement la limite que le [document 4](04-oracle.fr.md)
 §8 énonce qualitativement, et c'est pourquoi les rollouts aléatoires de
 Lecturer valent leur bruit supplémentaire : pour eux `ρ ≈ 0` et l'erreur décroît
 réellement en `1/√n`.
@@ -432,11 +432,12 @@ réellement en `1/√n`.
 
 Le successive halving ne commet pas d'erreurs symétriques : un mauvais tour
 *élimine le meilleur candidat* et aucun échantillon ultérieur ne peut le
-ramener. Il en va de même pour la shortlist (présélection des meilleurs coups après le screening). Cette asymétrie est toute la
-raison pour laquelle la valeur de screening est remélangée à `cand_mean` avec le
-poids `screen_weight`, et la raison pour laquelle le raccourci « lethal » (jouer tout de suite un coup qui gagne) passe avant
-la recherche et non après — si l'on voit une victoire, on la prend sans dépenser
-un seul rollout sur la possibilité de se tromper.
+ramener. Il en va de même pour la shortlist (la présélection des meilleurs coups
+après le screening). Cette asymétrie est toute la raison pour laquelle la valeur
+de screening est remélangée à `cand_mean` avec le poids `screen_weight`, et la
+raison pour laquelle le raccourci « lethal » (jouer tout de suite un coup qui
+gagne) passe avant la recherche et non après — si l'on voit une victoire, on la
+prend sans dépenser un seul rollout sur la possibilité de se tromper.
 
 ### L'arithmétique budgétaire de l'ordonnancement
 
@@ -451,13 +452,13 @@ round 3:   3 candidates × 24 =  72
 round 4+:  2 candidates ×  1 =   2 per round, forever
 ```
 
-Atteindre le duel final coûte 186 rollouts ; aux ~180 simulations par rollout
-du [document 4](04-oracle.fr.md) §6, cela fait ~33 k simulations, ce qui explique
+Atteindre le duel final coûte 186 rollouts ; aux ~180 simulations par rollout du
+[document 4](04-oracle.fr.md) §6, cela fait ~33 k simulations, ce qui explique
 que les exécutions à 200 ms journalisent `rounds=1` ou `2` et n'approchent
 jamais le duel. La dernière ligne est la plus importante : deux candidats ne
 sont jamais éliminés, la recherche dégénère donc en face-à-face plutôt qu'en
-simple supposition, et chaque seconde de budget supplémentaire rend ce duel plus
-fiable.
+simple supposition, et chaque seconde de budget supplémentaire rend ce duel
+plus fiable.
 
 ## 13. Vocabulaire
 

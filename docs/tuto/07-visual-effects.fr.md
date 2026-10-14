@@ -1,14 +1,14 @@
 # 7. Effets visuels
 
 Tout ce qui est dessiné *par-dessus* le plateau : animations de sorts, secousses
-de l'écran et des emplacements, émetteurs de particules, shaders de sélection,
-de nuit et de niveaux de gris. Sept fichiers dans `gui/`, et une idée unique
-qui les sous-tend tous.
+de l'écran et des emplacements, émetteurs de particules, shaders de sélection, de
+nuit et de niveaux de gris. Sept fichiers dans `gui/`, et une idée unique qui les
+sous-tend tous.
 
 | fichier | contenu |
 |---|---|
 | `fx_core.ml` | types, transformation, timeline, bruit, shaders, secousses, les 13 « looks » partagés |
-| `fx_lightning.ml` | géométrie fractale des éclairs, planning des sauts, cinq styles de couleur |
+| `fx_lightning.ml` | géométrie fractale des éclairs, planification des sauts, cinq styles de couleur |
 | `fx_flames.ml` | la colonne de flammes, la nappe de feu qui roule, les braises, l'inferno |
 | `fx_particles.ml` | l'émetteur générique et la fumée au survol |
 | `fx_dedicated.ml` | dix-sept chorégraphies sur mesure (poison, faux, aurore, …) |
@@ -16,16 +16,16 @@ qui les sous-tend tous.
 | `fx_stage.ml` | la table : clé de carte → effet |
 
 Les documents 1 à 6 portent sur le jeu et ses bots ; celui-ci porte sur les
-pixels. C'est aussi le seul document de ce dossier où il n'y a rien à régler
-par variable d'environnement : tout ici est une constante dans un corps de
+pixels. C'est aussi le seul document de ce dossier où il n'y a rien à régler par
+variable d'environnement : tout ici est une constante dans un corps de
 fonction.
 
 ## En une minute
 
 - Un effet est **une fonction de son âge** : à chaque frame, le jeu rappelle
   `draw ~age` avec « les secondes écoulées depuis le début de l'effet », et la
-  fonction peint l'image entière à partir de zéro. Rien n'est mémorisé entre
-  deux frames, donc rien ne peut se désynchroniser (§1).
+  fonction peint l'image entière à partir de zéro. Rien n'est mémorisé entre deux
+  frames, donc rien ne peut se désynchroniser (§1).
 - La lumière se dessine en **empilant** des formes translucides (*blending
   additif*) : un large halo faible, un corps plus étroit et plus brillant, un
   cœur blanc fin. Le centre blanc incandescent est la somme des couches, pas une
@@ -58,14 +58,13 @@ fonction.
 | **recipe** | un effet prêt à lancer : sa durée, s'il est bloquant, et une fonction `make` |
 | **blocking** | l'animation suivante (invocation, mort, glissement…) attend la fin de cet effet |
 | **alpha** | opacité, de 0 (invisible) à 1 (opaque) |
-| **additive blending** | les couleurs sont *ajoutées* à ce qu'il y a dessous, donc la lumière qui se recouvre devient plus brillante, comme des projecteurs |
+| **additive blending** | les couleurs sont *ajoutées* à ce qu'il y a dessous ; la lumière qui se recoupe devient donc plus brillante, comme des projecteurs |
 | **easing** | une courbe qui fait démarrer ou finir doucement un mouvement 0→1 (`ease_out` = rapide puis lent) |
 | **envelope** | forme montée / maintien / retombée de l'intensité d'un effet dans le temps |
 | **layout** | l'objet qui indique aux effets où se trouvent à l'écran les emplacements, les portraits et les sols |
 | **look** | un style d'effet prêt à l'emploi (rochers, rayons, glace…) paramétré par couleur, cible et puissance |
 | **shake** | un petit décalage temporisé appliqué à un emplacement pour le faire trembler |
 | **fractal / déplacement du point médian** | construire une ligne dentelée en découpant des segments de façon répétée et en décalant le point du milieu |
-
 
 ## 1. Le pipeline : un effet est une fonction de son âge
 
@@ -76,8 +75,8 @@ type t = { start : float; duration : float; draw : age:float -> unit }
 type recipe = { duration : float; blocking : bool; make : start:float -> t }
 ```
 
-`fx_core.ml:9-10`. Un effet est lancé une fois, puis *réévalué à partir de zéro
-à chaque frame* avec le temps écoulé. Il n'y a ni machine à états, ni phase
+`fx_core.ml:9-10`. Un effet est lancé une fois, puis *réévalué à partir de zéro à
+chaque frame* avec le temps écoulé. Il n'y a ni machine à états, ni phase
 `update`, ni rien qui se souvienne de ce qui était vrai à la frame précédente —
 avec deux exceptions volontaires, le cache de géométrie des éclairs et les
 émetteurs de particules, qui veulent tous deux leur propre mémoire.
@@ -100,12 +99,12 @@ Trois conséquences à intégrer avant de lire un effet quelconque :
 - **Un effet est reproductible à partir de `age` seul.** Chaque position dans un
   effet est une fonction explicite du temps, pas une accumulation. C'est
   pourquoi tout le système survit à un redimensionnement de fenêtre, à un
-  changement de fréquence d'images et à une frame bloquée sans étape de
+  changement de fréquence d'images et à une frame bloquée, sans étape de
   correction.
 - **La durée de vie est `duration`.** Il n'y a aucune fuite possible, et un
   `age` hors de `[0, duration)` ne dessine rien. Les deux exceptions sont la
-  bannière de victoire et le halo de portrait, qui utilisent `Float.infinity` et
-  sont effacés par `Fx.clear` au début d'une revanche (`fx_core.ml:255-257`).
+  bannière de victoire et le halo de portrait, qui utilisent `Float.infinity`
+  et sont effacés par `Fx.clear` au début d'une revanche (`fx_core.ml:255-257`).
 - **La durée dans la `recipe` est une promesse faite à la timeline
   d'animation**, pas seulement une coupure. Voir ci-dessous.
 
@@ -133,14 +132,14 @@ let schedule ui duration =
   start
 ```
 
-Ainsi `blocking = true` ne fait pas que retarder l'effet : il **repousse le
-début de chaque animation suivante** de sa propre durée. Invocations, morts et
-glissements de cartes passent tous par le même curseur, ce qui explique
-pourquoi un sort bloquant retient visiblement le tour. La maison de l'effet
-décide de la convention : un effet qui *résout quelque chose* bloque
-(`fire.wave`, `disciples.madden`), et un effet d'ambiance posé sur un coup déjà
-terminé ne bloque pas (`vampires.flock`, `reaper.soul` — tous deux
-`blocking:false` dans `fx_stage.ml:306-317`).
+Ainsi `blocking = true` ne fait pas que retarder l'effet : il **repousse le début
+de chaque animation suivante** de sa propre durée. Invocations, morts et
+glissements de cartes passent tous par le même curseur, ce qui explique pourquoi
+un sort bloquant retient visiblement le tour. La maison de l'effet décide de la
+convention : un effet qui *résout quelque chose* bloque (`fire.wave`,
+`disciples.madden`), et un effet d'ambiance posé sur un coup déjà terminé ne
+bloque pas (`vampires.flock`, `reaper.soul` — tous deux `blocking:false` dans
+`fx_stage.ml:306-317`).
 
 **Un effet bloquant doit fixer `duration` à ce que le joueur voit.** Si le code
 de dessin se termine à 0,8 s mais que la recipe indique 1,5, le tour attend une
@@ -191,26 +190,26 @@ let ellipse x y rx ry c = if rx *. !scale > 0.4 && ry *. !scale > 0.4 then ...
 
 ### 1.5 Le blending additif est la façon de dessiner l'« énergie »
 
-`additive f` enveloppe un dessin dans `BlendMode.Additive`, qui dans Raylib
-vaut `(SRC_ALPHA, ONE)` : le framebuffer gagne `couleur · α`. Une seule passe en
-alpha blending ne peut jamais être plus brillante que sa propre couleur, mais N
-passes translucides empilées s'additionnent. Chaque lueur de ce code est donc
-faite de trois ou quatre passes de rayon décroissant et d'alpha croissant — voir
-le tableau des éclairs au §2.6 et celui des flammes au §3.2. `additive_style`
+`additive f` enveloppe un dessin dans `BlendMode.Additive`, qui dans Raylib vaut
+`(SRC_ALPHA, ONE)` : le framebuffer gagne `couleur · α`. Une seule passe en alpha
+blending ne peut jamais être plus brillante que sa propre couleur, mais N passes
+translucides empilées s'additionnent. Chaque lueur de ce code est donc faite de
+trois ou quatre passes de rayon décroissant et d'alpha croissant — voir le
+tableau des éclairs au §2.6 et celui des flammes au §3.2. `additive_style`
 (`fx_core.ml:274-276`) est le seul endroit où cela est désactivé : rochers,
 pousses, yeux et pointes sont des objets solides, et les additionner les ferait
-virer au blanc, ils sont donc dessinés normalement.
+virer au blanc ; ils sont donc dessinés normalement.
 
 L'ordre de dessin compte dans l'autre sens pour les passes en alpha blending :
 Raylib dessine les appels ultérieurs par-dessus les précédents, et
 `bin/gui.ml:398` appelle `Fx.draw_all` après le plateau, les emplacements et les
-mains précisément pour que les éclairs atterrissent *par-dessus* les cartes. Le
+mains, précisément pour que les éclairs atterrissent *par-dessus* les cartes. Le
 commentaire de ce fichier le dit.
 
 ### 1.6 Deux sortes d'aléa
 
-`noise a b c` (`fx_core.ml:72-76`) est un hash d'entiers sans état qui renvoie un
-flottant dans `[0, 1)` :
+`noise a b c` (`fx_core.ml:72-76`) est un hash d'entiers sans état qui renvoie
+un flottant dans `[0, 1)` :
 
 ```ocaml
 let n = (a * 374761393) + (b * 668265263) + (c * 1442695041) in
@@ -221,11 +220,11 @@ let n = (n ^ (n >> 13)) * 1274126177 in
 Il sert aux propriétés qui doivent être **stables pendant la durée d'une frame
 mais différer entre voisins** : le côté irrégulier d'une colonne de feu, le fait
 qu'une carte reçoive ou non une tranche de glitch, l'endroit où naît une
-braise. Les éléments qui varient d'une frame à l'autre utilisent `sin (t·ω + …)`
-ou un `Random.State`. Se tromper dans ce sens est le bug classique d'une
-réécriture d'effets : un effet qui réinitialise sa graine aléatoire à chaque
-frame devient de la neige télévisuelle, et un effet qui ne hache que l'indice de
-temps devient une image figée.
+braise. Les éléments qui varient d'une frame à l'autre utilisent
+`sin (t·ω + …)` ou un `Random.State`. Se tromper dans ce sens est le bug
+classique d'une réécriture d'effets : un effet qui réinitialise sa graine
+aléatoire à chaque frame devient de la neige télévisuelle, et un effet qui ne
+hache que l'indice de temps devient une image figée.
 
 Les couleurs passent par un unique clamp afin qu'un effet puisse dépasser sa
 plage de conception sans repasser à zéro :
@@ -236,13 +235,13 @@ let byte x = int_of_float (Float.max 0. (Float.min 255. (x *. 255.)))
 
 ## 2. Éclairs
 
-*Approfondissement : les chiffres des §2.2–2.6 expliquent pourquoi les constantes sont ce qu'elles sont ; on peut utiliser `spawn_lightning` sans eux.*
-
+*Approfondissement : les chiffres des §2.2–2.6 expliquent pourquoi les constantes
+sont ce qu'elles sont ; on peut utiliser `spawn_lightning` sans eux.*
 
 `fx_lightning.ml`, 157 lignes, utilisé par cinq sorts (`air.call`,
 `air.lightnin`, `air.chain`, `wind.BallLightning.name`, `elementalist.frost`) et
-une capacité (`zen.spark`). La signature est volontairement simple : une liste de
-points à traverser, et un style optionnel.
+une capacité (`zen.spark`). La signature est volontairement simple : une liste
+de points à traverser, et un style optionnel.
 
 ```ocaml
 spawn_lightning ?(style = electric) [ own_life; foe.(2); foe_life ] ~start
@@ -286,11 +285,11 @@ Lecture des maths :
   par un décalage uniforme dans `(−disp, +disp)`. Déplacer le long de la normale
   laisse les extrémités fixes, ce qui rend la récursion composable : les deux
   moitiés du segment parent se rejoignent toujours.
-- **Le rapport est 0,55.** L'amplitude de chaque génération vaut 0,55 de celle de
-  son parent. C'est le « H » du mouvement brownien fractionnaire, et 0,55 est un
-  compromis visuel réglé à la main : des rapports plus grands donnent un zigzag
-  manifestement géométrique, des rapports plus petits donnent du bruit sans
-  direction à grande échelle.
+- **Le rapport est 0,55.** L'amplitude de chaque génération vaut 0,55 de celle
+  de son parent. C'est le « H » du mouvement brownien fractionnaire, et 0,55 est
+  un compromis visuel réglé à la main : des rapports plus grands donnent un
+  zigzag manifestement géométrique, des rapports plus petits donnent du bruit
+  sans direction à grande échelle.
 - **Le plancher de 8 px.** `len2 > 64.` supprime le décalage quand un segment
   mesure moins de 8 px. Un déplacement sur un segment de 2 px n'est pas une
   ondulation, c'est une discontinuité.
@@ -354,9 +353,10 @@ Deux choses ressortent de ce tableau :
 - **L'amplitude sature.** Au-delà de 282 px de corde, `0.22·len` demande plus que
   le plafond de 62 px ; un éclair traversant tout le plateau et un éclair de
   400 px s'agitent donc de la même quantité. `62 / 0.22 ≈ 282` est la portée à
-  partir de laquelle un éclair cesse de devenir plus agressif en s'allongeant.
+  partir de laquelle un éclair cesse de devenir plus agressif en
+  s'allongeant.
 
-Un chemin **secondaire** est généré en parallèle pour les sauts longs
+Un chemin **secondaire** est généré en parallèle, pour les sauts longs
 uniquement : mêmes extrémités, une génération de moins, moitié moins de sway
 (`fx_lightning.ml:77`). Il est dessiné *sous* le principal et c'est lui qui fait
 qu'un long éclair ressemble à un éclair plutôt qu'à un fil — deux fissures
@@ -386,8 +386,7 @@ jag rng p { ... } 3 (bl *. 0.4)
 
 ### 2.5 Le planning des sauts et leur alpha
 
-`hop_delay = 0.07`, `lightning_hold = 0.7`
-(`fx_lightning.ml:22-23`), et
+`hop_delay = 0.07`, `lightning_hold = 0.7` (`fx_lightning.ml:22-23`), et
 
 ```text
 duration = (points − 1) · 0.07 + 0.7
@@ -411,12 +410,12 @@ strike *. flick *. Float.max 0. fade
 ```
 
 - **`strike`** — les 45 premières ms d'un saut sont dessinées à pleine
-  luminosité, puis descendent à 0,8 pour le reste de leur vie. Un vrai impact est
-  un flash suivi d'une rémanence ; ceci est le flash.
+  luminosité, puis descendent à 0,8 pour le reste de leur vie. Un vrai impact
+  est un flash suivi d'une rémanence ; ceci est le flash.
 - **`flick`** — une horloge à 20 Hz, un tick sur quatre atténué à 0,4. Cela donne
-  une pulsation à 5 Hz avec un rapport cyclique de 25 %, de multiplicateur moyen
-  0,85. Le `+ index` est la partie importante : un saut s'atténue au tick où
-  `tick ≡ −index (mod 4)`, donc le saut 0 s'atténue au tick 0, le saut 1 au
+  une pulsation à 5 Hz avec un rapport cyclique de 25 %, de multiplicateur
+  moyen 0,85. Le `+ index` est la partie importante : un saut s'atténue au tick
+  où `tick ≡ −index (mod 4)`, donc le saut 0 s'atténue au tick 0, le saut 1 au
   tick 3, le saut 2 au tick 2, le saut 3 au tick 1 — la chaîne parcourt les
   quatre ticks à rebours et ne pulse jamais dans son ensemble. Elle crépite.
 - **`fade`** — la rampe maison de 0,2 s, réalisée sur 0,22 s.
@@ -518,13 +517,14 @@ circle x y 7.  (rgb cr cg cb alpha)
 
 Un transit à vitesse constante de 0,30 s avec 20 ms d'avance, dessiné comme la
 même paire halo-plus-cœur que tout le reste. À noter que le transit se fait en
-temps d'*effet*, pas par saut, donc une chaîne de boules à sept points a ses six
+temps d'*effet*, pas par saut : une chaîne de boules à sept points a donc ses six
 orbes en vol simultanément.
 
 ## 3. Feu
 
-*Approfondissement : parcourez les listings de code, retenez l'idée — un front qui avance le long de la rangée, haut et blanc en tête, avec un lit bas et permanent derrière.*
-
+*Approfondissement : parcourez les listings de code, retenez l'idée — un front
+qui avance le long de la rangée, haut et blanc en tête, avec un lit bas et
+permanent derrière.*
 
 `fx_flames.ml`, 185 lignes, pour `fire.wave` et `fire.inferno`. Trois couches :
 
@@ -559,7 +559,7 @@ Quatre décisions en six lignes :
   flamme, borné à 6–14 pas. Une colonne d'inferno de 150 px reçoit 14 pas
   d'environ 11 px ; une de 40 px en reçoit 6 d'environ 7 px.
 - **`side` écarte les langues** de `fat · 6.5` px par pas à partir du centre —
-  trois langues s'étalent sur ±6,5 px d'une colonne de ~17 px de rayon, ce qui
+  trois langues s'étalent sur ±6,5 px dans une colonne de ~17 px de rayon, ce qui
   empêche une colonne de ressembler à une grosse saucisse.
 
 Le profil vertical d'une langue, à la fraction `v` de la base (0) à la pointe
@@ -607,7 +607,7 @@ nappe (§3.3) : une colonne en tête de vague a un cœur blanc, une colonne situ
 ### 3.3 La nappe : un front qui voyage
 
 `fire_sheet` (`fx_flames.ml:53-93`) échantillonne 35 colonnes sur la rangée et
-demande, pour chacune, *à quelle distance derrière le front qui avance se
+demande, pour chacune : *à quelle distance derrière le front qui avance se
 trouve-t-elle ?*
 
 ```ocaml
@@ -656,8 +656,8 @@ le plancher là où `exp(−(b−40)/230) = 0.35`, soit à
 `b = 40 + 230·ln(1/0.35) ≈ 282 px` derrière le front — et ensuite le lit **cesse
 complètement de décroître** et reste à 33 px constants de flamme terne jusqu'à
 la fin de l'effet. La vague est donc un front brillant au-dessus d'un long lit
-permanent et bas : le feu couvre toute la rangée et y reste, ce à quoi
-ressemble « le sol est en feu », plutôt qu'une vague qui s'arrête visiblement.
+permanent et bas : le feu couvre toute la rangée et y reste — à quoi ressemble
+« le sol est en feu » — plutôt qu'une vague qui s'arrête visiblement.
 
 `flick` vaut par colonne `0.88 + 0.12 sin(30t + i)` — 4,8 Hz, avec un décalage
 de phase par colonne, ce qui empêche 35 colonnes de pulser à l'unisson.
@@ -665,9 +665,9 @@ de phase par colonne, ce qui empêche 35 colonnes de pulser à l'unisson.
 du §1.6.
 
 Les colonnes **se penchent aussi dans leur sens de déplacement** :
-`push = side · 0.95 · crest`, où `side` vaut +1 ou −1 selon le côté d'où le front
-est arrivé. Uniquement à la crête : la tête de la vague se courbe et la queue
-reste droite.
+`push = side · 0.95 · crest`, où `side` vaut +1 ou −1 selon le côté d'où le
+front est arrivé. Uniquement à la crête : la tête de la vague se courbe et la
+queue reste droite.
 
 ### 3.4 La vitesse est dérivée de la géométrie
 
@@ -680,8 +680,8 @@ let speed = span /. 0.55                                 (* inferno *)
 Six emplacements à un pas de 100 px couvrent 500 px de centres, et `bounds`
 ajoute 44 px de chaque côté, donc `span = 588 px`. La vague traverse ainsi toute
 la rangée élargie en exactement 0,62 s quelle que soit la disposition du
-plateau, à **948 px/s** (inferno : 1069 px/s), et le pas de colonne à l'écran est
-`588 / 34 = 17.3 px` — confortablement à l'intérieur du rayon de colonne de
+plateau, à **948 px/s** (inferno : 1069 px/s), et le pas de colonne à l'écran
+est `588 / 34 = 17.3 px` — confortablement à l'intérieur du rayon de colonne de
 ~17–27 px, ce qui explique que les colonnes adjacentes fusionnent en nappe au
 lieu de ressembler à une palissade.
 
@@ -703,8 +703,8 @@ chorégraphie différente :
    `y = ty − 8 + sin(ang) · speed · t − 40t`, avec `speed = 80 + 170 · noise`,
    s'estompant selon `(1 − p)`.
 
-Les braises (`sheet_embers`, `fx_flames.ml:96-114`) sont la version économique de
-la même idée — pas de trigonométrie, juste `p = a/life` :
+Les braises (`sheet_embers`, `fx_flames.ml:96-114`) sont la version économique
+de la même idée — pas de trigonométrie, juste `p = a/life` :
 
 ```ocaml
 let born = Float.abs d /. speed in          (* born when the front passes *)
@@ -714,7 +714,7 @@ let col = if noise e 9 3 > 0.4 then rgb 1. 0.92 0.55 ((1. -. p) ** 2. *. fade)
 ```
 
 `born` est dérivé de la *même* position de front que la nappe, de sorte que les
-étincelles apparaissent sous la flamme exactement quand le feu les atteint
+étincelles apparaissent sous la flamme exactement quand le feu les atteint,
 plutôt que sur un minuteur indépendant. L'alpha quadratique `(1 − p)²` concentre
 la luminosité au début, et la séparation `noise > 0.4` donne un mélange de
 cendre pâle et de braise profonde.
@@ -727,7 +727,8 @@ le plus coûteux du jeu, et c'est la raison pour laquelle les primitives
 éliminent le travail sous-pixel et pour laquelle le nombre de `steps` est dérivé
 de la hauteur au lieu d'être fixe. Sur une machine lente, c'est l'effet qui fait
 chuter les frames ; c'est aussi le seul à avoir un paramètre `dirs`, et les
-colonnes vers lesquelles la vague ne voyage pas sont ignorées avant tout dessin.
+colonnes vers lesquelles la vague ne voyage pas sont ignorées avant tout
+dessin.
 
 ## 4. Maddening
 
@@ -798,23 +799,23 @@ rect (x -. split) y w h (rgb 0.05 0.75 0.85 (fade *. 0.16));   (* cyan copy  *)
 
 C'est de l'**aberration chromatique** : deux copies de la silhouette de la carte
 dans des couleurs complémentaires, décalées en sens opposés. Le décalage vaut
-`(3 + 10·shake)` px multiplié par une oscillation par carte `0.4 sin(18t + id)`,
-donc au repos il est de 1,8–3 px (une image double à peine perceptible) et à
-pleine secousse jusqu'à 13 px. Le `+ float id` dans la fréquence fait que les
-cartes voisines battent les unes contre les autres au lieu d'osciller à
-l'unisson.
+`(3 + 10·shake)` px multiplié par une oscillation par carte
+`0.4 sin(18t + id)` ; au repos il est donc de 1,8–3 px (une image double à peine
+perceptible) et à pleine secousse jusqu'à 13 px. Le `+ float id` dans la
+fréquence fait que les cartes voisines battent les unes contre les autres au
+lieu d'osciller à l'unisson.
 
 Par-dessus les copies, quatre couches de plus :
 
 - **Une bande de balayage** qui descend la carte : `u = mod(1.6t + noise)`,
-  vitesse `1.6 + 4.5·shake` hauteurs par seconde, épaisseur `5 + 7·shake` px, rose
-  pâle.
-- **Une tranche déchirée** sur 55 % des cartes (`noise id 8 4 > 0.45`) : une
-  barre sombre de hauteur `8 + 16n` qui dérive à `2.4 + id` hauteurs par seconde,
+  vitesse `1.6 + 4.5·shake` hauteurs par seconde, épaisseur `5 + 7·shake` px,
+  rose pâle.
+- **Une tranche déchirée** sur 55 % des cartes (`noise id 8 4 > 0.45`) : une barre
+  sombre de hauteur `8 + 16n` qui dérive à `2.4 + id` hauteurs par seconde,
   décalée latéralement de `(n − 0.5)·18` px.
-- **Neuf lignes de balayage horizontales**, de 1,4–2,6 px d'épaisseur,
-  clignotant à `sin(30t + 1.7k + id)` — environ 4,8 cycles par seconde, avec le
-  décalage de phase par ligne pour que le clignotement ressemble à du bruit.
+- **Neuf lignes de balayage horizontales**, de 1,4–2,6 px d'épaisseur, clignotant
+  à `sin(30t + 1.7k + id)` — environ 4,8 cycles par seconde, avec le décalage de
+  phase par ligne pour que le clignotement ressemble à du bruit.
 - Les alliés reçoivent le même traitement à `0.38` de l'alpha et `0.4` de la
   secousse, de sorte que l'effet hypnotique se concentre visiblement sur
   l'ennemi.
@@ -890,7 +891,7 @@ fréquence et le déplacement est une courbe de Lissajous à deux axes :
 
 Une conséquence agréable de l'interaction avec le fade : l'amplitude n'atteint
 jamais réellement son plafond de 6,9 px, car à `ramp = 1` (`t = 1.28`) l'effet
-s'est déjà estompé complètement. Le **pic visible est à `t = 1.08`**, où
+s'est déjà complètement estompé. Le **pic visible est à `t = 1.08`**, où
 `ramp = 0.84`, `shake = 0.71`, donc la plus grande secousse qu'un joueur voie
 jamais est
 
@@ -908,9 +909,9 @@ que comme un grondement. L'amplitude a été réduite en conséquence.
 
 La plupart des sorts n'ont pas de code sur mesure. Ils choisissent un `look`
 dans la table de `lib/game/spell_looks.ml` — `{ style; aim; r; g; b; power }` —
-et `draw_style` (`fx_core.ml:334-561`) le peint. `aim` décide de *quels points*
-(`points_of`, `fx_core.ml:261-270`) : `All_slots`, `Foe_slots`, `Own_slots`,
-`Own_life`, `Target`, `Own_target`.
+et `draw_style` (`fx_core.ml:334-561`) le peint. `aim` décide *quels points*
+dessiner (`points_of`, `fx_core.ml:261-270`) : `All_slots`, `Foe_slots`,
+`Own_slots`, `Own_life`, `Target`, `Own_target`.
 
 | style | forme | notes |
 |---|---|---|
@@ -928,10 +929,10 @@ et `draw_style` (`fx_core.ml:334-561`) le peint. `aim` décide de *quels points*
 | `Ring` | deux anneaux de 14 points qui s'étendent, espacés de `0.7 s` | y écrasé à 0,7 |
 | `Spikes` | 3 triangles par point qui poussent en `ease_out` | visés sur les **sols** des emplacements, pas les centres |
 
-Chaque style dure `1.05 s`, sauf `Stones` à `1.5 s`
-(`fx_core.ml:272`), et `power` règle la taille de la plupart d'entre eux — les
-exceptions sont `Sprout`, `Eyes`, `Strike` et `Ice`, qui ont une taille fixe
-(donc `~power:1.1` sur une entrée Ice de la table n'a aucun effet).
+Chaque style dure `1.05 s`, sauf `Stones` à `1.5 s` (`fx_core.ml:272`), et
+`power` règle la taille de la plupart d'entre eux — les exceptions sont
+`Sprout`, `Eyes`, `Strike` et `Ice`, qui ont une taille fixe (donc
+`~power:1.1` sur une entrée Ice de la table n'a aucun effet).
 
 `rock` mérite une ligne parce que c'est la seule primitive ombrée du code :
 `6 + (seed mod 3)` sommets avec jitter, et chaque facette est ombrée par
@@ -941,23 +942,23 @@ comme une sphère.
 
 ### 5.2 Particules
 
-`emitter_cfg` (`fx_particles.ml:15-32`) est un enregistrement déclaratif : forme
-d'apparition, plage de vitesse, plage d'angle en degrés, gravité, plage de vent,
-plage de taille, arrêts du dégradé de couleur et d'alpha, texture, débit et
-plafond. Six émetteurs sont définis de cette façon (`faerie_fire`, `acid_rain`,
-`nether_grasp`, `redemption`, `blood_burst`, et `fire_wall` comme une recoloration
-de `faerie_fire`), et `nature_heal` / `pollen_*` / `smoke_cfg` sont des mises à
-jour d'enregistrement les uns des autres.
+`emitter_cfg` (`fx_particles.ml:15-32`) est un enregistrement déclaratif :
+forme d'apparition, plage de vitesse, plage d'angle en degrés, gravité, plage de
+vent, plage de taille, arrêts du dégradé de couleur et d'alpha, texture, débit
+et plafond. Six émetteurs sont définis de cette façon (`faerie_fire`,
+`acid_rain`, `nether_grasp`, `redemption`, `blood_burst`, et `fire_wall` comme
+une recoloration de `faerie_fire`), et `nature_heal` / `pollen_*` / `smoke_cfg`
+sont des mises à jour d'enregistrement les uns des autres.
 
-L'intégrateur (`tick_emitter`, `fx_particles.ml:116-130`) est de l'Euler explicite
-simple avec un accumulateur de débit :
+L'intégrateur (`tick_emitter`, `fx_particles.ml:116-130`) est de l'Euler
+explicite simple avec un accumulateur de débit :
 
 ```ocaml
 let dt = if e.last = 0. then 0.016 else Float.max 0. (age -. e.last) in
 e.emit <- e.emit +. (dt *. e.cfg.rate);
 while e.emit >= 1. && List.length e.puffs < e.cfg.max_particles do ...
 p.vy <- p.vy -. (e.cfg.gravity *. dt);
-p.px <- p.px +. ((p.vx +. p.wind) *. dt);
+p.px <- p.px +. ((p.vx +. e.wind) *. dt);
 p.py <- p.py +. (p.vy *. dt)
 ```
 
@@ -985,18 +986,18 @@ looks — `spawn_poison` (une tige de Bézier, une floraison à six pétales, de
 fumée qui voyage), `spawn_scythe`, `spawn_aurora`, `spawn_apocalypse`,
 `spawn_burial`, `spawn_heal_haze` et ainsi de suite. Ils partagent le même
 vocabulaire `mk`/`additive`/`fade` et le même vocabulaire de layout ; il n'y a
-rien de structurellement nouveau en eux, ce qui est précisément l'intérêt d'avoir
-gardé le vocabulaire réduit.
+rien de structurellement nouveau en eux, ce qui est précisément l'intérêt
+d'avoir gardé le vocabulaire réduit.
 
-Quatre shaders GLSL sont chargés depuis `assets/shaders/` (`fx_core.ml:147-183`) :
-`grey` (un post-traitement de désaturation pour le menu), `night` (mélange
-`u_night` pour la campagne), `sel` (l'anneau animé de sélection de carte) et
-`shockwave`. Chaque effet qui en utilise un **se rabat sur une version à
-primitives seules si le shader n'a pas pu être chargé**, ce qui explique que
-`spawn_shockwave` ait deux implémentations. Les emplacements des uniforms sont
-mis en cache par shader dans une table de hachage, et un uniform manquant est
-ignoré plutôt que fatal — un shader peut être recompilé par un pilote et perdre
-ses noms.
+Quatre shaders GLSL sont chargés depuis `assets/shaders/`
+(`fx_core.ml:147-183`) : `grey` (un post-traitement de désaturation pour le
+menu), `night` (mélange `u_night` pour la campagne), `sel` (l'anneau animé de
+sélection de carte) et `shockwave`. Chaque effet qui en utilise un **se rabat
+sur une version à primitives seules si le shader n'a pas pu être chargé**, ce
+qui explique que `spawn_shockwave` ait deux implémentations. Les emplacements
+des uniforms sont mis en cache par shader dans une table de hachage, et un
+uniform manquant est ignoré plutôt que fatal — un shader peut être recompilé
+par un pilote et perdre ses noms.
 
 ## 6. Comment un sort obtient son effet
 
@@ -1004,8 +1005,9 @@ ses noms.
 besoin de quelque chose que la table des looks ne peut pas exprimer.
 
 `for_spell layout (c : command)` exécute un `match c.cmd_card.key` sur 28 clés
-sur mesure, chacune renvoyant `Some (recipe ~duration ~blocking (fun ~start -> …))`,
-et se rabat sur la table des looks :
+sur mesure, chacune renvoyant
+`Some (recipe ~duration ~blocking (fun ~start -> …))`, et se rabat sur la
+table des looks :
 
 ```ocaml
 | _ -> Option.map (look_recipe layout c) (Spell_looks.get c.cmd_card.key)
@@ -1021,9 +1023,9 @@ emplacements, les **sols** des emplacements (le bas du puits de l'emplacement,
 où le feu et les pointes ont leur place), le `flame_base` (38 px au-dessus du
 bas de la carte), le portrait de vie, les positions des en-têtes de maison, les
 cartes d'une maison en main, et les requêtes dont un effet a besoin (`occupied`,
-`slot_life`, `slot_card`, `scarecrow`). Les effets ne calculent jamais eux-mêmes
-la géométrie du plateau ; si vous avez besoin d'une nouvelle ancre, ajoutez-la
-ici.
+`slot_life`, `slot_card`, `scarecrow`). Les effets ne calculent jamais
+eux-mêmes la géométrie du plateau ; si vous avez besoin d'une nouvelle ancre,
+ajoutez-la ici.
 
 Trois réécritures propres à des sorts valent d'être connues, parce que ce sont
 des cas où l'effet choisit de *contredire* la visée de la carte :
@@ -1079,7 +1081,7 @@ Liste de contrôle, dans l'ordre qui attrape réellement les erreurs :
 - [ ] **Utiliser `fade` pour la queue et un `born` par élément pour la tête.** Un
       seul `fade` sur l'ensemble est plat ; ce sont les couches qui font
       l'effet.
-- [ ] **`additive` pour tout ce qui est de la lumière**, et seulement pour cela.
+- [ ] **`additive` pour tout ce qui est de la lumière, et seulement pour cela.**
       `Stones`, `Sprout`, `Eyes` et `Spikes` sont des objets opaques.
 - [ ] **Donner à l'effet une constante `duration` et l'utiliser à la fois pour la
       timeline et pour le fade.** Pas de littéraux à deux endroits.
@@ -1101,8 +1103,8 @@ faire le reste.
 
 - **Deux horloges sont une fonctionnalité, pas un bug.** Le scintillement des
   éclairs comme la colonne de flammes utilisent un balancement lent plus un
-  scintillement rapide à des fréquences sans rapport. Une fréquence unique se lit
-  comme une boucle.
+  scintillement rapide à des fréquences sans rapport. Une fréquence unique se
+  lit comme une boucle.
 - **`noise` sert aux variations stables, `Random.State` aux changements par
   frame.** Hacher l'indice de frame fait du bruit ; utiliser un RNG pour une
   propriété par colonne fait de la neige.

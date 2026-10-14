@@ -2,9 +2,10 @@
 
 Le lobby peut jouer une plage sans fin, générée procéduralement : vagues, vent
 qui souffle en rafales, aucun fichier audio nulle part. Tout tient dans un
-fichier, `gui/ocean.ml`, environ 150 lignes, portage d'un petit jouet de
-navigateur (le « beach wave loop generator »). Ce document le parcourt dans
-l'ordre où circule le signal : bruit → mise en forme → filtre → tampon → flux.
+seul fichier, `gui/ocean.ml`, environ 150 lignes — le portage d'un petit jouet
+de navigateur (le « beach wave loop generator »). Ce document le parcourt dans
+l'ordre où circule le signal : bruit → mise en forme → filtre → tampon →
+flux.
 
 Pour l'activer : **Réglages → Son → Ambiance de l'océan dans le hall**. C'est
 désactivé par défaut (`sound.ocean` dans le fichier de préférences,
@@ -23,8 +24,9 @@ et chaque ingrédient de `waves` et `wind` est une fonction lisse de `t`. Le son
 peut donc durer indéfiniment sans raccord, et « où en est-on dans la boucle »
 se réduit à un compteur entier de frames (`frame`, 44 100 par seconde).
 
-La version navigateur avait aussi un export WAV qui exigeait un fondu enchaîné
-pour être sans couture. Nous n'exportons rien : toute cette partie a disparu.
+La version navigateur avait aussi un export WAV, qui exigeait un fondu
+enchaîné pour être sans couture. Nous n'exportons rien : toute cette partie a
+disparu.
 
 ## 2. Premier ingrédient : le bruit de valeurs
 
@@ -46,17 +48,17 @@ a +. ((b -. a) *. u)
 ```
 
 La smoothstep a une pente nulle à chaque extrémité : la courbe rejoint ses
-voisines sans cassure. Cette interpolation est déjà un doux passe-bas en
-soi : le résultat est aléatoire mais arrondi, pas un flot d'échantillons
-aléatoires indépendants.
+voisines sans cassure. Cette interpolation est déjà un passe-bas en soi : le
+résultat est aléatoire mais arrondi, pas un flot d'échantillons aléatoires
+indépendants.
 
 L'indice de la table est pris `land 4095`, donc il **boucle**. Le bruit se
 répète ; la vitesse de répétition dépend de la rapidité avec laquelle on
 parcourt la table (section suivante).
 
 Chaque canal et chaque couche de vent a sa propre table (graines 12345, 67890,
-24680, 13579, 55555, 77777) : gauche et droite ne sont donc pas des copies l'un
-de l'autre.
+24680, 13579, 55555, 77777) : gauche et droite ne sont donc pas des copies
+l'un de l'autre.
 
 ## 3. Deuxième ingrédient : les vagues
 
@@ -68,7 +70,7 @@ Trois éléments se multiplient.
 
 **Le bruit, lu vite.** L'argument est `t · 3.1` : on parcourt la table à
 3,1 × 4096 ≈ 12 700 entrées par seconde. Cela fait environ 3,5 échantillons de
-sortie par entrée de table, ce qui donne un doux chuintement. La table a 4096
+sortie par entrée de table, d'où un doux chuintement. La table a 4096
 entrées, elle boucle donc toutes les 4096 / 12 700 ≈ **0,32 s**. Le
 `sin (t · 0.02) · 0.5` supplémentaire fait osciller lentement la position de
 lecture, de sorte que la répétition dérive au lieu de se caler sur un battement
@@ -104,7 +106,7 @@ Un échantillon calculé à la main, à `t = 0` :
 | `envelope` = 0,632^1,6 | **0,479** |
 | `surge` = 0,6 + 0,4·sin 0 | **0,6** |
 
-le bruit est donc multiplié par 0,479 × 0,6 × 0,5 ≈ 0,14.
+Le bruit est donc multiplié par 0,479 × 0,6 × 0,5 ≈ 0,14.
 
 ## 4. Troisième ingrédient : le vent
 
@@ -138,9 +140,9 @@ houle :
 let k = pole (500. +. (2500. *. env)) in
 ```
 
-À `env = 0`, la coupure est à 500 Hz (étouffé, lointain) ; à `env = 1`, elle est
-à 3 kHz (ressac net). Une vraie vague sonne plus brillante en déferlant, et une
-seule ligne suffit à le reproduire.
+À `env = 0`, la coupure est à 500 Hz (étouffé, lointain) ; à `env = 1`, elle
+est à 3 kHz (ressac net). Une vraie vague sonne plus brillante en déferlant,
+et une seule ligne suffit à le reproduire.
 
 Le filtre est composé de deux étages **passe-bas à un pôle** en série. Un étage
 s'écrit
@@ -179,13 +181,13 @@ let out x = ... x *. gain *. f *. 32767. *. 2.
 
 **Fondu.** Entrer dans le lobby avec un son d'un coup à plein volume est
 brutal. `fade` se rapproche de sa cible (1 si actif, 0 sinon) de 0,3 par bloc à
-la montée et de 0,5 par bloc à la descente, et est **interpolé linéairement
-sur chaque bloc** : le gain monte en rampe au lieu de faire des marches. Le
-fondu d'entrée dure environ 0,75 s, celui de sortie environ 0,4 s.
+la montée et de 0,5 par bloc à la descente, et est **interpolé linéairement sur
+chaque bloc** : le gain monte en rampe au lieu de faire des marches. Le fondu
+d'entrée dure environ 0,75 s, celui de sortie environ 0,4 s.
 
 **Rafraîchissement du niveau.** Le niveau sonore vit dans le fichier de
-préférences. Le relire à chaque bloc serait du gaspillage, donc `update` le
-relit un bloc sur cinq (environ une fois par seconde).
+préférences. Le relire à chaque bloc serait du gaspillage : `update` ne le
+relit donc qu'un bloc sur cinq (environ une fois par seconde).
 
 ## 7. Amener les échantillons jusqu'aux haut-parleurs
 
@@ -210,15 +212,15 @@ R.update_audio_stream o.stream (Ctypes.to_voidp (Ctypes.CArray.start o.buf)) chu
 Le piège : `set_audio_stream_buffer_size_default` fixe la taille d'**un
 sous-tampon**, pas du flux entier. Si les deux nombres diffèrent, il n'y a pas
 d'erreur. Mettez à jour avec la moitié d'un sous-tampon et le reste est périmé
-ou silencieux, ce qui sonne exactement comme « des échantillons différents avec
-une pause entre ». D'où `chunk` dans les deux appels.
+ou silencieux — ce qui sonne exactement comme « des échantillons différents
+avec une pause entre ». D'où `chunk` dans les deux appels.
 
 `chunk = 8192` frames, c'est 8192 / 44100 ≈ 186 ms. C'est aussi toute la
 tolérance à une frame lente : la boucle du jeu tourne à 60 i/s et ne recharge
-que lorsque raylib le demande, donc une frame lente (fin d'une recherche de bot,
-dessin lourd) doit durer moins que l'audio déjà en file. La première version
-utilisait des blocs de 2048 frames (46 ms), trop courts pour absorber un
-ralentissement.
+que lorsque raylib le demande, donc une frame lente (fin d'une recherche de
+bot, dessin lourd) doit durer moins que l'audio déjà en file. La première
+version utilisait des blocs de 2048 frames (46 ms), trop courts pour absorber
+un ralentissement.
 
 `buf` est un `Ctypes.CArray` d'`int16` contenant les échantillons gauche et
 droit entrelacés (`2·i` et `2·i + 1`), la disposition attendue par raylib en
@@ -233,9 +235,9 @@ Ocean.update ~active:(match !screen with Lobby l -> l.gs.ocean | _ -> false)
 ```
 
 `update` crée le flux paresseusement la première fois qu'on en a besoin, le
-remplit tant que `active` est vrai ou que le fondu de sortie reste audible, puis
-se tait (plus de rechargement) une fois le fondu à 0. `unload` libère le flux à
-l'arrêt, avant la fermeture du périphérique audio.
+remplit tant que `active` est vrai ou que le fondu de sortie reste audible,
+puis se tait (plus de rechargement) une fois le fondu à 0. `unload` libère le
+flux à l'arrêt, avant la fermeture du périphérique audio.
 
 ## 8. Que modifier, et ce que cela coûte
 
@@ -253,9 +255,9 @@ Tous les réglages sont des constantes en tête de `gui/ocean.ml` :
 - `speed` n'affecte que la houle et le va-et-vient des vagues. L'enveloppe de
   rafale l'ignore, comme dans l'original.
 - Comme chaque table de bruit boucle, la texture des vagues a une faible
-  périodicité de 0,32 s. L'oscillation lente de phase en cache l'essentiel. Une
-  table plus longue (8192 ou 16384 entrées) repousserait la répétition ; il
-  faudrait changer ensemble `land 4095` et le `4096.`.
+  périodicité de 0,32 s. L'oscillation lente de phase en cache l'essentiel.
+  Une table plus longue (8192 ou 16384 entrées) repousserait la répétition ;
+  il faudrait changer ensemble `land 4095` et le `4096.`.
 - La synthèse coûte une poignée de `sin`, un `pow`, un `exp` et les lectures de
   bruit par échantillon, environ 44 100 fois par seconde. C'est très en dessous
   du budget d'une frame, ce qui explique qu'elle puisse vivre sur le thread de
@@ -279,6 +281,6 @@ dune exec ./bin/gui.exe
 # lobby -> Réglages -> Son -> cocher « Ambiance de l'océan dans le hall »
 ```
 
-Pour entendre ce qu'apporte un ingrédient, mettez `wind_level` à `0.` (vagues
-seules), ou remplacez par une constante l'`env` utilisé pour la coupure dans
-`fill` (plus d'éclaircissement).
+Pour entendre ce qu'apporte un ingrédient, mettez `wind_level` à `0.`
+(vagues seules), ou remplacez par une constante l'`env` utilisé pour la
+coupure dans `fill` (plus d'éclaircissement).

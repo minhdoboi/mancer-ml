@@ -1,25 +1,25 @@
 # 6. Le paysage des bots
 
-Les six bots côte à côte, avec les réglages que chacun expose et une méthode
-pour mesurer un changement plutôt que de le deviner.
+Les six bots côte à côte : les réglages que chacun expose, et une méthode pour
+mesurer un changement plutôt que deviner son effet.
 
 ## En une minute
 
-- Il y a **six bots**, de `greedy` (joue la carte la moins chère, sans réfléchir)
-  à `diviner` (imagine plusieurs decks adverses possibles et joue le coup qui
-  tient le mieux dans tous).
+- Il y a **six bots**, de `greedy` (joue la carte la moins chère, sans
+  réfléchir) à `diviner` (imagine plusieurs decks adverses plausibles et joue
+  le coup qui se défend le mieux face à l'ensemble de ces hypothèses).
 - Ce ne sont **pas six programmes**. Chacun est un assemblage différent des
   mêmes quatre briques : un *générateur de coups*, un *simulateur*, une
   *fonction de score* et un *contrôleur* qui décide où dépenser le temps de
   réflexion.
-- Les six « niveaux de difficulté » du lobby ne font que choisir l'un de ces
-  bots. Le **budget** (millisecondes de réflexion par coup) est le seul autre
-  réglage.
-- Pour savoir si un changement a aidé, **jouer beaucoup de parties et
-  comparer** (`bin/main.exe`, §5). Vingt parties sont un test de fumée, pas une
-  preuve.
+- Les six « niveaux de difficulté » du lobby se contentent de choisir l'un de
+  ces bots. Le **budget** (millisecondes de réflexion par coup) est le seul
+  autre réglage.
+- Pour savoir si un changement a aidé : **jouer beaucoup de parties et
+  comparer** (`bin/main.exe`, §5). Vingt parties, c'est un test de fumée, pas
+  une preuve.
 
-| Si l'on veut… | Aller à |
+| Pour… | Aller à |
 |---|---|
 | savoir quel bot est lequel | §1 et §2 |
 | modifier le comportement d'un bot depuis le shell | §3 |
@@ -32,16 +32,16 @@ pour mesurer un changement plutôt que de le deviner.
 | mot | sens courant |
 |---|---|
 | **ply** (demi-coup) | un coup joué par un camp (deux plies = je joue, l'adversaire répond) |
-| **rollout** | une partie imaginaire rapide jouée jusqu'au bout (ou à profondeur fixe) par une politique bon marché, pour voir qui est en tête |
-| **feuille / évaluation** | le score attribué à une position quand l'imagination s'arrête ; « à quel point cela paraît-il bon pour moi ? » |
+| **rollout** | une partie imaginaire rapide, jouée jusqu'au bout (ou à profondeur fixe) par une politique peu coûteuse, pour voir qui est en tête |
+| **feuille / évaluation** | le score attribué à une position là où l'imagination s'arrête ; « à quel point la position semble-t-elle bonne pour moi ? » |
 | **budget** | le temps de réflexion alloué par coup, en ms (le curseur du lobby) |
-| **successive halving** | essayer un peu chaque coup candidat, écarter la moitié la plus faible, essayer le reste davantage, recommencer |
-| **UCT / MCTS** | une recherche qui fait croître un arbre et continue de visiter les branches les plus prometteuses |
+| **successive halving** | essayer un peu chaque coup candidat, écarter la moitié la plus faible, approfondir le reste, et recommencer |
+| **UCT / MCTS** | une recherche qui fait croître un arbre et revisite en priorité les branches les plus prometteuses |
 | **monde** (diviner) | une hypothèse sur ce que pourrait être le deck caché de l'adversaire |
-| **Elo** | un classement qui monte quand on bat des adversaires, calibré pour qu'un écart de 400 points signifie « 10 fois meilleur » (§5) |
+| **Elo** | un classement qui monte quand on bat des adversaires, calibré pour qu'un écart de 400 points signifie « dix fois meilleur » (§5) |
 
-Le document 3 définit ces notions correctement ; ce tableau sert seulement à
-pouvoir poursuivre la lecture.
+Le document 3 définit ces notions proprement ; ce tableau ne sert qu'à permettre
+de poursuivre la lecture.
 
 ## 1. Six bots, quatre briques
 
@@ -57,29 +57,29 @@ décrits dans le [document 2](02-game-view.md) :
 | **oracle** | `Oracle.base_moves` | `Game.simulate` | `Oracle.Eval.score` après 4 passes | successive halving |
 | **diviner** | `Oracle.base_moves` | `Game.simulate`, un moteur par monde | `Oracle.Eval.score` par monde | successive halving × mondes |
 
-En clair : **greedy** prend la première chose possible ; **summoner** et
-**strategist** regardent quelques coups à l'avance avec une formule faite main
+En clair : **greedy** prend la première option possible ; **summoner** et
+**strategist** regardent quelques coups à l'avance avec une formule artisanale
 du type « qui gagne la course » ; **lecturer** joue des milliers de parties
-quasi aléatoires depuis la position courante et se fie aux moyennes ;
-**oracle** fait de même mais perd moins de temps sur les mauvais coups ;
-**diviner** est un oracle qui garde plusieurs suppositions du deck adverse au
-lieu d'une seule.
+quasi aléatoires depuis la position courante et s'en remet aux moyennes ;
+**oracle** fait de même mais gaspille moins de temps sur les mauvais coups ;
+**diviner** est un oracle qui entretient plusieurs hypothèses sur le deck
+adverse au lieu d'une seule.
 
 Deux familles d'évaluation, qui ne sont pas interchangeables :
 
 - **`Oracle.Eval.score`** (`oracle.ml:26-66`) — lisse, pondérée par les
   ressources, `(courbe de vie, plateau, mana, croissance)`, écrasée par `tanh`.
   Utilisée par oracle, diviner et lecturer.
-- **`Heuris`** (`heuris.ml`) — une **prévision de course** à 12 swings mêlée à
-  un terme de ressources à long terme, ou `life_mana`, ou un `synergy` pondéré.
-  Utilisée uniquement par summoner et strategist.
+- **`Heuris`** (`heuris.ml`) — une **prévision de course** à 12 swings mélangée
+  à un terme de ressources à long terme, ou `life_mana`, ou un `synergy`
+  pondéré. Utilisée uniquement par summoner et strategist.
 
 Elles répondent à des questions différentes. `Eval` demande « à quoi ressemble
 la position si l'on s'arrête maintenant ». `Heuris.score` demande « qui gagne
-le combat ». `Heuris.blend` ne donne du poids au terme à long terme que là où
+la course ». `Heuris.blend` ne donne du poids au terme à long terme que là où
 la course est indécise ; un bot qui l'utilise acceptera donc volontiers un
-mauvais échange lorsqu'il gagne déjà. Savoir laquelle convient le mieux à ce
-jeu est une question empirique — il faut mesurer.
+mauvais échange quand il est déjà gagnant. Savoir laquelle convient le mieux à
+ce jeu est une question empirique — il faut mesurer.
 
 ## 2. L'échelle de difficulté
 
@@ -95,48 +95,47 @@ Le lobby de duel propose six niveaux (`lib/game/table.ml:58-73`), dans l'ordre
 | 5 | oracle | `oracle` | successive halving |
 | 6 | diviner | `diviner` | successive halving × 4 mondes |
 
-Les niveaux 3 et 4 sont le même moteur avec des portraits différents :
+Les niveaux 3 et 4 sont le même moteur derrière des portraits différents :
 *« Gambler is not ported, so those faces still play lecturer »*
-(`table.ml:56-57`). Le nom affiché provient de `opp_kind` et le moteur de
+(`table.ml:56-57`). Le nom affiché vient de `opp_kind` et le moteur de
 `opp_bot`, ce qui explique qu'une clé i18n `ai.gambler` existe sans aucun
 Gambler derrière. Les niveaux ne portent aucun paramètre de difficulté propre —
-la différence tient entièrement au module exécuté, au budget choisi sur le
-curseur du lobby (`budget_options = [100; 250; 500; 1000; 2000; 5000]`,
-`table.ml:324`).
+toute la différence tient au module exécuté et au budget choisi sur le curseur
+du lobby (`budget_options = [100; 250; 500; 1000; 2000; 5000]`, `table.ml:324`).
 
-L'ordre des bots dans l'échelle n'est pas un classement de force, et il ne suit
+L'ordre des bots dans l'échelle n'est pas un classement de force : il ne suit
 pas non plus la force mesurée. À 200 ms par coup (12 parties par paire,
 `--seed 7`), Lecturer a battu Oracle 7–5 et Diviner 8–4, et Oracle a battu
-Diviner 7–5. Laisser les bots regarder le vrai deck (`BELIEF_SAMPLES=0`) ne
-change pas l'ordre : Lecturer bat encore Oracle 11–1. Diviner partage son budget
-entre ses mondes, et termine donc moins de playouts qu'Oracle à petit budget.
-Summoner et Strategist ne faisaient pas partie de ces parties. Douze parties,
-c'est un petit échantillon : mesurer à nouveau avant de réordonner les niveaux.
+Diviner 7–5. Laisser les bots voir le vrai deck (`BELIEF_SAMPLES=0`) ne change
+pas cet ordre : Lecturer bat encore Oracle 11–1. Diviner partage son budget
+entre ses mondes et termine donc moins de playouts qu'Oracle à petit budget.
+Summoner et Strategist ne participaient pas à ces parties. Douze parties, c'est
+un petit échantillon : mesurez à nouveau avant de réordonner les niveaux.
 
 ## 3. Les réglages
 
 | bot | variable d'env. | clés |
 |---|---|---|
 | lecturer | `LECTURER_OPTS` | `exploration` 0.7, `maxDepth` 4, `priorVisits` 2.0, `rolloutPlies` 6, `projectPlies` 4, `passWeight` 0.5 |
-| oracle | `ORACLE_OPTS` | 8 clés de recherche + 9 d'évaluation, voir le [document 4](04-oracle.md) |
+| oracle | `ORACLE_OPTS` | 8 clés de recherche + 9 clés d'évaluation, voir le [document 4](04-oracle.md) |
 | diviner | `DIVINER_OPTS` | `beliefCount` 3, `riskAversion` 0.35, `firstRoundSamples` 1 |
-| summoner | `SUMMONER_OPTS` | **n'analyse rien** — `apply_overrides` ne fait qu'afficher la chaîne (`summoner.ml:19-23`) |
+| summoner | `SUMMONER_OPTS` | **n'analyse rien** — `apply_overrides` se contente d'afficher la chaîne (`summoner.ml:19-23`) |
 | strategist | *(aucune)* | pas d'`apply_overrides` du tout ; ses paramètres sont de simples constantes (`strategist.ml:148-172`) |
 
 Le format est `key=value,key=value`, appliqué une seule fois au chargement du
-module, et les clés inconnues affichent un avertissement. Tout est stocké dans
+module ; les clés inconnues déclenchent un avertissement. Tout est stocké dans
 des `ref` globales au processus : il n'y a donc pas de réglage par siège, et
 `ORACLE_OPTS` reconfigure aussi la feuille de Diviner et de Lecturer.
 
 Deux variables de débogage existent : `ORACLE_DEBUG` (écran complet et
-classement final, [document 4](04-oracle.md)) et `LECTURER_DEBUG` (plateau plus
-chaque enfant de la racine avec son nombre de visites et sa moyenne,
-`lecturer.ml:267-273`). Diviner n'a pas de drapeau de debug propre.
+classement final, [document 4](04-oracle.md)) et `LECTURER_DEBUG` (plateau,
+plus chaque enfant de la racine avec son nombre de visites et sa moyenne,
+`lecturer.ml:267-273`). Diviner n'a pas de drapeau de débogage propre.
 
 ## 4. Lire les lignes de stats
 
-Chaque bot de recherche affiche une ligne par coup lorsque `stats_log` est
-actif — c'est le cas par défaut en tournoi et non dans les front ends, où la
+Chaque bot de recherche affiche une ligne par coup quand `stats_log` est
+actif — c'est le cas par défaut en tournoi, mais pas dans les front ends, où la
 TUI redirige la sortie standard des bots vers `/dev/null` pour garder l'écran
 propre.
 
@@ -149,27 +148,28 @@ summoner-stats depth=3 spentMs=1000/budgetMs=1000 cmd=0> water.turtle at 0
 
 Champs à connaître :
 
-- `sims=` est le coût réel. C'est le nombre d'appels à `Game.simulate`, dont
-  chacun copie l'état et exécute la chaîne de fin de tour (la suite d'effets automatiques que le moteur
-  déroule quand on passe : attaques, effets de maison, morts de créatures…). À comparer à
-  `spentMs` pour voir si un changement a acheté de la précision ou simplement
-  déplacé le travail.
-- `rounds=` est l'étape du successive halving. `rounds=1` signifie que
-  l'horloge a expiré pendant le premier tour et qu'**aucun candidat n'a été
-  éliminé** — normal à faible budget. `rounds=129` signifie que la recherche a
-  atteint le duel final et a dépensé le reste du budget à échantillonner les
-  deux derniers candidats.
+- `sims=` est le coût réel : le nombre d'appels à `Game.simulate`, dont chacun
+  copie l'état et exécute la chaîne de fin de tour (la suite d'effets
+  automatiques que le moteur déroule quand on passe : attaques, effets de
+  maison, morts de créatures…). Comparez-le à `spentMs` pour savoir si un
+  changement a réellement acheté de la précision ou s'est contenté de déplacer
+  le travail.
+- `rounds=` est l'étape du successive halving. `rounds=1` signifie que l'horloge
+  a expiré pendant le premier tour et qu'**aucun candidat n'a été éliminé** —
+  normal à faible budget. `rounds=129` signifie que la recherche a atteint le
+  duel final et a dépensé le reste du budget à échantillonner les deux derniers
+  candidats.
 - `best=` est la valeur gagnante, dans `(−1, 1)` pour oracle/diviner/lecturer,
   et pour summoner le mélange `Heuris` de course et de long terme.
 - `n=` est le nombre de rollouts du gagnant.
 - `cmd=pass` sur une ligne oracle est légitime : passer peut faire gagner la
-  partie via la chaîne de fin de tour (les effets automatiques déclenchés par le
-  passage — un effet de maison peut par exemple tuer l'adversaire).
+  partie via la chaîne de fin de tour (les effets automatiques déclenchés par
+  le passage — un effet de maison peut par exemple tuer l'adversaire).
 
 Deux aspérités connues dans ces lignes : `diviner-stats` affiche littéralement
-les mots `spentMs` et `leftover` là où devraient figurer les valeurs de temps
-écoulé, et `strategist` conditionne sa ligne à `settings.logging` plutôt qu'à
-`stats_log`, si bien qu'elle ne s'affiche jamais en duel.
+les mots `spentMs` et `leftover` là où devraient figurer les temps écoulés, et
+`strategist` conditionne sa ligne à `settings.logging` plutôt qu'à
+`stats_log`, de sorte qu'elle ne s'affiche jamais en duel.
 
 ## 5. Mesurer un changement
 
@@ -196,15 +196,15 @@ dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<timestamp>
 
 **Résumé des deux sous-sections suivantes.** L'Elo n'est pas un taux de
 victoire : +70 Elo valent environ 60 % de victoires, +170 environ 73 %. Et un
-résultat sur 20 parties peut être faussé de ±22 points ; il ne sert donc qu'à
-repérer de grosses différences. Pour les petites, jouer des centaines de
-parties ou comparer `sims=`. L'arithmétique suit pour qui veut vérifier.
+résultat sur 20 parties peut fluctuer de ±22 points ; il ne sert donc qu'à
+repérer de grosses différences. Pour les petites, jouez des centaines de
+parties ou comparez `sims=`. L'arithmétique suit, pour qui veut vérifier.
 
 ### Ce que signifient les deux nombres de `summary.json`
 
-V/D/N est une proportion et n'appelle aucune explication. L'Elo est le
-classement en ligne standard, et il vaut dix secondes de calcul car ce nombre
-se lit facilement à tort comme un taux de victoire.
+V/D/N est une proportion et n'appelle aucune explication. L'Elo, le classement
+en ligne standard, mérite qu'on s'y arrête dix secondes, car ce nombre se lit
+facilement — à tort — comme un taux de victoire.
 
 ```ocaml
 ra' = ra +. (16.0 *. (sa -. (1.0 /. (1.0 +. (10. ** ((rb -. ra) /. 400.0))))))
@@ -217,8 +217,8 @@ ra' = ra +. (16.0 *. (sa -. (1.0 /. (1.0 +. (10. ** ((rb -. ra) /. 400.0))))))
 E = 1 / (1 + 10^(−Δ/400))        the expected score against this opponent
 ```
 
-`E` est une **espérance logistique, pas un taux de victoire**, et l'échelle est
-volontairement compressive :
+`E` est une **espérance logistique, pas un taux de victoire**, et son échelle
+est volontairement compressive :
 
 | écart de classement Δ | score espéré `E` | estimation linéaire `50% + Δ/8` |
 |---|---|---|
@@ -228,11 +228,12 @@ volontairement compressive :
 | 200 | 0.760 | 75% |
 | 400 | 0.909 | 100% |
 
-Un écart de 400 points est le point 10:1, d'où le diviseur : il fait que « dix
-fois meilleur » signifie 400 points de classement. Tout ce qui est en dessous
-est écrasé, de sorte qu'**un grand avantage en Elo se traduit par un taux de
-victoire plus faible que ce que le nombre laisse deviner à l'œil** —
-`summary.json` ne devrait jamais être cité sous forme de pourcentage.
+Un écart de 400 points est le point où le rapport vaut 10:1, d'où le diviseur :
+il fait en sorte que « dix fois meilleur » signifie 400 points de classement.
+Tout ce qui est en dessous est écrasé, de sorte qu'**un grand avantage en Elo
+correspond à un taux de victoire plus faible que ce que le nombre laisse
+croire à l'œil** — `summary.json` ne devrait jamais être cité sous forme de
+pourcentage.
 
 Exemple chiffré, avec deux bots neufs à 1500 :
 
@@ -259,8 +260,8 @@ aux 71 % que suggère la lecture linéaire.
 
 Un taux de victoire sur `N` parties a pour erreur standard
 `SE = √(p(1−p)/N)`. Comparer deux séries de `N` parties donne
-`SE_diff = √(2p(1−p)/N)`, donc pour déclarer réelle une différence `Δ` à 95 %
-de confiance il faut
+`SE_diff = √(2p(1−p)/N)` ; pour déclarer réelle une différence `Δ` à 95 % de
+confiance, il faut donc
 
 ```text
 N  ≥  2 · 1.96² · p(1−p) / Δ²  =  1.92 / Δ²       at p = 0.5
@@ -272,40 +273,40 @@ N  ≥  2 · 1.96² · p(1−p) / Δ²  =  1.92 / Δ²       at p = 0.5
 | 5 points | ~768 | ~17 |
 | 2 points | ~4 800 | ~7 |
 
-C'est l'arithmétique derrière « vingt parties au moins ». Vingt parties à
-`p = 0.5` ont `SE = 0.112`, donc l'intervalle à 95 % sur le pourcentage
-affiché est d'environ **50 % ± 22 %** — un test de fumée, rien de plus. Deux
-cents parties permettent de résoudre un écart de 10 points ; il en faut huit
-cents pour 5 points. Et comme les parties d'une même série partagent des
-paires de bots, des decks et des schémas de sièges, ces chiffres sont à
+C'est l'arithmétique derrière « vingt parties au minimum ». Vingt parties à
+`p = 0.5` ont `SE = 0.112`, donc l'intervalle de confiance à 95 % sur le
+pourcentage affiché vaut environ **50 % ± 22 %** — un test de fumée, rien de
+plus. Deux cents parties suffisent à résoudre un écart de 10 points ; il en
+faut huit cents pour 5 points. Et comme les parties d'une même série partagent
+des paires de bots, des decks et des schémas de sièges, ces chiffres sont à
 considérer comme des bornes inférieures.
 
 La conséquence pratique pour le réglage : un changement qui vaut moins d'environ
 20 Elo ne peut pas être mesuré par un tournoi rapide. Il faut soit jouer le
-nombre de parties nécessaire, soit mesurer quelque chose de moins coûteux et
-de plus sensible — `sims=` par coup, le nombre de tours de halving terminés à
-budget fixe, ou les valeurs de feuille dans `ORACLE_DEBUG` (document 4 §5). Ce
-sont les métriques sur lesquelles itérer ; le nombre Elo est la dernière
-vérification, pas la première.
+nombre de parties nécessaire, soit mesurer quelque chose de moins coûteux et de
+plus sensible — `sims=` par coup, nombre de tours de halving terminés à budget
+fixe, ou valeurs de feuille dans `ORACLE_DEBUG` (document 4 §5). Ce sont ces
+métriques qu'il faut itérer ; le nombre Elo est la dernière vérification, pas
+la première.
 
-La méthode, car les résultats bot contre bot sont bruités (la liste de
-contrôle à suivre) :
+La méthode, car les résultats bot contre bot sont bruités (liste de contrôle à
+suivre) :
 
 1. **Fixer `--seed`.** La graine pilote les donnes et les dés. La même graine
    donne les mêmes decks aux deux bots, ce qui retire la chance liée aux decks
    de la comparaison. L'ordre des sièges alterne à chaque partie
    (`ordered_pair`, `tournament.ml:368`).
-2. **Utiliser `--games`, pas 1.** Vingt parties au moins. Un échantillon de 6
-   parties noie régulièrement un vrai changement de ±5 % dans le bruit.
-3. **Ne changer qu'une chose.** En particulier : ne pas réajuster `Eval` et le
+2. **Utiliser `--games`, pas 1.** Vingt parties au minimum : un échantillon de
+   6 parties noie régulièrement un vrai changement de ±5 % dans le bruit.
+3. **Ne changer qu'une chose.** En particulier : ne pas retoucher `Eval` et le
    contrôleur dans la même expérience.
 4. **Vérifier `sims=`, pas seulement les victoires.** Si un changement fait
    dépenser deux fois plus de simulations pour le même résultat, c'est une
    régression déguisée.
-5. **Surveiller la courbe de budget.** Lancer à 100 ms et à 1000 ms. Un bot qui
-   gagne largement à 1000 ms et mal à 100 ms a une recherche qui nécessite un
-   tour de halving complet pour montrer quoi que ce soit — bon à savoir avant
-   que cela n'apparaisse comme un blocage dans l'UI.
+5. **Surveiller la courbe de budget.** Lancez à 100 ms et à 1000 ms. Un bot qui
+   gagne largement à 1000 ms mais mal à 100 ms a une recherche qui a besoin
+   d'un tour de halving complet pour montrer quoi que ce soit — bon à savoir
+   avant que cela ne se manifeste comme un blocage dans l'UI.
 
 Les suites de tests des bots verrouillent les propriétés faciles à casser :
 
@@ -321,36 +322,36 @@ Le groupe `eval` de `test/test_oracle.ml` est le plus utile : il vérifie des
 *ordres* de `Oracle.leaf_value` (les sprites font plus mal que les taureaux,
 bloquer le titan est bon, un plateau large est plus menaçant qu'un plateau
 étroit) plutôt que des valeurs exactes, si bien que le réajustement des poids
-ne le casse pas. Conserver ce style en cas d'ajout de tests d'évaluation.
+ne le casse pas. Conservez ce style si vous ajoutez des tests d'évaluation.
 
 ## 6. Rendre un bot plus fort, plus faible ou plus rapide
 
 **Plus fort, à budget égal.** Acheter des rollouts : augmenter `horizon`,
 diminuer `firstRoundSamples` pour que le premier tour de halving soit bon
-marché et que davantage de tours se terminent. Faire passer `rootCards` de 8 à
-4 divise la largeur par deux et double à peu près la profondeur de la
-recherche pour le même temps.
+marché et que davantage de tours se terminent. Passer `rootCards` de 8 à 4
+divise la largeur par deux et double à peu près la profondeur de la recherche à
+temps égal.
 
 **Plus rapide.** `horizon` 5 → 3, `projectPlies` 4 → 2, `placementsPerCard`
-2 → 1. Chacun divise grosso modo par deux le coût par rollout ; vérifier le
+2 → 1. Chacune divise grosso modo par deux le coût par rollout ; vérifiez le
 coût en force à budget égal avant de supposer qu'il est nul.
 
 **Plus faible exprès.** Ramener `rootCards` à 1 — la recherche dégénère en
 « valeur de screening », ce qui fait un débutant raisonnable. Ou fixer
-`horizon=0`, ce qui ne laisse que les quatre passes de projection.
+`horizon=0`, qui ne laisse que les quatre passes de projection.
 
 **Un adversaire différent.** Changer la politique de base, pas l'évaluation.
 `Oracle.base_moves` (`placements`, `oracle.ml:152-188`) est l'endroit où le bot
-décide de ce qu'un adversaire ferait plausiblement ; faire prendre
-occasionnellement au rollout glouton le deuxième meilleur coup rend le bot plus
-robuste, et le changement `reply_weights` du document 4 fait la même chose à
-moindre coût.
+décide de ce qu'un adversaire ferait plausiblement ; faire en sorte que le
+glouton des rollouts prenne occasionnellement le deuxième meilleur coup rend le
+bot plus robuste, et le changement `reply_weights` du document 4 fait la même
+chose à moindre coût.
 
 ## 7. Pièges
 
 - **`strategist` a un état.** `Strategist.mover` alloue le bandit une seule
   fois et le conserve pendant toute la partie (`strategist.ml:491-493`).
-  Donner à chaque siège son propre mover, ce que fait `Table.movers_of`
+  Donner à chaque siège son propre mover — c'est ce que fait `Table.movers_of`
   (`table.ml:179`).
 - **`summoner` modifie ses propres réglages.** `search_pass` réécrit
   temporairement `settings.duration` autour de la recherche interne et le
@@ -361,8 +362,8 @@ moindre coût.
   `Lecturer` (`tournament.ml:374,378`), et `bot_ids` (`:384`) ne les liste pas.
 - **`Heuris.mana_lead` est exportée et jamais appelée.**
 - **Ne pas comparer sur une seule graine.** Voir §5.
-- **Le plateau est visible de tout le monde.** Avant de conclure qu'un bot joue
-  n'importe quoi face à une carte cachée, vérifier s'il pouvait la voir. Les
+- **Le plateau est visible de tous.** Avant de conclure qu'un bot joue
+  n'importe quoi face à une carte cachée, vérifiez s'il pouvait la voir. Les
   deux cas documentés se trouvent dans la section *Limitations* du README et
   dans le [document 2](02-game-view.md) §1.
 
@@ -373,11 +374,11 @@ moindre coût.
 - Faire mieux comprendre une maison à un bot : les poids d'évaluation
   ([document 4](04-oracle.md) §7) et les tables de tempo dans
   `strategist.ml:148-210`.
-- Faire gérer correctement l'information cachée à un bot :
-  [document 5](05-diviner.md) §8, qui liste ce que Diviner ne fait pas encore.
+- Gérer correctement l'information cachée : [document 5](05-diviner.md) §8,
+  qui liste ce que Diviner ne fait pas encore.
 - Les idées sous-jacentes : [document 3](03-search-concepts.md).
 
-Et les documents du projet voisins : [état de la migration](../tech/migration.md),
+Et les documents voisins du projet : [état de la migration](../tech/migration.md),
 [écarts de portage des maisons](../tech/house-port-mismatches.md),
 [plan de portage des effets de sorts](../tech/effects-port-plan.md),
 [packaging](../tech/packaging.md).
