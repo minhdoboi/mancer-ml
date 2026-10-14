@@ -1,7 +1,8 @@
 # Tutorials
 
-Seven documents about how `mancer-ml` is put together, how its AI
-opponents think, and how the spell effects are drawn. Read them in order the
+Eight documents about how `mancer-ml` is put together, how its AI
+opponents think, how the spell effects are drawn, and how the lobby ocean is
+synthesised. Read them in order the
 first time; after that they are reference.
 
 | # | File | What you get out of it |
@@ -13,6 +14,7 @@ first time; after that they are reference.
 | 5 | [05-diviner.md](05-diviner.md) · [fr](05-diviner.fr.md) | The Diviner bot: belief worlds over the opponent's hidden deck, and why it plays differently from Oracle. |
 | 6 | [06-bot-landscape.md](06-bot-landscape.md) · [fr](06-bot-landscape.fr.md) | All six bots side by side, the tuning knobs, the Elo and sampling arithmetic, and how to measure a change. |
 | 7 | [07-visual-effects.md](07-visual-effects.md) · [fr](07-visual-effects.fr.md) | The effects layer: the timeline, and the maths behind the lightning fractal, the fire sheet, and the madness eye. |
+| 8 | [08-ocean-sound.md](08-ocean-sound.md) · [fr](08-ocean-sound.fr.md) | The lobby ocean: value noise, swell and wind envelopes, the cutoff-following low-pass, and raylib's streaming buffers. |
 
 ## Conventions
 

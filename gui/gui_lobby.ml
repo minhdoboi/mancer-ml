@@ -104,6 +104,7 @@ type game_settings = {
   mutable seed_text : string;
   mutable seed_focus : bool;
   mutable sound : float;
+  mutable ocean : bool;
   mutable lang : string;
   mutable debug : bool;
   mutable tab : int;
@@ -138,6 +139,7 @@ let game_settings_from_prefs () =
     seed_text = "";
     seed_focus = false;
     sound = Prefs.sound_level prefs;
+    ocean = Prefs.ocean_sound prefs;
     lang = Prefs.language prefs;
     debug = Prefs.debug_mode prefs;
     tab = 0;
@@ -567,7 +569,11 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
         "test"
         (fun () ->
           set_sound gs gs.sound;
-          play_sound "move")
+          play_sound "move");
+      checkbox ~checked:gs.ocean ~x:(box.x +. 24.) ~y:(box.y +. 296.) ~max_w:(box.w -. 48.)
+        (Assets.text "sound.ocean") (fun () ->
+          gs.ocean <- not gs.ocean;
+          try Prefs.set_ocean_sound (Prefs.load ()) gs.ocean with _ -> ())
   | _ ->
       let lx = ref (box.x +. 24.) in
       List.iter

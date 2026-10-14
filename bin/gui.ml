@@ -242,6 +242,9 @@ let () =
   | _ -> ());
   let t0 = R.get_time () in
   while not (!quit || R.window_should_close ()) do
+    Ocean.update
+      ~active:(match !screen with Lobby l -> l.gs.ocean | _ -> false)
+      ~volume:sound_level;
     fit_frame ();
     Fx.set_transform ~scale:!scale ~off_x:!off_x ~off_y:!off_y;
     pending := None;
@@ -479,6 +482,7 @@ let () =
   done;
   (match !screen with Game ui -> settle ui | _ -> ());
   Hashtbl.iter (fun _ s -> Option.iter R.unload_sound s) sounds;
+  Ocean.unload ();
   Fx.unload ();
   R.close_audio_device ();
   R.close_window ()

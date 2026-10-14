@@ -24,6 +24,7 @@ val key_campaign_position : string
 val key_campaign_night_rest : string
 val key_campaign_wake_far : string
 val key_debug_mode : string
+val key_ocean_sound : string
 val key_language : string
 val key_setup_seats : string
 val key_setup_specials : string
@@ -67,6 +68,11 @@ val ai_opponent : t -> string
 val set_ai_opponent : t -> string -> unit
 val debug_mode : t -> bool
 val set_debug_mode : t -> bool -> unit
+
+(** Lobby ocean ambience; off by default. *)
+val ocean_sound : t -> bool
+
+val set_ocean_sound : t -> bool -> unit
 val user_name : t -> string option
 val card_theme : t -> string
 val class_choice : t -> side -> string list
