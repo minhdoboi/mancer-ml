@@ -27,6 +27,7 @@ let key_campaign_night_rest = "campaign.night.rest"
 let key_campaign_wake_far = "campaign.wake.far"
 let key_debug_mode = "debug.mode"
 let key_ocean_sound = "sound.ocean"
+let key_ambient_sound = key_ocean_sound
 let key_language = "language"
 
 (* Extra keys for the OCaml setup screens (seats, single specials, bot
@@ -42,6 +43,8 @@ let default_card_theme = "vibe"
 let default_ai_opponent = "summoner"
 let default_player_portrait = "ember"
 let default_sound_level = 1.0
+let default_ocean_sound = true
+let default_ambient_sound = default_ocean_sound
 let default_campaign_position = "day_start"
 let default_language = "en"
 let default_budget_ms = 1000
@@ -106,7 +109,7 @@ let set t key value = persist t [ (key, value) ]
 let get_nonempty t key =
   match get t key with Some v when String.trim v <> "" -> Some (String.trim v) | _ -> None
 
-let get_bool t key = match get t key with Some v -> String.trim v = "true" | None -> false
+let get_bool ?(default = false) t key = match get t key with Some v -> String.trim v = "true" | None -> default
 let split_csv v = String.split_on_char ',' v |> List.map String.trim |> List.filter (( <> ) "")
 let language t = Option.value (get_nonempty t key_language) ~default:default_language
 
@@ -129,9 +132,11 @@ let set_sound_level t v =
   let v = Float.max 0. (Float.min 1. v) in
   persist t [ (key_sound_level, Printf.sprintf "%.2f" v) ]
 
-(* lobby ocean ambience, off unless the sound tab turns it on *)
-let ocean_sound t = get_bool t key_ocean_sound
+(* lobby ocean ambience / ambient sound, on by default unless the sound tab turns it off *)
+let ocean_sound t = get_bool ~default:default_ocean_sound t key_ocean_sound
 let set_ocean_sound t v = persist t [ (key_ocean_sound, string_of_bool v) ]
+let ambient_sound = ocean_sound
+let set_ambient_sound = set_ocean_sound
 
 let player_portrait t = Option.value (get_nonempty t key_player_portrait) ~default:default_player_portrait
 let set_player_portrait t v = persist t [ (key_player_portrait, v) ]

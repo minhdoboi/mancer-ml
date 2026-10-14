@@ -136,14 +136,15 @@ let shadow_path () =
   let done_ = [ "wind"; "faerie_druid"; "soulbinder"; "catboy"; Campaign.stay_land ] in
   check_bool "shadowmage" true (has done_ "shadowmage");
   check_bool "no crowd" true (has_not done_ "crowd");
-  check_bool "shadowcaster" true (has (done_ @ [ "shadowmage" ]) "shadowcaster");
-  check_bool "darkpriest" true (has (done_ @ [ "shadowmage"; "shadowcaster" ]) "darkpriest");
-  check_bool "vampires" true (has (done_ @ [ "shadowmage"; "shadowcaster"; "darkpriest" ]) "vampires");
-  check_bool "deer" true (has (done_ @ [ "shadowmage"; "shadowcaster"; "darkpriest"; "vampires" ]) "deer");
+  check_bool "panther" true (has (done_ @ [ "shadowmage" ]) "panther");
+  check_bool "shadowcaster" true (has (done_ @ [ "shadowmage"; "panther" ]) "shadowcaster");
+  check_bool "darkpriest" true (has (done_ @ [ "shadowmage"; "panther"; "shadowcaster" ]) "darkpriest");
+  check_bool "vampires" true (has (done_ @ [ "shadowmage"; "panther"; "shadowcaster"; "darkpriest" ]) "vampires");
+  check_bool "deer" true (has (done_ @ [ "shadowmage"; "panther"; "shadowcaster"; "darkpriest"; "vampires" ]) "deer");
   check_bool "no reaper yet" true
-    (has_not (done_ @ [ "shadowmage"; "shadowcaster"; "darkpriest"; "vampires" ]) "soulreaper");
+    (has_not (done_ @ [ "shadowmage"; "panther"; "shadowcaster"; "darkpriest"; "vampires" ]) "soulreaper");
   check_bool "soulreaper" true
-    (has (done_ @ [ "shadowmage"; "shadowcaster"; "darkpriest"; "vampires"; "deer" ]) "soulreaper");
+    (has (done_ @ [ "shadowmage"; "panther"; "shadowcaster"; "darkpriest"; "vampires"; "deer" ]) "soulreaper");
   check_bool "limbo" true
     (has
        (done_ @ [ "shadowmage"; "shadowcaster"; "darkpriest"; "vampires"; "deer"; "soulreaper" ])

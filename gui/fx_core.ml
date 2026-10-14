@@ -22,6 +22,7 @@ type layout = {
   slot_life : player_id -> int -> int option;
   slot_card : player_id -> int -> string option;
   house_cards : player_id -> int -> spot list;
+  extreme_house : player_id -> [ `Highest | `Lowest ] -> int;
 }
 
 let scale = ref 1.
@@ -88,8 +89,167 @@ let set_scroll s = scroll_y := s
 let active : (float * t) list ref = ref []
 let spawn e = active := (!scroll_y, e) :: !active
 
+(* A circular vortex seen from above: spiral arms of green and yellow grains
+   turning around a bright core. [r] is its radius, [age] drives the spin. *)
+let draw_vortex x y r age alpha =
+  additive (fun () ->
+      circle x y r (rgb 0.5 0.8 0.15 (alpha *. 0.14));
+      circle x y (r *. 0.55) (rgb 0.7 0.85 0.2 (alpha *. 0.14));
+      let arms = 4 and per_arm = 16 in
+      for arm = 0 to arms - 1 do
+        for k = 0 to per_arm - 1 do
+          let u = float k /. float per_arm in
+          let rad = r *. (0.12 +. (0.88 *. u)) in
+          (* inner grains turn faster, so the arms wind into a spiral *)
+          let ang = (age *. (9. -. (5. *. u))) +. (float arm *. (Float.pi *. 2. /. float arms)) +. (u *. 2.6) in
+          let px = x +. (cos ang *. rad) and py = y +. (sin ang *. rad) in
+          let yellow = (arm + k) mod 2 = 0 in
+          circle px py
+            (r *. (0.05 +. (0.06 *. u)))
+            (rgb (if yellow then 1. else 0.65) (if yellow then 0.92 else 0.95) 0.2 (alpha *. (0.95 -. (0.5 *. u))))
+        done
+      done;
+      circle x y (r *. 0.18) (rgb 1. 0.97 0.6 (alpha *. 0.9)))
+
+(* Golden powder: a fine gilt dust coating a creature's slot. A thin gold tint
+   sits over the card and tiny grains rest on it without moving,
+   with no flicker, so it reads as a coating and not as a bonus sparkle. *)
+let draw_powder x y age level =
+  rect (x -. 40.) (y -. 45.) 80. 90. (rgb 0.9 0.68 0.15 (0.16 *. level));
+  for k = 0 to 41 do
+    (* grains stay where they settled, breathing very slightly in brightness; each
+       one has its own threshold, so they vanish one after another as the level drops *)
+    let px = x +. ((noise k 1 17 -. 0.5) *. 76.) and py = y +. ((noise k 2 19 -. 0.5) *. 86.) in
+    let breathe = 0.85 +. (0.15 *. sin ((age *. 0.9) +. (float k *. 1.7))) in
+    let own = clamp01 ((level -. (0.6 *. noise k 7 41)) /. 0.4) in
+    circle px py (0.9 +. (0.9 *. noise k 5 31))
+      (rgb 0.95 (0.74 +. (0.1 *. noise k 6 37)) 0.22 (0.7 *. breathe *. own))
+  done
+
+(* Warp reality bends the picture of its target: the effect reports every frame how hard, and the
+   board reads it back when it draws that creature's card. A mark older than a moment is stale. *)
+let warp_marks : (int * int, float * float) Hashtbl.t = Hashtbl.create 4
+let warp_key p = (int_of_float (Float.round p.x), int_of_float (Float.round p.y))
+let mark_warp p amount = Hashtbl.replace warp_marks (warp_key p) (amount, R.get_time ())
+
+let warp_amount p =
+  match Hashtbl.find_opt warp_marks (warp_key p) with
+  | Some (a, t) when R.get_time () -. t < 0.1 -> a
+  | _ -> 0.
+
+let warp_any () = Hashtbl.length warp_marks > 0
+
+let powder_spots : spot list ref = ref []
+let powder_occupied : spot list ref = ref [] (* every occupied slot: a dead creature drops its powder at once *)
+
+(* Fade level (0..1) of each powdered slot, so the powder eases in when the effect
+   starts and thins away when it ends instead of vanishing at once. *)
+let powder_levels : (int * int, spot * float) Hashtbl.t = Hashtbl.create 8
+
+let update_powder ~now:_ =
+  let dt = Float.min 0.1 (R.get_frame_time ()) in
+  let key p = (int_of_float (Float.round p.x), int_of_float (Float.round p.y)) in
+  let live = List.map key !powder_spots in
+  let occupied = List.map key !powder_occupied in
+  List.iter
+    (fun p ->
+      let k = key p in
+      let lvl = match Hashtbl.find_opt powder_levels k with Some (_, l) -> l | None -> 0. in
+      Hashtbl.replace powder_levels k (p, Float.min 1. (lvl +. (dt /. 0.5))))
+    !powder_spots;
+  let fading =
+    Hashtbl.fold (fun k (p, l) acc -> if List.mem k live then acc else if not (List.mem k occupied) then (k, p, 0.) :: acc else (k, p, l -. (dt /. 2.2)) :: acc) powder_levels []
+  in
+  List.iter
+    (fun (k, p, l) -> if l <= 0. then Hashtbl.remove powder_levels k else Hashtbl.replace powder_levels k (p, l))
+    fading
+
+
+(* Arcane Trap: a multi-colour pentagram laid over the victim's slots for as long as their turn is skipped.
+   The board reports it every frame; it eases in and out like the powder. *)
+let trap_radius = 108.
+
+(* Corners of the star, its bounding box centred on (x, y): the top point reaches higher than the bottom ones
+   reach low, so the circle's centre alone would look shifted up. *)
+let pentagram_points x y r =
+  let y = y +. (r *. (1. -. cos (Float.pi /. 5.)) /. 2.) in
+  Array.init 5 (fun i ->
+      let ang = -.Float.pi /. 2. +. (float i *. 2. *. Float.pi /. 5.) in
+      (x +. (cos ang *. r), y +. (sin ang *. r)))
+
+(* The star's five strokes, each as its two end corners. *)
+let pentagram_strokes pts = List.init 5 (fun i -> (pts.(i), pts.((i + 2) mod 5)))
+
+(* A flickering flame standing on (x, y). *)
+let draw_flame x y ~w ~h age k alpha =
+  let flick = 0.8 +. (0.2 *. sin ((age *. 11.) +. (float k *. 2.3))) +. (0.1 *. sin ((age *. 17.) +. float k)) in
+  let h = h *. flick in
+  let sway = sin ((age *. 5.) +. float k) *. w *. 0.4 in
+  additive (fun () ->
+      tri (x -. w) y (x +. w) y (x +. sway) (y -. h) (rgb 0.75 0.1 0.04 (0.5 *. alpha));
+      tri (x -. (w *. 0.65)) y (x +. (w *. 0.65)) y (x -. (sway *. 0.6)) (y -. (h *. 0.72)) (rgb 1. 0.4 0.05 (0.55 *. alpha));
+      tri (x -. (w *. 0.3)) y (x +. (w *. 0.3)) y x (y -. (h *. 0.4)) (rgb 1. 0.85 0.4 (0.65 *. alpha)))
+
+(* Arcane Trap: what remains of the pentagram once its flames have died, a black scorch mark with the faintest
+   ember still breathing in it. The board reports it every frame; it eases in and out like the powder. *)
+let draw_pentagram x y r age level =
+  let breathe = 0.5 +. (0.5 *. sin (age *. 1.8)) in
+  let strokes = pentagram_strokes (pentagram_points x y (r *. 0.9)) in
+  List.iteri
+    (fun i ((x0, y0), (x1, y1)) ->
+      let seg = 16 in
+      for k = 0 to seg - 1 do
+        let u0 = float k /. float seg and u1 = float (k + 1) /. float seg in
+        let ax = lerp x0 x1 u0 and ay = lerp y0 y1 u0 and bx = lerp x0 x1 u1 and by = lerp y0 y1 u1 in
+        (* uneven char: the burn is wider and darker in places *)
+        let n = noise i k 3 in
+        line ax ay bx by (9. +. (4. *. n)) (rgb 0.03 0.02 0.02 (0.3 *. level));
+        line ax ay bx by (3.4 +. (1.6 *. n)) (rgb 0.02 0.015 0.015 (0.92 *. level))
+      done)
+    strokes;
+  additive (fun () ->
+      List.iter
+        (fun ((x0, y0), (x1, y1)) -> line x0 y0 x1 y1 1.2 (rgb 0.8 0.15 0.05 (0.06 *. level *. (0.4 +. breathe))))
+        strokes)
+
+(* Where the pentagram sits: the middle of the lane between the two slot rows, halfway from the opponent's slot
+   floor to the player's slot ceiling (the rows are equally tall, so that is the midpoint of their centres). *)
+let trap_center_of (layout : layout) (_ : player_id) =
+  let row pid =
+    let spots = List.map (layout.slot_center pid) Mancer.Sp.base_slot_list in
+    let n = float (List.length spots) in
+    ( List.fold_left (fun a (p : spot) -> a +. p.x) 0. spots /. n,
+      List.fold_left (fun a (p : spot) -> a +. p.y) 0. spots /. n )
+  in
+  let x, y0 = row opponent and _, y1 = row owner in
+  ({ x; y = (y0 +. y1) /. 2. }, trap_radius)
+
+let trap_spots : (int * spot * float) list ref = ref []
+let trap_levels : (int, spot * float * float) Hashtbl.t = Hashtbl.create 2
+
+let update_traps () =
+  let dt = Float.min 0.1 (R.get_frame_time ()) in
+  List.iter
+    (fun (k, p, r) ->
+      let l = match Hashtbl.find_opt trap_levels k with Some (_, _, l) -> l | None -> 0. in
+      Hashtbl.replace trap_levels k (p, r, Float.min 1. (l +. (dt /. 0.6))))
+    !trap_spots;
+  let live k = List.exists (fun (k', _, _) -> k = k') !trap_spots in
+  Hashtbl.filter_map_inplace
+    (fun k (p, r, l) ->
+      if live k then Some (p, r, l) else if l -. (dt /. 0.6) <= 0. then None else Some (p, r, l -. (dt /. 0.6)))
+    trap_levels
+
+(* Spots where a lasting Energetic Vortex hangs; the board refreshes them every frame. *)
+let vortex_spots : (spot * float) list ref = ref []
+
 let draw_all ~now =
   let base_y = !off_y in
+  List.iter (fun (p, r) -> draw_vortex p.x p.y r now 1.) !vortex_spots;
+  update_powder ~now;
+  Hashtbl.iter (fun _ (p, l) -> draw_powder p.x p.y now l) powder_levels;
+  update_traps ();
+  Hashtbl.iter (fun _ (p, r, l) -> draw_pentagram p.x p.y r now l) trap_levels;
   active :=
     List.filter
       (fun (spawn_scroll, e) ->
@@ -262,6 +422,9 @@ let slot_offset pid num =
    effects (the victory banner and portrait halo never expire) and shakes. *)
 let clear () =
   active := [];
+  Hashtbl.reset powder_levels;
+  Hashtbl.reset trap_levels;
+  trap_spots := [];
   scroll_y := 0.;
   shakes := []
 

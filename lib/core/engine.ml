@@ -155,7 +155,7 @@ module Slot = struct
   let stun s = Option.iter (fun x -> x.reaction.stun s) s.value
 
   (* -- default actions (CardSpec.scala:189-192) *)
-  let do_heal s amount = update s (fun x -> { x with life = min x.card.c_body.b_life (x.life + amount) })
+  let do_heal s amount = update s (fun x -> { x with life = min x.max_life (x.life + amount) })
   let do_stun s = toggle s stun_flag
 
   (* SlotState.inflict *)

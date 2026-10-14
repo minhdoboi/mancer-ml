@@ -6,8 +6,8 @@ of a small browser toy (the "beach wave loop generator"). This document walks
 through it in the order the signal flows: noise → shaping → filter → buffer →
 stream.
 
-Turn it on with **Settings → Sound → Ocean ambience in the lobby**. It is off by
-default (`sound.ocean` in the prefs file, `Prefs.ocean_sound`) and plays only
+Turn it on or off with **Settings → Sound → Ocean ambience in the lobby**. It is on by
+default (`sound.ocean` in the prefs file, `Prefs.ambient_sound`) and plays only
 while the lobby is on screen.
 
 ## 1. The big idea: a sound is a function of time

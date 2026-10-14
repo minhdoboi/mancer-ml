@@ -62,6 +62,7 @@ type t = {
   w3 : float -> float;
   w4 : float -> float;
   mutable frame : int;
+  mutable waves : float; (* 1 = beach (lobby), 0 = wind only (wind board); eases between *)
   mutable fade : float; (* 0 = silent, 1 = full; ramps so entering the lobby is not abrupt *)
   mutable lp_l : float * float; (* two cascaded one-pole low-pass states, ≈ the biquad *)
   mutable lp_r : float * float;
@@ -88,6 +89,7 @@ let create () =
       w3 = make_noise 55555;
       w4 = make_noise 77777;
       frame = 0;
+      waves = 1.;
       fade = 0.;
       lp_l = (0., 0.);
       lp_r = (0., 0.);
@@ -101,7 +103,11 @@ let step (s1, s2) k x =
   let s2 = s2 +. (k *. (s1 -. s2)) in
   (s2, (s1, s2))
 
-let fill o ~target ~volume =
+let fill o ~target ~waves_target ~volume =
+  o.waves <-
+    (if waves_target > o.waves then Float.min waves_target (o.waves +. 0.1)
+     else Float.max waves_target (o.waves -. 0.1));
+  let bare = 1. -. o.waves in
   let fade0 = o.fade in
   let fade1 = if target > fade0 then Float.min target (fade0 +. 0.3) else Float.max target (fade0 -. 0.5) in
   o.fade <- fade1;
@@ -110,11 +116,21 @@ let fill o ~target ~volume =
     let t = float (o.frame + i) /. float sample_rate in
     let env = envelope t in
     let surge = 0.6 +. (0.4 *. sin (two_pi *. 0.35 *. speed *. t)) in
-    let l = o.n1 ((t *. 3.1) +. (sin (t *. 0.02) *. 0.5)) *. env *. surge *. 0.5 in
-    let r = o.n2 ((t *. 2.9) +. (sin ((t *. 0.017) +. 2.) *. 0.5)) *. env *. surge *. 0.5 in
-    let k = pole (500. +. (2500. *. env)) in
-    let l = l +. (wind_sample o.w1 o.w3 t *. wind_level) in
-    let r = r +. (wind_sample o.w2 o.w4 (t +. 0.37) *. wind_level) in
+    (* on the wind board the gusts are soft and irregular: gentle swells between near-silent lulls *)
+    let irr x =
+      (* slow incommensurate swells (periods of roughly 5 to 25 s) so gusts rise and fall progressively *)
+      let a = sin ((two_pi *. 0.043 *. t) +. x)
+      and b = sin ((two_pi *. 0.071 *. t) +. (x *. 2.3))
+      and c = sin ((two_pi *. 0.19 *. t) +. (x *. 4.1)) in
+      let e = Float.max 0. ((((a *. 0.6) +. (b *. 0.4) +. (c *. 0.2)) /. 1.2 +. 0.15) /. 1.15) in
+      e *. e in
+    let wind_mod x = o.waves +. (bare *. (0.18 +. (1.6 *. irr x))) in
+    let wl = wind_level +. (0.3 *. bare) in
+    let l = o.n1 ((t *. 3.1) +. (sin (t *. 0.02) *. 0.5)) *. env *. surge *. 0.5 *. o.waves in
+    let r = o.n2 ((t *. 2.9) +. (sin ((t *. 0.017) +. 2.) *. 0.5)) *. env *. surge *. 0.5 *. o.waves in
+    let k = pole (500. +. (2500. *. env) +. (700. *. bare)) in
+    let l = l +. (wind_sample o.w1 o.w3 t *. wl *. wind_mod 7.) in
+    let r = r +. (wind_sample o.w2 o.w4 (t +. 0.37) *. wl *. wind_mod 13.) in
     let l, sl = step o.lp_l k l and r, sr = step o.lp_r k r in
     o.lp_l <- sl;
     o.lp_r <- sr;
@@ -126,10 +142,11 @@ let fill o ~target ~volume =
   o.frame <- o.frame + chunk;
   R.update_audio_stream o.stream (Ctypes.to_voidp (Ctypes.CArray.start o.buf)) chunk
 
-(* Call once per frame. [active] is true while the lobby is on screen;
+(* Call once per frame. [active] is true while the lobby (beach) or a wind board
+   ([wind], wind only) is on screen;
    [volume] reads the persisted sound level (cached, the prefs file is re-read
    about once a second). *)
-let update ~active ~volume =
+let update ~active ~wind ~volume =
   (match !state with None when active -> state := create () | _ -> ());
   Option.iter
     (fun o ->
@@ -138,7 +155,7 @@ let update ~active ~volume =
         if o.level_age > 4 then (
           o.level <- volume ();
           o.level_age <- 0);
-        fill o ~target:(if active then 1. else 0.) ~volume:o.level))
+        fill o ~target:(if active then 1. else 0.) ~waves_target:(if wind then 0. else 1.) ~volume:o.level))
     !state
 
 let unload () =

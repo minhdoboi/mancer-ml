@@ -461,11 +461,21 @@ let dead_is_destroy (d : dead) = Option.is_none d.d_damage
 let card_index1 (c : card) = c.card_index + 1
 let is_available cd (h : house_state) = cd.cd_cost <= h.mana + cd.cd_extra_mana && cd.cd_enabled
 
+(* every card of every house, after the player's description mods *)
+let modded_cards (p : player_state) (h : player_house_desc) =
+  List.fold_left (fun cards m -> m h cards) h.phd_cards p.ps_desc.desc_mods
+
 let is_disabled (p : player_state) =
   Array.for_all
     (fun h ->
       let hs = p.ps_houses.(h.phd_house.h_index) in
-      Array.for_all (fun cd -> not (is_available cd hs)) h.phd_cards)
+      Array.for_all (fun cd -> not (is_available cd hs)) (modded_cards p h))
+    p.ps_desc.init_desc.pd_houses
+
+(* a skipped turn (Deep freeze): the mods switch every card off, whatever the mana *)
+let turn_skipped (p : player_state) =
+  Array.for_all
+    (fun h -> Array.for_all (fun cd -> not cd.cd_enabled) (modded_cards p h))
     p.ps_desc.init_desc.pd_houses
 
 let command_to_string (c : command) =

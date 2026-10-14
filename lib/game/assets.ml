@@ -54,6 +54,10 @@ let format tmpl args =
 
 let card_name (c : card) = text c.name
 
+(* The English name, whatever the language: sound clips are keyed by it (Scala SpellCast.playSound). *)
+let english_card_name (c : card) =
+  clean (Option.value (Hashtbl.find_opt (Lazy.force english) c.name) ~default:c.name)
+
 let describe ?state ?player (c : card) =
   let tmpl = text c.description in
   match (c.desc_args, state, player) with

@@ -133,6 +133,22 @@ let freeze_skips () =
   play u 0 "elementalist.freeze" ~input:None ~cost:2;
   check_bool "skipped" false (enabled_of u 1 "fire.goblin")
 
+let freeze_chain () =
+  let u = new_game ~mana:ten ~special:Elementalist.house () in
+  play u 0 "elementalist.freeze" ~input:None ~cost:2;
+  on_end u 0;
+  check_bool "foe skipped" false (enabled_of u 1 "fire.goblin");
+  check_bool "foe has nothing to play" true (is_disabled (player u 1).pstate);
+  check_bool "caster can play" false (is_disabled (player u 0).pstate);
+  check_bool "foe turn skipped" true (turn_skipped (player u 1).pstate);
+  check_bool "caster turn not skipped" false (turn_skipped (player u 0).pstate);
+  check_bool "caster free during foe turn" true (enabled_of u 0 "fire.goblin");
+  on_end u 1;
+  check_bool "foe back" true (enabled_of u 1 "fire.goblin");
+  check_bool "caster skipped" false (enabled_of u 0 "fire.goblin");
+  on_end u 0;
+  check_bool "caster back" true (enabled_of u 0 "fire.goblin")
+
 (* ----------------------------------------------------------- high priest *)
 
 let scarab_covers () =
@@ -222,6 +238,7 @@ let () =
           Alcotest.test_case "frost" `Quick frost_blocks;
           Alcotest.test_case "golem" `Quick golem_grows;
           Alcotest.test_case "freeze" `Quick freeze_skips;
+          Alcotest.test_case "freeze chain" `Quick freeze_chain;
         ] );
       ( "highpriest",
         [

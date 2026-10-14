@@ -137,7 +137,8 @@ let nodes =
       ~fight:(f (fight "snowblood" "gambler" "snowblood" ()));
     node "shadowmage" Night 0.49 0.24 (After [ stay_land ])
       ~fight:(f (fight "shadowmage" "oracle" "shadowmage" ()));
-    node "shadowcaster" Night 0.75 0.48 (After [ "shadowmage" ])
+    node "panther" Night 0.62 0.36 (After [ "shadowmage" ]) ~meeting:(f (meeting "panther" ()));
+    node "shadowcaster" Night 0.75 0.48 (After [ "panther" ])
       ~fight:(f (fight "shadowcaster" "oracle" "shadowcaster" ()));
     node "darkpriest" Night 0.87 0.65 (After [ "shadowcaster" ])
       ~fight:(f (fight "darkpriest" "oracle" "darkpriest" ()));
@@ -221,7 +222,8 @@ let edges =
     edge "tinker" "battlemage";
     edge "battlemage" "snowblood";
     edge "snowblood" "limbo";
-    edge "shadowmage" "shadowcaster";
+    edge "shadowmage" "panther";
+    edge "panther" "shadowcaster";
     edge "shadowcaster" "darkpriest";
     edge "darkpriest" "vampires";
     edge "vampires" "deer";
@@ -295,6 +297,7 @@ let npcs =
     "girl";
     "patou";
     "catboy";
+    "panther";
     "crowd";
   ]
 

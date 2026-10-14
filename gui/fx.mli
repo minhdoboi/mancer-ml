@@ -20,6 +20,7 @@ type layout = {
   slot_life : Mancer.Sp.player_id -> int -> int option;
   slot_card : Mancer.Sp.player_id -> int -> string option;
   house_cards : Mancer.Sp.player_id -> int -> spot list;
+  extreme_house : Mancer.Sp.player_id -> [ `Highest | `Lowest ] -> int;
 }
 
 val set_transform : scale:float -> off_x:float -> off_y:float -> unit
@@ -34,6 +35,10 @@ val set_scroll : float -> unit
 val clear : unit -> unit
 (** Drops every overlay effect and shake, e.g. when a rematch starts. *)
 val for_spell : layout -> command -> recipe option
+
+val sound_delay : string -> float
+(** Seconds after a spell's effect starts that its sound begins (0 for most spells). *)
+
 
 val for_ability :
   layout -> kind:string -> player:player_id -> num:int -> target:(player_id * int) option -> recipe option
@@ -55,3 +60,31 @@ end
 
 val demo_names : string list
 val spawn_demo : layout -> string -> unit
+
+val set_vortex_spots : (spot * float) list -> unit
+(** Centres and radii of the Energetic Vortex icons to draw this frame (the board refreshes them every frame). *)
+
+val vortex_badge : layout -> player_id -> spot * float
+(** Where a player's lasting vortex hangs: the corner of their portrait. *)
+
+val set_powder_spots : occupied:spot list -> spot list -> unit
+(** Slot centres to cover in golden powder this frame (creatures hit by Solar Wave's triple damage).
+    [occupied] lists every occupied slot, so the powder of a creature that died vanishes at once. *)
+
+val warp_any : unit -> bool
+(** Whether any creature has been under Warp reality recently (a cheap check before [warp_amount]). *)
+
+val warp_amount : spot -> float
+(** How strongly Warp reality bends the creature at this slot centre right now (0 when it does not). *)
+
+val warp_shader : string -> Raylib.Shader.t option
+(** The named effect shader, if it loaded. *)
+
+val warp_uniforms : amount:float -> unit
+(** Set the warp shader's strength and clock before drawing with it. *)
+
+val set_trap_spots : (int * spot * float) list -> unit
+(** Centres and radii of the Arcane Trap pentagrams to draw this frame, keyed by the trapped player. *)
+
+val trap_center : layout -> player_id -> spot * float
+(** Where a player's lasting pentagram sits: the middle of their slot row. *)

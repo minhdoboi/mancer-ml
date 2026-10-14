@@ -49,12 +49,7 @@ let vortex : card_effect =
   set_wind p { (get_wind p) with vortex = true };
   let air = op.houses_update.hu_value.(2).mana in
   Houses.incr_mana op.houses_update (-2) [ 2 ];
-  Houses.incr_mana p.houses_update (min air 2) [ 2 ];
-  Player.add_effect p
-    ( On_end_turn,
-      countdown 2 (fun env ->
-          let p = player_of_env env in
-          set_wind p { (get_wind p) with vortex = false }) )
+  Houses.incr_mana p.houses_update (min air 2) [ 2 ]
 
 let ww_phase = "whirlwind phase"
 
@@ -101,8 +96,8 @@ let wind_listener () =
     hl_on_death = (fun () -> true);
     hl_mod =
       (fun d ->
-        if (get_wind (get ())).vortex then
-          { d with amount = int_of_float (ceil (float_of_int d.amount *. 1.5)) }
+        if (get_wind (get ())).vortex then (
+          { d with amount = int_of_float (ceil (float_of_int d.amount *. 1.5)) })
         else d);
     hl_intercept_submit =
       (fun c ->
@@ -115,6 +110,14 @@ let wind_listener () =
     hl_init =
       (fun p ->
         player := Some p;
+        let old_submit = p.submit_command_hook in
+        p.submit_command_hook <-
+          (fun c ->
+            (* the vortex is spent by the next spell, whatever it does *)
+            let armed = (get_wind p).vortex && c.cmd_card.is_spell in
+            let r = old_submit c in
+            if armed then set_wind p { (get_wind p) with vortex = false };
+            r);
         Array.iter
           (fun slot ->
             let old = slot.add_hook in

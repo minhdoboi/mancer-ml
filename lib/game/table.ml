@@ -376,5 +376,5 @@ let pick_card t (cd : card_desc) hd =
   else
     match choices t cd.cd_card with
     | [] -> No_target
-    | [ c ] -> Play c
+    | [ c ] when (match cd.cd_card.input_spec with Select_target _ -> false | _ -> true) -> Play c
     | cmds -> Choose cmds

@@ -77,7 +77,7 @@ let monster_attack target d player =
   if single_target_attack target d player then
     Slots.foreach player.slots_update (fun slot ->
         match slot.value with
-        | Some st when is_monster st.card.c_card -> Slot.heal slot st.card.c_body.b_life
+        | Some st when is_monster st.card.c_card -> Slot.heal slot st.max_life
         | _ -> ())
 
 let healing_attack target d player =
@@ -95,7 +95,7 @@ let predator_attack target d player =
       match slot.value with
       | None -> Player.inflict (other_player player) d
       | Some st ->
-          let x = st.card.c_body.b_life - st.life in
+          let x = st.max_life - st.life in
           Slot.inflict slot { d with amount = d.amount + x })
 
 let drake_reaction () =

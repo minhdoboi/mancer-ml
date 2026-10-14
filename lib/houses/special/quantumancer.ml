@@ -30,14 +30,13 @@ let sealed_cards (slot : slot_update) =
 
 let cosmic_choice (spells : card list) : desc_mod =
  fun house cards ->
-  let hidden = Array.map (fun cd -> { cd with cd_enabled = false }) cards in
-  if house.phd_house.h_index <> special_house_index then hidden
+  if house.phd_house.h_index <> special_house_index then
+    Array.map (fun cd -> { cd with cd_enabled = false }) cards
   else
-    let extras =
-      List.map (fun s -> { cd_card = s; cd_cost = 0; cd_enabled = true; cd_extra_mana = 0 }) spells
-      |> Array.of_list
-    in
-    Array.append hidden extras
+    (* Replace the column: the board only draws the first four rows of a house,
+       so spells appended after the eight Quantumancer cards were never shown. *)
+    List.map (fun s -> { cd_card = s; cd_cost = 0; cd_enabled = true; cd_extra_mana = 0 }) spells
+    |> Array.of_list
 
 let replayable p =
   let rec uniq acc seen = function
@@ -78,10 +77,35 @@ let fusion_turn : card_effect =
   Houses.incr_mana op.houses_update (-1) [ idx ];
   Updater.focus env.env_updater env.env_selected env.env_player true
 
+(* Same input rules as [Game.available_commands]: a spell with no legal target
+   would leave the phase with nothing to play. *)
+let castable env p (c : card) =
+  let u = env.env_updater in
+  let op = other_player p in
+  let filled (pl : player_update) =
+    Array.exists (fun s -> Option.is_some s.value) pl.slots_update.slot_updates
+  in
+  let visible_foe =
+    Array.exists
+      (fun s -> match s.value with Some st -> st.data <> Stealthed | None -> false)
+      op.slots_update.slot_updates
+  in
+  match c.input_spec with
+  | No_input -> true
+  | Select_owner_slot -> Slots.get_open p.slots_update <> []
+  | Select_owner_creature -> filled p
+  | Select_target_creature -> visible_foe
+  | Select_target_slot -> Slots.get_open op.slots_update <> []
+  | Select_any_creature -> filled p || visible_foe
+  | Select_owner f -> f p.pid u.state <> []
+  | Select_target f -> f op.pid u.state <> []
+
 let cosmic_summon : card_effect =
  fun env ->
   let p = player_of_env env in
-  match replayable p with
+  (* the hand shows four rows per house: keep the most recent spells *)
+  let rec last n l = if List.length l <= n then l else last n (List.tl l) in
+  match last 4 (List.filter (castable env p) (replayable p)) with
   | [] -> ()
   | offers ->
       remove_choice p;

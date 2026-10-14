@@ -257,9 +257,10 @@ let play_sound ?(volume = 0.7) name =
     (sound name)
 
 (* Scala SpellCast.playSound: English name, spaces stripped, looked up in sounds{}. *)
-let play_card_sound (c : card) =
-  let name = Assets.card_name c |> String.lowercase_ascii |> String.split_on_char ' ' |> String.concat "" in
-  play_sound ~volume:0.9 name
+let card_sound_name (c : card) =
+  Assets.english_card_name c |> String.lowercase_ascii |> String.split_on_char ' ' |> String.concat ""
+
+let play_card_sound (c : card) = play_sound ~volume:0.9 (card_sound_name c)
 
 (* [r] covered, cropped to its aspect ratio *)
 let image ?(tint = R.Color.white) tex r =

@@ -155,3 +155,77 @@ let spawn_lightning ?(style = electric) points ~start =
                     let a, b = hops.(i) in
                     paint_strike style strike a b (hop_alpha ~duration ~index:i ~t:age) age)
               !strikes))
+
+(* Ball lightning: a thin bolt strikes the target, and where it lands a ball of
+   lightning swells, crackles with short arcs, then bursts in a ring. *)
+let ball_strike_time = 0.22
+let ball_duration = 1.5
+
+let spawn_ball_lightning ~from_p ~to_p ~start =
+  let rng = Random.State.make_self_init () in
+  let frame = ref (-1) in
+  let bolt = ref (build rng from_p to_p) in
+  let arcs = ref [||] in
+  let gr, gg, gb = ball.glow and br, bg, bb = ball.body and cr, cg, cb = ball.core in
+  mk ~start ~duration:ball_duration (fun ~age ->
+      let next = int_of_float (age /. 0.04) in
+      let radius =
+        if age < ball_strike_time then 0.
+        else if age < 1.0 then 6. +. (22. *. clamp01 ((age -. ball_strike_time) /. 0.6))
+        else 28.
+      in
+      if next <> !frame then (
+        frame := next;
+        bolt := build rng from_p to_p;
+        arcs :=
+          Array.init 6 (fun _ ->
+              let ang = Random.State.float rng (Float.pi *. 2.) in
+              let r0 = radius *. 0.4 and r1 = radius *. (1.5 +. Random.State.float rng 1.) in
+              jag rng
+                { x = to_p.x +. (cos ang *. r0); y = to_p.y +. (sin ang *. r0) }
+                { x = to_p.x +. (cos ang *. r1); y = to_p.y +. (sin ang *. r1) }
+                3 (radius *. 0.35)));
+      additive (fun () ->
+          (* thin strike, brief and bright *)
+          let strike_a =
+            if age < ball_strike_time then 1.
+            else Float.max 0. (1. -. ((age -. ball_strike_time) /. 0.15))
+          in
+          if strike_a > 0.02 then (
+            stroke !bolt.primary 6. gr gg gb (strike_a *. 0.3) true;
+            stroke !bolt.primary 1.8 br bg bb (strike_a *. 0.8) false;
+            stroke !bolt.primary 0.9 cr cg cb strike_a false);
+          if radius > 0. then (
+            let fade = if age > 1.0 then Float.max 0. (1. -. ((age -. 1.0) /. 0.5)) else 1. in
+            let pulse = 1. +. (0.08 *. sin (age *. 40.)) in
+            let r = radius *. pulse in
+            circle to_p.x to_p.y (r *. 1.9) (rgb gr gg gb (fade *. 0.22));
+            circle to_p.x to_p.y (r *. 1.3) (rgb br bg bb (fade *. 0.4));
+            circle to_p.x to_p.y r (rgb br bg bb (fade *. 0.75));
+            circle to_p.x to_p.y (r *. 0.55) (rgb cr cg cb fade);
+            Array.iter
+              (fun a ->
+                stroke a 3.5 gr gg gb (fade *. 0.35) false;
+                stroke a 1.3 cr cg cb (fade *. 0.9) false)
+              !arcs;
+            (* orbiting sparks *)
+            for k = 0 to 4 do
+              let ang = (age *. 9.) +. (float k *. 1.2566) in
+              circle
+                (to_p.x +. (cos ang *. r *. 1.25))
+                (to_p.y +. (sin ang *. r *. 1.25))
+                2.2
+                (rgb cr cg cb (fade *. 0.9))
+            done);
+          (* closing burst ring *)
+          if age > 1.0 then (
+            let u = clamp01 ((age -. 1.0) /. 0.5) in
+            let rr = 28. +. (50. *. u) in
+            for k = 0 to 23 do
+              let ang = float k *. (Float.pi *. 2. /. 24.) in
+              circle
+                (to_p.x +. (cos ang *. rr))
+                (to_p.y +. (sin ang *. rr))
+                (3.5 *. (1. -. u))
+                (rgb br bg bb ((1. -. u) *. 0.8))
+            done)))

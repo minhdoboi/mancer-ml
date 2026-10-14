@@ -1,0 +1,116 @@
+(* A short, resonant battle shout for Sonorous Warcry, synthesised once
+   (no audio file): a chest-voice yell with an open vowel, a little grit,
+   and a ringing tail so it sounds sonorous rather than thin. Written to
+   a temp WAV and loaded as a raylib Sound. *)
+
+module R = Raylib
+
+let sample_rate = 44100
+let duration = 1.05
+let two_pi = 2. *. Float.pi
+let formant f c bw = exp (-.(((f -. c) /. bw) ** 2.))
+let clamp01 u = if u < 0. then 0. else if u > 1. then 1. else u
+
+let synth () =
+  let n = int_of_float (duration *. float sample_rate) in
+  let dry = Array.make n 0. in
+  let phase = ref 0. in
+  let horn = ref 0. in
+  let s = ref 246813579 in
+  let rnd () =
+    s := ((!s * 1664525) + 1013904223) land 0xFFFFFFFF;
+    (float !s /. 4294967296.) -. 0.5
+  in
+  for i = 0 to n - 1 do
+    let t = float i /. float sample_rate in
+    let u = t /. duration in
+    (* pitch punches up into the shout, then settles like a held call *)
+    let f0 =
+      if t < 0.14 then 175. +. (130. *. (t /. 0.14) ** 0.7)
+      else 305. -. (95. *. clamp01 ((t -. 0.14) /. 0.7))
+    in
+    let f0 = f0 *. (1. +. (0.01 *. rnd ())) in
+    phase := !phase +. (two_pi *. f0 /. float sample_rate);
+    let v = ref 0. in
+    for k = 1 to 18 do
+      let fk = f0 *. float k in
+      if fk < 8000. then
+        let g =
+          (0.22
+          +. formant fk 280. 120.
+          +. (1.1 *. formant fk 720. 180.)
+          +. (0.7 *. formant fk 1180. 220.)
+          +. (0.35 *. formant fk 2550. 320.))
+          /. float k ** 0.55
+        in
+        v := !v +. (g *. sin (float k *. !phase))
+    done;
+    let attack = Float.min 1. (t /. 0.035) in
+    let body = Float.min 1. ((duration -. t) /. 0.22) in
+    let swell = if t < 0.18 then 0.7 +. (0.3 *. (t /. 0.18)) else 1. -. (0.25 *. ((t -. 0.18) /. duration)) in
+    let rough = 1. +. (0.22 *. sin (two_pi *. 48. *. t)) in
+    let breath = rnd () *. (if t < 0.08 then 0.55 else 0.12) in
+    (* sonorous ring: a horn-like partial that outlasts the voice *)
+    horn := !horn +. (two_pi *. 415. /. float sample_rate);
+    let ring_env = Float.min 1. (t /. 0.08) *. ((1. -. u) ** 1.4) in
+    let ring = sin !horn *. 0.28 *. ring_env in
+    let thump =
+      if t < 0.09 then sin (two_pi *. 90. *. t) *. (1. -. (t /. 0.09)) *. 0.35 else 0.
+    in
+    dry.(i) <- ((!v *. rough *. swell) +. breath +. ring +. thump) *. attack *. body
+  done;
+  let lp = ref 0. in
+  let k = 1. -. exp (-.two_pi *. 3800. /. float sample_rate) in
+  let dark = Array.map (fun x -> lp := !lp +. (k *. (x -. !lp)); !lp) dry in
+  let out = Array.copy dark in
+  List.iter
+    (fun (delay, gain) ->
+      let d = int_of_float (delay *. float sample_rate) in
+      for i = d to n - 1 do
+        out.(i) <- out.(i) +. (dark.(i - d) *. gain)
+      done)
+    [ (0.09, 0.32); (0.18, 0.16); (0.31, 0.08) ];
+  let peak = Array.fold_left (fun m x -> Float.max m (Float.abs x)) 1e-6 out in
+  Array.map (fun x -> x /. peak *. 0.78) out
+
+let write_wav path samples =
+  let n = Array.length samples in
+  let oc = open_out_bin path in
+  let le32 v = for b = 0 to 3 do output_byte oc ((v lsr (8 * b)) land 255) done in
+  let le16 v = for b = 0 to 1 do output_byte oc ((v lsr (8 * b)) land 255) done in
+  output_string oc "RIFF";
+  le32 (36 + (n * 2));
+  output_string oc "WAVEfmt ";
+  le32 16;
+  le16 1;
+  le16 1;
+  le32 sample_rate;
+  le32 (sample_rate * 2);
+  le16 2;
+  le16 16;
+  output_string oc "data";
+  le32 (n * 2);
+  Array.iter (fun x -> le16 (int_of_float (x *. 32767.) land 0xFFFF)) samples;
+  close_out oc
+
+let cached : R.Sound.t option option ref = ref None
+
+let sound () =
+  match !cached with
+  | Some s -> s
+  | None ->
+      let s =
+        try
+          let path = Filename.temp_file "mancer_warcry" ".wav" in
+          write_wav path (synth ());
+          let snd = R.load_sound path in
+          (try Sys.remove path with _ -> ());
+          if R.is_sound_valid snd then Some snd else None
+        with _ -> None
+      in
+      cached := Some s;
+      s
+
+let unload () =
+  Option.iter (Option.iter R.unload_sound) !cached;
+  cached := None

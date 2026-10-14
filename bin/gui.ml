@@ -33,6 +33,9 @@ let background ui =
   | Some sky, Some ground -> layered (Some sky) (Some ground)
   | _ -> flat ()
 
+(* the ambience setting, remembered outside the lobby (read once at start) *)
+let ambient_on = ref (try Prefs.ambient_sound (Prefs.load ()) with _ -> true)
+
 let window_title = "The Mancer's echo"
 let chrome_btn_w = 54.
 let chrome_dragging = ref false
@@ -242,9 +245,18 @@ let () =
   | _ -> ());
   let t0 = R.get_time () in
   while not (!quit || R.window_should_close ()) do
+    (match !screen with
+    | Lobby l -> ambient_on := l.gs.ambient_enabled
+    | Game ui -> (match ui.settings with Some gs -> ambient_on := gs.ambient_enabled | None -> ())
+    | _ -> ());
+    let wind_board = match !screen with Game ui -> (backdrop_house ui).h_key = "wind" | _ -> false in
     Ocean.update
-      ~active:(match !screen with Lobby l -> l.gs.ocean | _ -> false)
-      ~volume:sound_level;
+      ~active:(match !screen with Lobby _ -> !ambient_on | Game _ -> !ambient_on && wind_board | _ -> false)
+      ~wind:wind_board ~volume:sound_level;
+    let quake_board = match !screen with Game ui -> (backdrop_house ui).h_key = "elementalist" | _ -> false in
+    Rumble.update ~active:(!ambient_on && quake_board) ~volume:sound_level;
+    let limbo_board = match !screen with Game ui -> (backdrop_house ui).h_key = "limbo" | _ -> false in
+    Choir.update ~active:(!ambient_on && limbo_board) ~volume:sound_level;
     fit_frame ();
     Fx.set_transform ~scale:!scale ~off_x:!off_x ~off_y:!off_y;
     pending := None;
@@ -356,7 +368,7 @@ let () =
         Fx.Hover.draw ();
         (match !(ui.last_played) with
         | Some { card = Some c; player } when inside (last_played_rect ui) ->
-            ui.hover <- Some (Hover_card (c, player))
+            ui.hover <- Some (Hover_card (c, player, None))
         | _ -> ());
         (* New picks houses from the settings dialog (or the prefs it already
            persisted). Restart and switch keep this fight's resolved pair. *)
@@ -483,6 +495,10 @@ let () =
   (match !screen with Game ui -> settle ui | _ -> ());
   Hashtbl.iter (fun _ s -> Option.iter R.unload_sound s) sounds;
   Ocean.unload ();
+  Scream.unload ();
+  Warcry.unload ();
+  Rumble.unload ();
+  Choir.unload ();
   Fx.unload ();
   R.close_audio_device ();
   R.close_window ()

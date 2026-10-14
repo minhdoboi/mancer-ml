@@ -14,7 +14,7 @@ type mode = Browse | Target of command list
 type last_played = { player : player_id; card : card option }
 
 type hover =
-  | Hover_card of card * player_id
+  | Hover_card of card * player_id * int option  (* the creature's current max life, if it is on the board *)
   | Hover_house of house
   | Hover_note of { title : string; body : string }
 
@@ -81,7 +81,10 @@ type game_ui = {
   mutable scroll_y : float;
   mutable bg_at : float;
   mutable slides : slide list;
+  mutable late_sounds : (float * string) list;
   mutable anim_at : float;
+  (* Arcane Trap per victim: 0 none, 1 cast but skip not on the board yet, 2 skip showing *)
+  trap : int array;
   (* The engine resolves a move at once; the board is replayed from the
      snapshot taken at each refresh, on the same timeline as the slides. *)
   mutable frames : (float * game_state) list; (* oldest first, not shown yet *)
@@ -116,7 +119,22 @@ let make_game ?(campaign = None) (setup : Table.setup) portraits table_of =
     | Ev_submitted { player; command; _ } ->
         last_played := Some { player; card = Option.map (fun c -> c.cmd_card) command };
         Option.iter (fun c -> Hashtbl.replace discovered (player, c.cmd_card.key) ()) command
-    | Ev_spell_played c -> play_card_sound c.cmd_card
+    | Ev_spell_played c ->
+        (* a spell with a delayed impact plays its sound from [queue_slides], once its effect starts *)
+        if Fx.sound_delay c.cmd_card.key = 0. then play_card_sound c.cmd_card;
+        (* Pain of essence: a distant, not too loud scream *)
+        if c.cmd_card.key = "conjurer.pain" then
+          Option.iter
+            (fun s ->
+              R.set_sound_volume s (0.3 *. sound_level ());
+              R.play_sound s)
+            (Scream.sound ())
+        else if c.cmd_card.key = "battlemage.warcry" then
+          Option.iter
+            (fun s ->
+              R.set_sound_volume s (0.85 *. sound_level ());
+              R.play_sound s)
+            (Warcry.sound ())
     | _ -> ());
     Option.iter (fun ui -> !board_event ui e) !ui_holder
   in
@@ -141,7 +159,9 @@ let make_game ?(campaign = None) (setup : Table.setup) portraits table_of =
       scroll_y = 0.;
       bg_at = R.get_time ();
       slides = [];
+      late_sounds = [];
       anim_at = 0.;
+      trap = [| 0; 0 |];
       frames = [];
       shown = Session.peek (Table.session table);
       last_frame = Session.peek (Table.session table);
@@ -320,6 +340,13 @@ let drive_bot ui =
                   Atomic.set result (Some (try Ok (Table.bot_command table) with e -> Error e)))
             in
             ui.thinking <- Some { domain; result }
+      | Some pid
+        when Table.seat ui.table pid = Human
+             && (not ui.paused) && input_ok ui
+             && turn_skipped (state ui).players.(pid)
+             && R.get_time () -. ui.last_move >= 0.8 ->
+          (* Deep freeze: nothing can be played, so the turn passes by itself *)
+          play ui None
       | _ -> ())
 
 (* ---------------------------------------------------------------- board *)
@@ -537,13 +564,21 @@ let fx_layout ui : Fx.layout =
       (fun c ->
         find_hand_rect ui c.cmd_player c.cmd_card
         |> Option.map (fun r -> { Fx.x = r.x +. (r.w /. 2.); y = r.y +. (r.h /. 2.) }));
+    extreme_house =
+      (fun pid kind ->
+        let hs = (view ui).players.(pid).ps_houses in
+        let better = match kind with `Highest -> ( > ) | `Lowest -> ( < ) in
+        let best = ref 0 in
+        Array.iteri (fun i (h : house_state) -> if better h.mana hs.(!best).mana then best := i) hs;
+        !best);
   }
 
 let run_fx ui recipe =
   let start =
     if recipe.Fx.blocking then schedule ui recipe.duration else Float.max (R.get_time ()) ui.anim_at
   in
-  Fx.spawn (recipe.make ~start)
+  Fx.spawn (recipe.make ~start);
+  start
 
 let queue_slides ui e =
   lay := make_layout ui.table;
@@ -615,9 +650,14 @@ let queue_slides ui e =
   | Ev_spell_played c ->
       let start = Float.max (R.get_time ()) ui.anim_at in
       ui.spell_shows <- { ss_card = c.cmd_card; ss_player = c.cmd_player; ss_start = start } :: ui.spell_shows;
-      Option.iter (run_fx ui) (Fx.for_spell (fx_layout ui) c)
+      if c.cmd_card.key = "rogue.trap" then ui.trap.(1 - c.cmd_player) <- 1;
+      let delay = Fx.sound_delay c.cmd_card.key in
+      let fx_start = Option.map (run_fx ui) (Fx.for_spell (fx_layout ui) c) in
+      if delay > 0. then
+        let at = Option.value fx_start ~default:start +. delay in
+        ui.late_sounds <- (at, card_sound_name c.cmd_card) :: ui.late_sounds
   | Ev_ability { kind; player; num; target } ->
-      Option.iter (run_fx ui) (Fx.for_ability (fx_layout ui) ~kind ~player ~num ~target)
+      ignore (Option.map (run_fx ui) (Fx.for_ability (fx_layout ui) ~kind ~player ~num ~target))
   | Ev_game_over { winner; _ } ->
       push_frame ui ~silent:true;
       (* Engine already set Over; Scala waitAction holds endGame until the
@@ -647,6 +687,14 @@ let tick_slides ui =
         s.sounded <- true;
         Option.iter (fun n -> play_sound n) s.sound))
     ui.slides;
+  ui.late_sounds <-
+    List.filter
+      (fun (at, name) ->
+        if now >= at then (
+          play_sound ~volume:0.9 name;
+          false)
+        else true)
+      ui.late_sounds;
   ui.slides <- List.filter (fun s -> now < s.start +. s.duration) ui.slides;
   let rec advance = function
     | (t, st) :: rest when t <= now ->
@@ -882,6 +930,42 @@ let draw_empty_slot ui pid num r (p : player_state) =
              }))
   else draw_slot_well r
 
+(* Warp reality: the card is painted into an off-screen texture, then drawn through the warp shader. *)
+let warp_rt : (int * int * R.RenderTexture.t) option ref = ref None
+
+let with_warp r amount draw =
+  match Fx.warp_shader "warp" with
+  | None -> draw r
+  | Some shader ->
+      let w = max 1 (int_of_float (Float.ceil (r.w *. !scale)))
+      and h = max 1 (int_of_float (Float.ceil (r.h *. !scale))) in
+      let rt =
+        match !warp_rt with
+        | Some (rw, rh, t) when rw = w && rh = h -> t
+        | old ->
+            Option.iter (fun (_, _, t) -> R.unload_render_texture t) old;
+            let t = R.load_render_texture w h in
+            warp_rt := Some (w, h, t);
+            t
+      in
+      let ox = !off_x and oy = !off_y and a = !draw_alpha in
+      off_x := 0.;
+      off_y := 0.;
+      draw_alpha := 1.;
+      R.begin_texture_mode rt;
+      R.clear_background (R.Color.create 0 0 0 0);
+      draw (rect 0. 0. r.w r.h);
+      R.end_texture_mode ();
+      off_x := ox;
+      off_y := oy;
+      draw_alpha := a;
+      Fx.warp_uniforms ~amount;
+      R.begin_shader_mode shader;
+      R.draw_texture_pro (R.RenderTexture.texture rt)
+        (R.Rectangle.create 0. 0. (float w) (-.float h))
+        (screen r) (R.Vector2.create 0. 0.) 0. (alpha_color R.Color.white);
+      R.end_shader_mode ()
+
 let draw_slot ui pid num =
   let r = rect (slot_x num) (oy ui (row_y pid)) slot_w slot_h in
   let p = (view ui).players.(pid) in
@@ -908,7 +992,7 @@ let draw_slot ui pid num =
          else (
            if fade < 0.999 then draw_slot_well r;
            let c = st.card.c_card in
-           if fade >= 0.999 && inside r then ui.hover <- Some (Hover_card (c, pid));
+           if fade >= 0.999 && inside r then ui.hover <- Some (Hover_card (c, pid, Some st.max_life));
            let life_color = if st.life < st.max_life then gold else life_ok in
            let shake_x, shake_y = Fx.slot_offset pid num in
            let r = { r with x = r.x +. shake_x; y = r.y +. attack_offset ui pid num +. shake_y } in
@@ -924,10 +1008,14 @@ let draw_slot ui pid num =
            let tint, look_a = slot_face_look st in
            let decorated = ref false in
            with_alpha (fade *. look_a) (fun () ->
-               draw_card_face (desc ui) r c ~cost:(Some c.cost)
-                 ~attack:(Some (string_of_int st.attack))
-                 ~life:(Some st.life) ~life_color ~tint
-                 ~decor:(fun () -> decorated := draw_status_overlay r st);
+               let warp = if Fx.warp_any () then Fx.warp_amount ((fx_layout ui).slot_center pid num) else 0. in
+               let face r =
+                 draw_card_face (desc ui) r c ~cost:(Some c.cost)
+                   ~attack:(Some (string_of_int st.attack))
+                   ~life:(Some st.life) ~life_color ~tint
+                   ~decor:(fun () -> decorated := draw_status_overlay r st)
+               in
+               if warp > 0.02 then with_warp r warp face else face r;
                if not !decorated then
                  let flags = flag_names st in
                  if flags <> "" then
@@ -998,6 +1086,7 @@ let draw_player_bar ui pid =
   | Shadowcaster_data n -> badge (Printf.sprintf "Dark %d" n)
   | Shadowmage_data d when d.eclipse_shield > 0 -> badge (Printf.sprintf "eclipse %d" d.eclipse_shield)
   | Wolf_data d when d.wo_protection > 0 -> badge (Printf.sprintf "wolf armor %d" d.wo_protection)
+  | Wind_state w when w.vortex -> badge "vortex x1.5"
   | _ -> ());
   if
     Array.exists
@@ -1006,6 +1095,44 @@ let draw_player_bar ui pid =
   then badge "protector -2"
 
 let draw_board ui =
+  (* Solar Wave: the opponent's creatures wear golden powder while they take triple damage. *)
+  (* A creature that is sliding or attacking has left its slot: no powder on it. *)
+  let settled pid n =
+    Option.is_some (view ui).players.(pid).ps_slots.(n)
+    && (not (slot_hidden ui pid n))
+    && attack_offset ui pid n = 0.
+  in
+  let settled_spots pid = List.filter_map (fun n -> if settled pid n then Some ((fx_layout ui).slot_center pid n) else None) base_slot_list in
+  Fx.set_powder_spots
+    ~occupied:(settled_spots opponent @ settled_spots owner)
+    (List.concat_map
+       (fun pid ->
+         match (view ui).players.(pid).ps_data with
+         | Season_data d when d.se_triple -> settled_spots (1 - pid)
+         | _ -> [])
+       [ opponent; owner ]);
+  (* Energetic Vortex lingers beside the portrait of the player who cast it. *)
+  Fx.set_vortex_spots
+    (List.filter_map
+       (fun pid ->
+         match (view ui).players.(pid).ps_data with
+         | Wind_state w when w.vortex -> Some (Fx.vortex_badge (fx_layout ui) pid)
+         | _ -> None)
+       [ opponent; owner ]);
+  (* Arcane Trap: a pentagram over the victim's slots until the skipped turn is over. *)
+  Fx.set_trap_spots
+    (List.filter_map
+       (fun pid ->
+         let skipped = turn_skipped (view ui).players.(pid) in
+         (match (ui.trap.(pid), skipped) with
+         | 1, true -> ui.trap.(pid) <- 2
+         | 2, false -> ui.trap.(pid) <- 0
+         | _ -> ());
+         if ui.trap.(pid) = 2 then
+           let c, r = Fx.trap_center (fx_layout ui) pid in
+           Some (pid, c, r)
+         else None)
+       [ opponent; owner ]);
   draw_player_bar ui opponent;
   List.iter (fun n -> draw_slot ui opponent n) base_slot_list;
   List.iter (fun n -> draw_slot ui owner n) base_slot_list;
@@ -1023,12 +1150,17 @@ let house_blurb (h : house) =
 let open_house_dlg ui pid (h : house) =
   ui.house_dlg <- Some { house = h; player = pid; scroll = 0.; drag = false; content_h = 0. }
 
-let card_preview_bits ?state ?player (c : card) =
+let card_preview_bits ?state ?player ?max_life (c : card) =
   let title = Printf.sprintf "%s (%d)" (Assets.card_name c) c.cost in
   let subtitle =
     match c.creature_body with
     | Some b ->
-        Printf.sprintf "Life : %d  Attack : %s" b.b_life
+        let life =
+          match max_life with
+          | Some m when m <> b.b_life -> Printf.sprintf "%d (%d)" m b.b_life
+          | _ -> string_of_int b.b_life
+        in
+        Printf.sprintf "Life : %s  Attack : %s" life
           (match b.b_attack.base with Some a -> string_of_int a | None -> "X")
     | None -> "Spell"
   in
@@ -1101,7 +1233,7 @@ let draw_hand_at ui pid ~cards_y ~header_y =
               if not turn_on then fill ~round:0.08 r (rgba 168 168 178 125);
               if is_selected then Fx.draw_sel ~x:r.x ~y:r.y ~w:r.w ~h:r.h;
               if inside r then (
-                ui.hover <- Some (Hover_card (c, pid));
+                ui.hover <- Some (Hover_card (c, pid, None));
                 if pid = opponent then ui.hover_opp <- true);
               if active then on_click r (fun () -> pick_card ui cd hd)))
         hd.phd_cards)
@@ -1187,11 +1319,11 @@ let draw_preview ui =
   | None -> ()
   | Some (Hover_house h) -> draw_note_preview ~x ~w ~y ~pad ~title:(house_title h) ~body:(house_blurb h)
   | Some (Hover_note { title; body }) -> draw_note_preview ~x ~w ~y ~pad ~title ~body
-  | Some (Hover_card (c, pid)) ->
+  | Some (Hover_card (c, pid, max_life)) ->
       let art_s = if c.is_spell then 130. else 120. in
       let title_size = 20. and sub_size = 16. and desc_size = 18. in
       let title_lh = 24. and desc_lh = 22. in
-      let title, subtitle, desc_text = card_preview_bits ~state:(view ui) ~player:pid c in
+      let title, subtitle, desc_text = card_preview_bits ~state:(view ui) ~player:pid ?max_life c in
       let info_w = Float.max 80. (w -. art_s -. (pad *. 3.)) in
       let title_lines = List.filteri (fun i _ -> i < 2) (wrap ~font:bold title_size info_w title) in
       let desc_lines =
@@ -1225,7 +1357,7 @@ let draw_last_played ui =
       if inside r then hovering := true;
       match lp.card with
       | Some c ->
-          if inside r then ui.hover <- Some (Hover_card (c, lp.player));
+          if inside r then ui.hover <- Some (Hover_card (c, lp.player, None));
           let thumb = 40. in
           draw_card_art (rect (r.x +. 6.) (r.y +. ((r.h -. thumb) /. 2.)) thumb thumb) c;
           text ~size:14. ~color:fg (r.x +. 52.) (r.y +. ((r.h -. 14.) /. 2.)) "Last played"
@@ -1242,7 +1374,7 @@ let draw_spell_shows ui =
         let r = spell_show_rect ui in
         if inside r then (
           hovering := true;
-          ui.hover <- Some (Hover_card (s.ss_card, s.ss_player)));
+          ui.hover <- Some (Hover_card (s.ss_card, s.ss_player, None)));
         match card_texture s.ss_card with Some t -> image_circle t r | None -> fill ~round:0.5 r panel_hi))
     ui.spell_shows
 

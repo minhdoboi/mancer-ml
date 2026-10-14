@@ -47,6 +47,9 @@ let look_recipe layout (c : command) look =
   recipe ~duration ~blocking:true (fun ~start ->
       spawn_style look ~own ~foe ~own_life ~foe_life ~target ~start)
 
+(* Seconds after a spell's effect starts that its sound should begin, for spells whose impact comes late. *)
+let sound_delay key = match key with "NuclearMissile" -> missile_fall | _ -> 0.
+
 let for_spell layout (c : command) =
   let player = c.cmd_player in
   let other = other player in
@@ -54,6 +57,23 @@ let for_spell layout (c : command) =
   let target = target_spot layout c in
   let foe_life = layout.life other in
   match c.cmd_card.key with
+  | "colors.Discoloration.name" ->
+      let own =
+        layout.occupied player
+        |> List.filter (fun n ->
+            match layout.slot_card player n with
+            | Some k -> String.starts_with ~prefix:"colors." k
+            | None -> false)
+        |> List.map (layout.slot_center player)
+        |> Array.of_list
+      in
+      let look =
+        { Spell_looks.style = Spell_looks.Ring; aim = Spell_looks.Own_slots; r = 0.9; g = 0.9; b = 0.95; power = 1. }
+      in
+      let own_life = layout.life player and foe_life = layout.life other in
+      Some
+        (recipe ~duration:(style_duration look) ~blocking:true (fun ~start ->
+             spawn_style look ~own ~foe:[||] ~own_life ~foe_life ~target:None ~start))
   | "air.call" ->
       Option.map
         (fun t ->
@@ -86,12 +106,15 @@ let for_spell layout (c : command) =
            (fun ~start -> spawn_lightning pts ~start))
   | "wind.BallLightning.name" ->
       Some
-        (recipe ~duration:(lightning_duration 2) ~blocking:true (fun ~start ->
-             spawn_lightning ~style:ball [ source; foe_life ] ~start))
+        (recipe ~duration:ball_duration ~blocking:true (fun ~start ->
+             spawn_ball_lightning ~from_p:source ~to_p:foe_life ~start))
   | "fire.wave" ->
       Some
         (recipe ~duration:1.5 ~blocking:true (fun ~start ->
              spawn_flame_wave (slots_of other layout.slot_floor) ~start))
+  | "NuclearMissile" ->
+      let bases = slots_of other layout.slot_floor in
+      Some (recipe ~duration:1.7 ~blocking:true (fun ~start -> spawn_missiles ~pid:other ~bases ~start))
   | "fire.inferno" ->
       Option.map
         (fun n ->
@@ -223,6 +246,16 @@ let for_spell layout (c : command) =
       Option.map
         (fun at -> recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_burial ~at ~start))
         target
+  | "powermancer.equilibrium" ->
+      let opp_hi = layout.extreme_house other `Highest in
+      let own_lo = layout.extreme_house player `Lowest in
+      let opp_house = layout.house other opp_hi in
+      let own_house = layout.house player own_lo in
+      let opp_life = layout.life other in
+      let own_life = layout.life player in
+      Some
+        (recipe ~duration:1.4 ~blocking:true (fun ~start ->
+             spawn_equilibrium ~opp_house ~opp_life ~own_house ~own_life ~start))
   | "fire.apocalypse" ->
       let spots pid = layout.occupied pid |> List.map (layout.slot_center pid) in
       let everything = slots_of player layout.slot_center |> Array.to_list |> fun l -> l @ Array.to_list (slots_of other layout.slot_center) in
@@ -283,6 +316,70 @@ let for_spell layout (c : command) =
           recipe ~duration:1.2 ~blocking:true (fun ~start ->
               spawn_poison ~own ~facing ~smoke:(Array.of_list (own :: extras)) ~start))
         c.cmd_input
+  | "tinker.scatter" ->
+      let bases =
+        let nums = match layout.occupied other with [] -> base_slot_list | ns -> ns in
+        Array.of_list (List.map (fun n -> (n, layout.slot_floor other n)) nums)
+      in
+      Some (recipe ~duration:1.75 ~blocking:true (fun ~start -> spawn_scatterbomb ~pid:other ~src:source ~bases ~start))
+  | "rogue.trap" ->
+      let houses = Array.init 5 (layout.house other) in
+      let center = fst (Fx_core.trap_center_of layout other) in
+      Some (recipe ~duration:2.6 ~blocking:true (fun ~start -> spawn_arcane_trap ~houses ~center ~start))
+  | "wind.Simoom.name" ->
+      Option.map
+        (fun t -> recipe ~duration:1.5 ~blocking:true (fun ~start -> spawn_simoom ~target:t ~start))
+        target
+  | "wind.Whirlwind.name" ->
+      (* Whirlwind destroys the chosen creature and the one facing it: one gale joining the two slots. *)
+      Option.map
+        (fun n ->
+          let a = layout.slot_center player n and b = layout.slot_center other n in
+          recipe ~duration:1.4 ~blocking:true (fun ~start -> spawn_whirlwind ~a ~b ~start))
+        c.cmd_input
+  | "seasons.SolarWave.name" ->
+      let own = slots_of player layout.slot_center and foe = slots_of other layout.slot_center in
+      Some
+        (recipe ~duration:1.8 ~blocking:true (fun ~start -> spawn_solar_wave ~own ~foe ~foe_life ~start))
+  | "seasons.EternalSummer.name" ->
+      let own = slots_of player layout.slot_center and foe = slots_of other layout.slot_center in
+      let hand = source in
+      Some
+        (recipe ~duration:2.2 ~blocking:true (fun ~start -> spawn_eternal_summer ~own ~foe ~hand ~start))
+  | "kinetician.warp" ->
+      Option.map (fun t -> recipe ~duration:1.6 ~blocking:true (fun ~start -> spawn_warp_reality ~target:t ~start)) target
+  | "kinetician.barrier" ->
+      Option.map (fun t -> recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_force_barrier ~target:t ~start)) target
+  | "conjurer.pain" ->
+      Option.map
+        (fun t -> recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_pain_of_essence ~target:t ~foe_life ~start))
+        target
+  | "conjurer.bravery" ->
+      let spots = Array.of_list (List.map (layout.slot_center player) (layout.occupied player)) in
+      Some (recipe ~duration:1.5 ~blocking:true (fun ~start -> spawn_bravery ~spots ~start))
+  | "conjurer.nectar" ->
+      Option.map
+        (fun t ->
+          let house =
+            match (c.cmd_input, Table.target_side c) with
+            | Some n, Some tp -> Option.map (layout.house player) (layout.slot_house tp n)
+            | _ -> None
+          in
+          recipe ~duration:1.8 ~blocking:true (fun ~start -> spawn_lavender_nectar ~target:t ~house ~start))
+        target
+  | "wind.EnergeticVortex.name" ->
+      let foe_air = layout.house other 2 and own_air = layout.house player 2 in
+      let life = layout.life player in
+      Some
+        (recipe ~duration:2.2 ~blocking:true (fun ~start -> spawn_energetic_vortex ~foe_air ~own_air ~life ~start))
+  | "wind.EternalStorm.name" ->
+      let slots = Array.append (slots_of player layout.slot_center) (slots_of other layout.slot_center) in
+      Some (recipe ~duration:1.3 ~blocking:true (fun ~start -> spawn_eternal_storm ~slots ~start))
+  | "battlemage.warcry" ->
+      let foe = slots_of other layout.slot_center in
+      Some
+        (recipe ~duration:1.25 ~blocking:true (fun ~start ->
+             spawn_warcry ~source ~foe ~foe_life ~foe_pid:other ~start))
   | _ -> Option.map (look_recipe layout c) (Spell_looks.get c.cmd_card.key)
 
 let for_ability layout ~kind ~player ~num ~target =
@@ -335,11 +432,13 @@ let demo_names =
     "ball";
     "flames";
     "inferno";
+    "missile";
     "heal";
     "faerie";
     "rain";
     "madden";
     "shockwave";
+    "warcry";
     "bats";
     "harvest";
     "phosphor";
@@ -353,6 +452,7 @@ let demo_names =
     "frost";
     "drain";
     "firewall";
+    "equilibrium";
   ]
 
 let spawn_demo layout name =
@@ -439,6 +539,7 @@ let spawn_demo layout name =
         (spawn_inferno ~target:bases.(2)
            ~others:(Array.append (Array.sub bases 0 2) (Array.sub bases 3 3))
            ~start:now)
+  | "missile" -> go (spawn_missiles ~pid:opponent ~bases:(slots_of opponent layout.slot_floor) ~start:now)
   | "heal" -> go (spawn_heal_motes [ own.(2); own_life ] ~start:now)
   | "faerie" -> go (spawn_row_particles faerie_fire foe ~start:now)
   | "rain" -> go (spawn_acid_rain (Array.append own foe) ~start:now)
@@ -450,6 +551,7 @@ let spawn_demo layout name =
            ~eye:{ x = (foe.(2).x +. foe.(3).x) *. 0.5; y = (own.(0).y +. foe.(0).y) *. 0.5 }
            ~start:now)
   | "shockwave" -> go (spawn_shockwave foe ~start:now)
+  | "warcry" -> go (spawn_warcry ~source:own_life ~foe ~foe_life ~foe_pid:opponent ~start:now)
   | "bats" -> go (spawn_bats ~from_:own.(1) ~to_:own.(4) ~start:now)
   | "harvest" -> go (spawn_harvest ~from_:foe.(2) ~to_:own_life ~souls:3 ~start:now)
   | "phosphor" -> go (spawn_phosphor ~from_:own.(3) ~targets:foe ~start:now)
@@ -463,4 +565,13 @@ let spawn_demo layout name =
   | "frost" -> go (spawn_lightning ~style:frost [ own_life; foe.(2); foe_life ] ~start:now)
   | "drain" -> go (spawn_lightning ~style:drain [ layout.house opponent 0; foe_life ] ~start:now)
   | "firewall" -> go (spawn_row_particles fire_wall foe ~start:now)
+  | "equilibrium" ->
+      let opp_hi = layout.extreme_house opponent `Highest in
+      let own_lo = layout.extreme_house owner `Lowest in
+      go
+        (spawn_equilibrium
+           ~opp_house:(layout.house opponent opp_hi)
+           ~opp_life:foe_life
+           ~own_house:(layout.house owner own_lo)
+           ~own_life ~start:now)
   | _ -> ()

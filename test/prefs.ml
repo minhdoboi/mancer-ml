@@ -17,6 +17,8 @@ let defaults () =
       let p = Prefs.load ~path () in
       check_string "language" "en" (Prefs.language p);
       check_float "sound" 1.0 (Prefs.sound_level p);
+      check_bool "ambient" true (Prefs.ambient_sound p);
+      check_bool "ocean" true (Prefs.ocean_sound p);
       check_string "portrait" "ember" (Prefs.player_portrait p);
       check_string "ai" "summoner" (Prefs.ai_opponent p);
       check_bool "debug" false (Prefs.debug_mode p);
@@ -28,6 +30,7 @@ let round_trip () =
       let p = Prefs.load ~path () in
       Prefs.set_language p "fr";
       Prefs.set_sound_level p 0.5;
+      Prefs.set_ambient_sound p false;
       Prefs.set_setup_seats p ("human", "lecturer");
       Prefs.set_setup_specials p ([ "zen"; "wind" ], [ "Troopers" ]);
       Prefs.set_setup_budget p 500;
@@ -35,6 +38,8 @@ let round_trip () =
       let q = Prefs.load ~path () in
       check_string "language" "fr" (Prefs.language q);
       check_float "sound" 0.5 (Prefs.sound_level q);
+      check_bool "ambient" false (Prefs.ambient_sound q);
+      check_bool "ocean" false (Prefs.ocean_sound q);
       check_string "seats" "human,lecturer"
         (let a, b = Prefs.setup_seats q in
          a ^ "," ^ b);
@@ -57,6 +62,7 @@ let scala_format () =
       let p = Prefs.load ~path () in
       check_string "language" "fr" (Prefs.language p);
       check_float "sound" 0.5 (Prefs.sound_level p);
+      check_bool "ambient default" true (Prefs.ambient_sound p);
       check_string "portrait" "gale" (Prefs.player_portrait p))
 
 let clamp_and_fallback () =
