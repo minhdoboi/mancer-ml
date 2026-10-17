@@ -8,7 +8,7 @@ l'ordre où circule le signal : bruit → mise en forme → filtre → tampon �
 flux.
 
 Pour l'activer ou le désactiver : **Réglages → Son → Ambiance de l'océan dans le hall**. C'est
-activé par défaut (`sound.ocean` dans le fichier de préférences,
+activé par défaut (`sound.ambient` dans le fichier de préférences,
 `Prefs.ambient_sound`), et le son ne joue que lorsque le lobby est à l'écran.
 
 ## 1. L'idée centrale : un son est une fonction du temps

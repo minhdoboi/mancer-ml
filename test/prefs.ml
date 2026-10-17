@@ -18,7 +18,6 @@ let defaults () =
       check_string "language" "en" (Prefs.language p);
       check_float "sound" 1.0 (Prefs.sound_level p);
       check_bool "ambient" true (Prefs.ambient_sound p);
-      check_bool "ocean" true (Prefs.ocean_sound p);
       check_string "portrait" "ember" (Prefs.player_portrait p);
       check_string "ai" "summoner" (Prefs.ai_opponent p);
       check_bool "debug" false (Prefs.debug_mode p);
@@ -39,7 +38,6 @@ let round_trip () =
       check_string "language" "fr" (Prefs.language q);
       check_float "sound" 0.5 (Prefs.sound_level q);
       check_bool "ambient" false (Prefs.ambient_sound q);
-      check_bool "ocean" false (Prefs.ocean_sound q);
       check_string "seats" "human,lecturer"
         (let a, b = Prefs.setup_seats q in
          a ^ "," ^ b);

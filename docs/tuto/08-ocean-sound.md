@@ -7,7 +7,7 @@ through it in the order the signal flows: noise → shaping → filter → buffe
 stream.
 
 Turn it on or off with **Settings → Sound → Ocean ambience in the lobby**. It is on by
-default (`sound.ocean` in the prefs file, `Prefs.ambient_sound`) and plays only
+default (`sound.ambient` in the prefs file, `Prefs.ambient_sound`) and plays only
 while the lobby is on screen.
 
 ## 1. The big idea: a sound is a function of time

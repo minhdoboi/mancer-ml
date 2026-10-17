@@ -571,7 +571,7 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
           set_sound gs gs.sound;
           play_sound "move");
       checkbox ~checked:gs.ambient_enabled ~x:(box.x +. 24.) ~y:(box.y +. 296.) ~max_w:(box.w -. 48.)
-        (Assets.text "sound.ocean") (fun () ->
+        (Assets.text "sound.ambient") (fun () ->
           gs.ambient_enabled <- not gs.ambient_enabled;
           try Prefs.set_ambient_sound (Prefs.load ()) gs.ambient_enabled with _ -> ())
   | _ ->
