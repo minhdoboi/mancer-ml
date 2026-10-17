@@ -23,7 +23,7 @@ bin/                 entry points, one file per executable
   gui.ml             raylib window
   replay.ml          recorded game -> board snapshots
   compare_engines.ml OCaml vs Scala divergence check
-  sync_assets.ml     rebuild assets/ from the Scala repo
+  sync_assets.ml     cut the portraits in assets/source/
 
 gui/  (mancer_gui, unwrapped)
   gui_board.ml       the game screen, and the bot search domain

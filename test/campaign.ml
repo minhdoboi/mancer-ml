@@ -48,7 +48,7 @@ let mountain_approaches () =
   check_bool "quantumancer" true
     (has [ "entomologist"; "disciples"; "junk"; "spiritshaman"; "quantumancer" ] "mountainking");
   check_bool "dreamweaver" true
-    (has [ "meteomancer"; "seasons"; "sower"; "fairy_knight"; "dreamweaver" ] "mountainking");
+    (has [ "meteomancer"; "seasons"; "sower"; "otter"; "fairy_knight"; "dreamweaver" ] "mountainking");
   check_bool "powermancer" true
     (has [ "entomologist"; "seasons"; "dudes"; "colors"; "elementalist"; "powermancer" ] "mountainking")
 
@@ -75,14 +75,15 @@ let meteomancer_path () =
   let done_ = [ "meteomancer" ] in
   check_bool "seasons" true (has done_ "seasons");
   check_bool "sower" true (has (done_ @ [ "seasons" ]) "sower");
-  check_bool "fairy" true (has (done_ @ [ "seasons"; "sower" ]) "fairy_knight");
+  check_bool "otter" true (has (done_ @ [ "seasons"; "sower" ]) "otter");
+  check_bool "fairy" true (has (done_ @ [ "seasons"; "sower"; "otter" ]) "fairy_knight");
   check_bool "ram not dreamweaver" true
-    (has_not (done_ @ [ "seasons"; "sower"; "fairy_knight" ]) "dreamweaver");
-  check_bool "ram" true (has (done_ @ [ "seasons"; "sower"; "fairy_knight" ]) "ram");
+    (has_not (done_ @ [ "seasons"; "sower"; "otter"; "fairy_knight" ]) "dreamweaver");
+  check_bool "ram" true (has (done_ @ [ "seasons"; "sower"; "otter"; "fairy_knight" ]) "ram");
   check_bool "dreamweaver" true
-    (has (done_ @ [ "seasons"; "sower"; "fairy_knight"; "ram" ]) "dreamweaver");
+    (has (done_ @ [ "seasons"; "sower"; "otter"; "fairy_knight"; "ram" ]) "dreamweaver");
   check_bool "king" true
-    (has (done_ @ [ "seasons"; "sower"; "fairy_knight"; "ram"; "dreamweaver" ]) "mountainking");
+    (has (done_ @ [ "seasons"; "sower"; "otter"; "fairy_knight"; "ram"; "dreamweaver" ]) "mountainking");
   check_bool "ram meeting" true (not (Campaign.is_fight (Campaign.node "ram")))
 
 let dudes_path () =

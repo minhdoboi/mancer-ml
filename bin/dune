@@ -26,4 +26,4 @@
 (executable
  (name sync_assets)
  (modules sync_assets)
- (libraries mancer raylib ctypes str unix))
+ (libraries mancer raylib ctypes unix))

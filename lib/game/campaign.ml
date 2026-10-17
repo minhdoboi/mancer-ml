@@ -94,7 +94,8 @@ let nodes =
     node "seasons" Day 0.48 0.22 (After [ "meteomancer" ])
       ~fight:(f (fight "seasons" "strategist" "seasons" ~life:40 ()));
     node "sower" Day 0.70 0.42 (After [ "seasons" ]) ~fight:(f (fight "sower" "summoner" "sower" ~life:30 ()));
-    node "fairy_knight" Day 0.94 0.55 (After [ "sower" ])
+    node "otter" Day 0.82 0.46 (After [ "sower" ]) ~meeting:(f (meeting "otter" ()));
+    node "fairy_knight" Day 0.94 0.55 (After [ "otter" ])
       ~fight:(f (fight "fairy" "strategist" "fairy_knight" ~life:40 ()));
     node "ram" Day 0.93 0.625 (After [ "fairy_knight" ]) ~meeting:(f (meeting "ram" ()));
     node "dreamweaver" Day 0.91 0.70 (After [ "ram" ])
@@ -183,7 +184,8 @@ let edges =
     edge "meteomancer" "seasons";
     edge "seasons" "sower";
     edge "seasons" "dudes";
-    edge "sower" "fairy_knight";
+    edge "sower" "otter";
+    edge "otter" "fairy_knight";
     edge "fairy_knight" "ram";
     edge "ram" "dreamweaver";
     edge "dreamweaver" "mountainking";
@@ -290,6 +292,7 @@ let npcs =
     "ram";
     "rabbit";
     "beaver";
+    "otter";
     "elder";
     "fishman";
     "fisherman";

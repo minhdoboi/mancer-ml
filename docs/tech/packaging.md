@@ -60,8 +60,8 @@ cp -R assets/backgrounds assets/campaign assets/cards assets/combat \
 # launcher: cd to the folder, export MANCER_ASSETS=$PWD/assets, exec ./mancer.bin
 ```
 
-Do not copy `assets/overrides/` or `assets/.git`. Overrides are already
-baked in by `sync_assets`.
+Do not copy `assets/source/` or `assets/.git`: the big face originals are
+developer material, and the game reads the cut `assets/portraits/`.
 
 ## macOS
 
@@ -137,7 +137,7 @@ add one, install the folder as-is and point the shortcut at `mancer.bat`.
 - `bin/tui.exe` — needs a real terminal; the zip is the raylib window.
 - `bin/main.exe`, `compare_engines`, `sync_assets` — tournament and
   developer tools.
-- `assets/overrides/` and the assets git metadata.
+- `assets/source/` and the assets git metadata.
 - The Scala JRE / `files/vibe` atlas. This port reads loose JPEGs from
   `assets/`, not a libGDX pack.
 

@@ -13,6 +13,14 @@ cd "$root"
 
 [ -e assets/.git ] || { echo "assets/ is not a checked-out submodule (git submodule update --init)" >&2; exit 1; }
 
+# assets/source/ is tracked with git-lfs: without it those files are pointer
+# text, and committing that would store pointers of pointers.
+if [ -d assets/source ] && ! git -C assets lfs ls-files >/dev/null 2>&1; then
+  echo "assets: source/ is git-lfs tracked but git-lfs is not usable here." >&2
+  echo "assets: install it, then 'git -C assets lfs install', and re-checkout source/." >&2
+  exit 1
+fi
+
 branch=$(git config -f .gitmodules submodule.assets.branch || echo master)
 
 git -C assets add -A

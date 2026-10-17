@@ -110,31 +110,34 @@ engine tracks is visible to them even when your board keeps it secret.
 
 ## License
 
-The game engine, tools, and original assets are under the
-[GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0).
-You may use and modify them in open source projects; if you ship a
-product or hosted service that includes this code or the mancer-assets
-media, you must publish corresponding source under the same license.
-Bundled fonts keep their own terms (`assets/fonts/IMFellEnglish-OFL.txt`).
+The game engine and tools are under the
+[GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0); the
+mancer-assets media carries the same license. You may use and modify them in
+open source projects; if you ship a product or hosted service that includes
+this code or the mancer-assets media, you must publish corresponding source
+under the same license. Bundled fonts keep their own terms
+(`assets/fonts/IMFellEnglish-OFL.txt`).
 
 ## Assets
 
-Art, sounds, and text come from the
+Art, sounds, and text live in the
 [mancer-assets](https://github.com/minhdoboi/mancer-assets) submodule at
-`assets/` (`git submodule update --init`, or point `$MANCER_ASSETS` at
-another checkout). Files are keyed for lookup: `cards/<card key>.jpg`,
-`backgrounds/<house key>.jpg`, `sounds/<sound key>.mp3`.
+`assets/` (`git submodule update --init`, or point `$MANCER_ASSETS` at another
+checkout), committed in the shape the game loads: `cards/<card key>.jpg`,
+`backgrounds/<house key>.jpg`, `portraits/<id>.png`, `sounds/<sound key>.mp3`.
 
-`bin/sync_assets.ml` rebuilds the checkout from the Scala repo. It fails
-listing any card without art; `manifest.tsv` records each file's source.
-Hand-made files go in `assets/overrides/` and are copied over last —
-`sync_assets` wipes the generated folders. `scripts/push_assets.sh
-"message"` commits what changed in `assets/`, pushes it, and stages the
-new submodule pointer here.
+The one thing built from a source is the portraits: `assets/source/portraits/`
+holds the 1024² originals (tracked with [git-lfs](https://git-lfs.com) — install
+it before you clone or pull, or those arrive as pointer text), and
+`bin/sync_assets.ml` cuts them to the 256² the UI draws and reports every house
+card the game finds no art for.
 
 ```sh
 dune exec ./bin/sync_assets.exe
+scripts/push_assets.sh "message"   # commit assets/, push, stage the pointer
 ```
+
+How to paint it is in [AGENTS.md](AGENTS.md).
 
 ## Package
 
