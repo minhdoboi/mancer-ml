@@ -58,6 +58,8 @@ let specials =
     Elementalist.house;
     Highpriest.house;
     Kinetician.house;
+    Emotion.house;
+    Paganist.house;
   ]
 
 let all = basics @ specials
@@ -102,6 +104,8 @@ let init () =
       Elementalist.house;
       Highpriest.house;
       Kinetician.house;
+      Emotion.house;
+      Paganist.house;
     ];
   Game.init_cards ~cost_fn:Antimancer.cost_fn Antimancer.house;
   Game.init_cards ~cost_fn:Colors.cost_fn Colors.house

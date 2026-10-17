@@ -96,10 +96,6 @@ Both UIs hide what the Scala game hides, but the bots don't play blind:
 like the original, they think on the full `game_state`, so anything the
 engine tracks is visible to them even when your board keeps it secret.
 
-- **Hidden Shade Stalker (Shadowmage).** An unrevealed Stalker is an empty
-  well on your side of the board and the engine refuses to target it, but
-  the bots still see its slot, attack, and life when they score and search,
-  and will play around it.
 - **Opponent hands in search.** Strategist, lecturer, oracle, and summoner
   explore the opponent's replies with that side's real hand, never a guess.
   Diviner is the exception: it samples belief hands for the opponent's

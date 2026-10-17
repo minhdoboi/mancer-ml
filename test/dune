@@ -81,7 +81,9 @@
 (test
  (name spell_looks)
  (modules spell_looks)
- (libraries mancer support alcotest))
+ (libraries mancer support alcotest)
+ (deps
+  (source_tree ../gui)))
 
 (test
  (name more_houses)
@@ -131,4 +133,14 @@
 (test
  (name command_order)
  (modules command_order)
+ (libraries mancer support alcotest))
+
+(test
+ (name emotion)
+ (modules emotion)
+ (libraries mancer support alcotest))
+
+(test
+ (name paganist)
+ (modules paganist)
  (libraries mancer support alcotest))

@@ -704,8 +704,12 @@ let spawn_apocalypse ~center ~targets ~start =
     let seg = 56 in
     for i = 0 to seg - 1 do
       let a0 = float i /. float seg *. 2. *. Float.pi and a1 = float (i + 1) /. float seg *. 2. *. Float.pi in
-      line (center.x +. (cos a0 *. r)) (center.y +. (sin a0 *. r *. 0.7))
-        (center.x +. (cos a1 *. r)) (center.y +. (sin a1 *. r *. 0.7)) thick c
+      line
+        (center.x +. (cos a0 *. r))
+        (center.y +. (sin a0 *. r *. 0.7))
+        (center.x +. (cos a1 *. r))
+        (center.y +. (sin a1 *. r *. 0.7))
+        thick c
     done
   in
   mk ~start ~duration (fun ~age ->
@@ -717,7 +721,11 @@ let spawn_apocalypse ~center ~targets ~start =
             let a = age -. 0.25 -. (float i *. 0.04) in
             if a > 0. && a < 1.7 then (
               let k = a /. 1.7 in
-              let x = center.x +. ((noise i 0 11 -. 0.5) *. (50. +. (k *. 90.))) +. (sin ((k *. 3.) +. float i) *. 14.) in
+              let x =
+                center.x
+                +. ((noise i 0 11 -. 0.5) *. (50. +. (k *. 90.)))
+                +. (sin ((k *. 3.) +. float i) *. 14.)
+              in
               let y = center.y -. (k *. 230.) +. (noise i 1 11 *. 20.) in
               let rad = 36. +. (k *. 60.) in
               let al = sin (Float.pi *. Float.min 1. (k *. 1.1)) *. 0.5 *. fade in
@@ -731,17 +739,23 @@ let spawn_apocalypse ~center ~targets ~start =
               for i = 0 to 17 do
                 let ang = (float i /. 18. *. 2. *. Float.pi) +. (noise i 2 11 *. 0.3) in
                 let len = (180. +. (noise i 3 11 *. 260.)) *. (1. -. (burst *. 0.4)) in
-                line center.x center.y (center.x +. (cos ang *. len)) (center.y +. (sin ang *. len *. 0.7))
-                  (6. +. (burst *. 14.)) (rgb 1. 0.85 0.5 (burst *. 0.7 *. fade))
+                line center.x center.y
+                  (center.x +. (cos ang *. len))
+                  (center.y +. (sin ang *. len *. 0.7))
+                  (6. +. (burst *. 14.))
+                  (rgb 1. 0.85 0.5 (burst *. 0.7 *. fade))
               done;
             (* fireball: boiling blobs thrown outward, white -> yellow -> red *)
             for i = 0 to 59 do
               let grow = clamp01 (age /. (0.55 +. (noise i 4 11 *. 0.5))) in
               let ang = noise i 5 11 *. 2. *. Float.pi in
               let dist = big *. 0.55 *. noise i 6 11 *. ease_out grow in
-              let x = center.x +. (cos ang *. dist) and y = center.y +. (sin ang *. dist *. 0.7) -. (age *. 14.) in
+              let x = center.x +. (cos ang *. dist)
+              and y = center.y +. (sin ang *. dist *. 0.7) -. (age *. 14.) in
               let heat = clamp01 (1. -. (age /. (1.1 +. (noise i 7 11 *. 0.7)))) in
-              let rad = (28. +. (noise i 8 11 *. 40.)) *. (0.5 +. (0.6 *. ease_out grow)) *. (0.5 +. (0.5 *. heat)) in
+              let rad =
+                (28. +. (noise i 8 11 *. 40.)) *. (0.5 +. (0.6 *. ease_out grow)) *. (0.5 +. (0.5 *. heat))
+              in
               let g = 0.25 +. (0.65 *. heat) and b = 0.03 +. (0.5 *. heat *. heat) in
               circle x y rad (rgb 1. g b (0.2 *. heat *. fade));
               circle x y (rad *. 0.5) (rgb 1. (g +. 0.1) (b +. 0.2) (0.26 *. heat *. fade))
@@ -749,25 +763,28 @@ let spawn_apocalypse ~center ~targets ~start =
             (* white-hot core *)
             let core = clamp01 (1. -. (age /. 0.7)) in
             if core > 0. then (
-              circle center.x center.y (70. +. (ease_out (age /. 0.5) *. 90.)) (rgb 1. 0.95 0.75 (core *. 0.55 *. fade));
+              circle center.x center.y
+                (70. +. (ease_out (age /. 0.5) *. 90.))
+                (rgb 1. 0.95 0.75 (core *. 0.55 *. fade));
               circle center.x center.y 40. (rgb 1. 1. 1. (core *. 0.8 *. fade)));
             (* shockwave *)
             if age < wave_t +. 0.5 then (
               let r = big *. ease_out (Float.min 1. (age /. wave_t)) in
               let f = clamp01 (1. -. (age /. (wave_t +. 0.5))) in
-              ring r (14. *. f +. 2.) (rgb 1. 0.45 0.1 (0.35 *. f *. fade));
-              ring r (5. *. f +. 1.) (rgb 1. 0.9 0.6 (0.85 *. f *. fade)));
+              ring r ((14. *. f) +. 2.) (rgb 1. 0.45 0.1 (0.35 *. f *. fade));
+              ring r ((5. *. f) +. 1.) (rgb 1. 0.9 0.6 (0.85 *. f *. fade)));
             (* sparks and debris *)
             for i = 0 to 49 do
               let a = age -. (noise i 9 11 *. 0.12) in
-              if a > 0. && a < 1.3 then (
+              if a > 0. && a < 1.3 then
                 let k = a /. 1.3 in
                 let ang = noise i 10 11 *. 2. *. Float.pi in
                 let sp = 240. +. (noise i 11 11 *. 380.) in
                 let d = sp *. (1. -. ((1. -. k) *. (1. -. k))) in
-                let x = center.x +. (cos ang *. d) and y = center.y +. (sin ang *. d *. 0.7) +. (k *. k *. 120.) in
+                let x = center.x +. (cos ang *. d)
+                and y = center.y +. (sin ang *. d *. 0.7) +. (k *. k *. 120.) in
                 let tx = x -. (cos ang *. 14. *. (1. -. k)) and ty = y -. (sin ang *. 10. *. (1. -. k)) in
-                line tx ty x y 2.2 (rgb 1. (0.75 -. (0.4 *. k)) 0.25 ((1. -. k) *. fade)))
+                line tx ty x y 2.2 (rgb 1. (0.75 -. (0.4 *. k)) 0.25 ((1. -. k) *. fade))
             done;
             (* flames bursting on each creature as the shockwave reaches it *)
             Array.iteri
@@ -775,16 +792,16 @@ let spawn_apocalypse ~center ~targets ~start =
                 let d = hypot (p.x -. center.x) ((p.y -. center.y) /. 0.7) in
                 let hit_t = wave_t *. (1. -. sqrt (1. -. Float.min 1. (d /. big))) in
                 let a = age -. hit_t in
-                if a > 0. && a < 0.9 then (
+                if a > 0. && a < 0.9 then
                   let k = a /. 0.9 in
                   for i = 0 to 7 do
-                    let ang = (noise i j 12 *. 2. *. Float.pi) in
+                    let ang = noise i j 12 *. 2. *. Float.pi in
                     let dist = (10. +. (noise i j 13 *. 36.)) *. ease_out k in
                     let x = p.x +. (cos ang *. dist) and y = p.y +. (sin ang *. dist) -. (k *. 40.) in
-                    let r = (14. -. (8. *. k)) in
+                    let r = 14. -. (8. *. k) in
                     circle x y r (rgb 1. (0.5 -. (0.3 *. k)) 0.05 ((1. -. k) *. 0.45 *. fade));
                     circle x y (r *. 0.45) (rgb 1. 0.9 0.5 ((1. -. k) *. 0.6 *. fade))
-                  done))
+                  done)
               targets)))
 
 (* Shadowcaster wave: dark particles rain down on each foe lane in a ripple
@@ -973,7 +990,10 @@ let spawn_twister ~floor ~start =
         for k = 0 to 9 do
           let ang = (age *. 8.) +. (float k *. 0.628) in
           let rr = 16. +. (22. *. noise k 1 9) in
-          circle (floor.x +. (cos ang *. rr)) (floor.y -. 3. +. (sin ang *. rr *. 0.28)) (6. +. (5. *. noise k 2 9))
+          circle
+            (floor.x +. (cos ang *. rr))
+            (floor.y -. 3. +. (sin ang *. rr *. 0.28))
+            (6. +. (5. *. noise k 2 9))
             (rgb 0.58 0.52 0.42 (0.3 *. fade *. grow))
         done;
         circle (centre 1.) (yat 1.) (radius 1. *. 1.05) (rgb 0.62 0.68 0.76 (0.12 *. fade));
@@ -1003,10 +1023,14 @@ let spawn_simoom ~target ~start =
           let x = target.x +. (cos ang *. width) in
           let y = base_y +. ((top_y -. base_y) *. h) +. (sin ang *. width *. 0.28) in
           let behind = sin ang < 0. in
-          let size = (1.4 +. (1.8 *. noise i 3 9)) *. (if behind then 0.8 else 1.15) in
+          let size = (1.4 +. (1.8 *. noise i 3 9)) *. if behind then 0.8 else 1.15 in
           let shade = 0.55 +. (0.4 *. noise i 5 11) in
           circle x y size
-            (rgb (0.92 *. shade +. 0.08) (0.72 *. shade +. 0.05) (0.4 *. shade) (fade *. if behind then 0.55 else 0.95))
+            (rgb
+               ((0.92 *. shade) +. 0.08)
+               ((0.72 *. shade) +. 0.05)
+               (0.4 *. shade)
+               (fade *. if behind then 0.55 else 0.95))
         done;
         (* wind streaks sweeping across *)
         for k = 0 to 5 do
@@ -1043,7 +1067,7 @@ let spawn_whirlwind ~a ~b ~start =
                   let front = sin ang > 0. in
                   circle x y
                     (if front then 2.6 else 1.8)
-                    (rgb 0.82 0.93 1. (fade *. (if front then 0.85 else 0.45)))
+                    (rgb 0.82 0.93 1. (fade *. if front then 0.85 else 0.45))
                 done;
                 circle c.x (c.y +. 10.) (30. *. grow) (rgb 0.6 0.8 1. (fade *. 0.18)))
               [ (a, 0); (b, 3) ];
@@ -1117,7 +1141,7 @@ let spawn_energetic_vortex ~foe_air ~own_air ~life ~start =
                 let u = clamp01 ((age -. t0 -. lag) /. (t1 -. t0)) in
                 if u > 0. && u < 1. then (
                   let e = u *. u in
-                  let curl = sin (u *. Float.pi) *. 28. *. (if i mod 2 = 0 then 1. else -1.) in
+                  let curl = sin (u *. Float.pi) *. 28. *. if i mod 2 = 0 then 1. else -1. in
                   let dx = b.x -. a.x and dy = b.y -. a.y in
                   let l = Float.max 1. (hypot dx dy) in
                   let x = a.x +. (dx *. e) +. (-.dy /. l *. curl) in
@@ -1177,7 +1201,10 @@ let spawn_solar_wave ~own ~foe ~foe_life ~start =
               circle foe_life.x foe_life.y r (rgb 1. 0.78 0.2 ((1. -. hit) *. 0.4));
               for k = 0 to 15 do
                 let ang = float k *. (Float.pi *. 2. /. 16.) in
-                circle (foe_life.x +. (cos ang *. r *. 1.3)) (foe_life.y +. (sin ang *. r *. 1.3)) 2.5
+                circle
+                  (foe_life.x +. (cos ang *. r *. 1.3))
+                  (foe_life.y +. (sin ang *. r *. 1.3))
+                  2.5
                   (rgb 1. 0.93 0.5 ((1. -. hit) *. 0.9))
               done)))
 
@@ -1219,13 +1246,19 @@ let spawn_eternal_summer ~own ~foe ~hand ~start =
                   let pulse = 0.6 +. (0.4 *. sin ((age *. 2.2) +. (float k *. 1.7))) in
                   let w = 14. +. (10. *. noise k 3 71) in
                   tri sun.x sun.y (t.x -. w) t.y (t.x +. w) t.y (rgb 1. 0.85 0.4 (fade *. pulse *. 0.09));
-                  tri sun.x sun.y (t.x -. (w *. 0.4)) t.y (t.x +. (w *. 0.4)) t.y
+                  tri sun.x sun.y
+                    (t.x -. (w *. 0.4))
+                    t.y
+                    (t.x +. (w *. 0.4))
+                    t.y
                     (rgb 1. 0.95 0.65 (fade *. pulse *. 0.08)))
                 targets;
               (* dust motes rising in the warm air *)
               for i = 0 to 39 do
-                let h = Float.rem ((noise i 4 73) +. (age *. (0.05 +. (0.06 *. noise i 5 79)))) 1. in
-                let x = min_x +. (noise i 6 83 *. (max_x -. min_x)) +. (sin ((age *. 1.2) +. float i) *. 6.) in
+                let h = Float.rem (noise i 4 73 +. (age *. (0.05 +. (0.06 *. noise i 5 79)))) 1. in
+                let x =
+                  min_x +. (noise i 6 83 *. (max_x -. min_x)) +. (sin ((age *. 1.2) +. float i) *. 6.)
+                in
                 let y = max_y -. (h *. (max_y -. min_y)) in
                 let a = sin (h *. Float.pi) in
                 circle x y (1.2 +. (1.4 *. noise i 7 89)) (rgb 1. 0.9 0.5 (fade *. a *. 0.8))
@@ -1244,7 +1277,7 @@ let spawn_pain_of_essence ~target ~foe_life ~start =
     for i = 0 to count - 1 do
       let lag = noise i seed 97 *. 0.7 in
       let u = clamp01 ((age -. t0 -. lag) /. 0.9) in
-      if u > 0. && u < 1. then (
+      if u > 0. && u < 1. then
         let bx = c.x +. ((noise i (seed + 1) 101 -. 0.5) *. w) in
         let by = c.y +. ((noise i (seed + 2) 103 -. 0.5) *. h *. 0.6) in
         let a = sin (u *. Float.pi) in
@@ -1253,8 +1286,10 @@ let spawn_pain_of_essence ~target ~foe_life ~start =
           let x = bx +. (sin ((uu *. 7.) +. float i) *. 8.) +. ((bx -. c.x) *. uu *. 0.6) in
           let y = by -. (uu *. (h *. 0.9)) in
           circle x y (4. -. (float tail *. 0.6)) (rgb 1. 0.25 0.3 (a *. fade *. 0.3));
-          circle x y (2.2 -. (float tail *. 0.35)) (rgb 1. 0.7 0.75 (a *. fade *. (0.9 -. (float tail *. 0.15))))
-        done)
+          circle x y
+            (2.2 -. (float tail *. 0.35))
+            (rgb 1. 0.7 0.75 (a *. fade *. (0.9 -. (float tail *. 0.15))))
+        done
     done
   in
   mk ~start ~duration (fun ~age ->
@@ -1268,7 +1303,7 @@ let spawn_pain_of_essence ~target ~foe_life ~start =
             wisps ~c:target ~w:70. ~h:90. ~count:22 ~t0:0.05 ~age ~fade ~seed:1;
             (* thread of pain towards the portrait *)
             let u = clamp01 ((age -. 0.5) /. 0.4) in
-            if u > 0. then (
+            if u > 0. then
               let n = 24 in
               let dx = foe_life.x -. target.x and dy = foe_life.y -. target.y in
               let len = Float.max 1. (hypot dx dy) in
@@ -1285,11 +1320,12 @@ let spawn_pain_of_essence ~target ~foe_life ~start =
                       line x0 y0 x y 1.5 (rgb 1. 0.8 0.85 (fade *. 0.9))
                   | None -> ());
                   prev := Some (x, y))
-              done));
+              done);
         (* the same pain on the portrait *)
         let hit = clamp01 ((age -. 0.85) /. 0.25) in
         if hit > 0. then (
-          rect (foe_life.x -. 42.) (foe_life.y -. 42.) 84. 84. (rgb 0.85 0.05 0.1 (fade *. throb *. 0.4 *. hit));
+          rect (foe_life.x -. 42.) (foe_life.y -. 42.) 84. 84.
+            (rgb 0.85 0.05 0.1 (fade *. throb *. 0.4 *. hit));
           additive (fun () ->
               circle foe_life.x foe_life.y (50. *. hit) (rgb 1. 0.15 0.2 (fade *. throb *. 0.25));
               wisps ~c:foe_life ~w:70. ~h:80. ~count:14 ~t0:0.9 ~age ~fade ~seed:5))))
@@ -1305,9 +1341,13 @@ let spawn_bravery ~spots ~start =
             Array.iteri
               (fun i c ->
                 for k = 0 to 13 do
-                  let px = c.x +. ((noise (i * 20 + k) 1 17 -. 0.5) *. 72.) in
-                  let py = c.y +. ((noise (i * 20 + k) 2 19 -. 0.5) *. 82.) -. (age *. 6.) in
-                  let phase = Float.rem ((age *. (1.1 +. (0.6 *. noise (i * 20 + k) 3 23))) +. noise (i * 20 + k) 4 29) 1. in
+                  let px = c.x +. ((noise ((i * 20) + k) 1 17 -. 0.5) *. 72.) in
+                  let py = c.y +. ((noise ((i * 20) + k) 2 19 -. 0.5) *. 82.) -. (age *. 6.) in
+                  let phase =
+                    Float.rem
+                      ((age *. (1.1 +. (0.6 *. noise ((i * 20) + k) 3 23))) +. noise ((i * 20) + k) 4 29)
+                      1.
+                  in
                   let a = sin (phase *. Float.pi) in
                   let a = a *. a *. fade in
                   if a > 0.03 then (
@@ -1353,12 +1393,14 @@ let spawn_lavender_nectar ~target ~house ~start =
               (fun hs ->
                 for i = 0 to 5 do
                   let u = clamp01 ((age -. 0.7 -. (float i *. 0.06)) /. 0.8) in
-                  if u > 0. && u < 1. then (
+                  if u > 0. && u < 1. then
                     let e = u *. u *. (3. -. (2. *. u)) in
-                    let x = target.x +. ((hs.x -. target.x) *. e) +. (sin (u *. 9. +. float i) *. 10. *. (1. -. u)) in
+                    let x =
+                      target.x +. ((hs.x -. target.x) *. e) +. (sin ((u *. 9.) +. float i) *. 10. *. (1. -. u))
+                    in
                     let y = target.y +. ((hs.y -. target.y) *. e) in
                     let col = if i mod 2 = 0 then rgb 0.7 1. 0.6 else rgb 0.85 0.7 1. in
-                    circle x y 3.4 (col (fade *. 0.9)))
+                    circle x y 3.4 (col (fade *. 0.9))
                 done)
               house))
 
@@ -1367,9 +1409,10 @@ let spawn_lavender_nectar ~target ~house ~start =
    the whole shield fades out. *)
 let spawn_force_barrier ~target ~start =
   let duration = 2.0 in
-  let hex rad = Array.init 6 (fun i ->
-      let a = (Float.pi /. 6.) +. (float i *. Float.pi /. 3.) in
-      (target.x +. (cos a *. rad), target.y +. 4. +. (sin a *. rad)))
+  let hex rad =
+    Array.init 6 (fun i ->
+        let a = (Float.pi /. 6.) +. (float i *. Float.pi /. 3.) in
+        (target.x +. (cos a *. rad), target.y +. 4. +. (sin a *. rad)))
   in
   (* keep the part of a convex polygon where [side p >= 0] *)
   let clip side poly =
@@ -1379,9 +1422,9 @@ let spawn_force_barrier ~target ~start =
       let p = poly.(i) and q = poly.((i + 1) mod n) in
       let sp = side p and sq = side q in
       if sp >= 0. then out := p :: !out;
-      if (sp >= 0.) <> (sq >= 0.) then (
+      if sp >= 0. <> (sq >= 0.) then
         let t = sp /. (sp -. sq) in
-        out := (fst p +. ((fst q -. fst p) *. t), snd p +. ((snd q -. snd p) *. t)) :: !out)
+        out := (fst p +. ((fst q -. fst p) *. t), snd p +. ((snd q -. snd p) *. t)) :: !out
     done;
     Array.of_list (List.rev !out)
   in
@@ -1392,7 +1435,7 @@ let spawn_force_barrier ~target ~start =
   in
   mk ~start ~duration (fun ~age ->
       let fade = clamp01 ((duration -. age) /. 0.6) in
-      if fade > 0.02 then (
+      if fade > 0.02 then
         let appear = ease_out (clamp01 (age /. 0.35)) in
         let rad = 68. *. (1.25 -. (0.25 *. appear)) in
         let outer = hex rad and inner = hex (rad *. 0.82) in
@@ -1438,7 +1481,7 @@ let spawn_force_barrier ~target ~start =
                 let tw = 0.5 +. (0.5 *. sin ((age *. 12.) +. (float i *. 1.7))) in
                 circle x y 6. (rgb 1. 0.8 0.3 (fade *. appear *. 0.2 *. tw));
                 circle x y 2.2 (rgb 1. 1. 0.85 (fade *. appear *. (0.5 +. (0.5 *. tw)))))
-              outer)))
+              outer))
 
 (* Warp reality: space buckles around the creature. The card itself is bent by the warp shader (the
    board reads [warp_amount]); here come the violet and cyan rings that collapse onto it, glitch
@@ -1458,23 +1501,26 @@ let spawn_warp_reality ~target ~start =
               let a = sin (u *. Float.pi) *. amount in
               let col = if k mod 2 = 0 then rgb 0.6 0.35 1. else rgb 0.3 0.95 1. in
               for i = 0 to 31 do
-                let a0 = (float i /. 32.) *. Float.pi *. 2. and a1 = (float (i + 1) /. 32.) *. Float.pi *. 2. in
+                let a0 = float i /. 32. *. Float.pi *. 2. and a1 = float (i + 1) /. 32. *. Float.pi *. 2. in
                 let wob r ang = r *. (1. +. (0.08 *. sin ((ang *. 5.) +. (age *. 8.) +. float k))) in
                 line
-                  (target.x +. (cos a0 *. wob rad a0)) (cy +. (sin a0 *. wob rad a0))
-                  (target.x +. (cos a1 *. wob rad a1)) (cy +. (sin a1 *. wob rad a1))
-                  2. (col (a *. 0.55))
+                  (target.x +. (cos a0 *. wob rad a0))
+                  (cy +. (sin a0 *. wob rad a0))
+                  (target.x +. (cos a1 *. wob rad a1))
+                  (cy +. (sin a1 *. wob rad a1))
+                  2.
+                  (col (a *. 0.55))
               done
             done;
             (* glitch bars *)
             let tick = int_of_float (age *. 14.) in
             for i = 0 to 5 do
-              if noise i tick 3 > 0.6 then (
+              if noise i tick 3 > 0.6 then
                 let y = cy -. 40. +. (noise i tick 5 *. 80.) in
                 let w = 20. +. (noise i tick 7 *. 50.) in
                 let x = target.x -. 40. +. (noise i tick 9 *. 60.) in
                 let col = if i mod 2 = 0 then rgb 0.3 0.95 1. else rgb 0.75 0.4 1. in
-                rect x y w 2. (col (amount *. 0.5)))
+                rect x y w 2. (col (amount *. 0.5))
             done;
             (* motes spiral into the centre *)
             for i = 0 to 23 do
@@ -1582,7 +1628,8 @@ let spawn_equilibrium ~opp_house ~opp_life ~own_house ~own_life ~start =
             let dx_own = own_life.x -. own_house.x and dy_own = own_life.y -. own_house.y in
             let lift = 45. +. Float.min 35. (Float.abs dx_own *. 0.08) in
             let c1x = own_house.x +. (dx_own *. 0.25) and c1y = own_house.y +. (dy_own *. 0.15) -. lift in
-            let c2x = own_house.x +. (dx_own *. 0.75) and c2y = own_house.y +. (dy_own *. 0.85) -. (lift *. 0.35) in
+            let c2x = own_house.x +. (dx_own *. 0.75)
+            and c2y = own_house.y +. (dy_own *. 0.85) -. (lift *. 0.35) in
             let cx u = bezier own_house.x c1x c2x own_life.x u in
             let cy u = bezier own_house.y c1y c2y own_life.y u in
             let len_own = Float.max 1. (hypot dx_own dy_own) in
@@ -1628,14 +1675,14 @@ let spawn_equilibrium ~opp_house ~opp_life ~own_house ~own_life ~start =
               circle own_life.x own_life.y 5.5 (rgb 0.9 1. 0.9 (heal_fade *. 0.8));
               for i = 0 to 9 do
                 let t_i = heal_age -. (float i *. 0.08) in
-                if t_i > 0. then (
+                if t_i > 0. then
                   let u = clamp01 (t_i /. 0.65) in
                   let mote_fade = heal_fade *. (1. -. u) in
                   if mote_fade > 0.02 then (
                     let ox = (noise i 4 5 -. 0.5) *. 38. in
-                    let oy = -. (u *. 42.) +. ((noise i 5 6 -. 0.5) *. 10.) in
+                    let oy = -.(u *. 42.) +. ((noise i 5 6 -. 0.5) *. 10.) in
                     circle (own_life.x +. ox) (own_life.y +. oy) 2.2 (rgb 0.4 1. 0.55 (mote_fade *. 0.7));
-                    circle (own_life.x +. ox) (own_life.y +. oy) 1.0 (rgb 0.95 1. 0.95 mote_fade)))
+                    circle (own_life.x +. ox) (own_life.y +. oy) 1.0 (rgb 0.95 1. 0.95 mote_fade))
               done)))
 
 (* Arcane Trap: the pentagram flares up in flames over the victim's slots while violet smoke curls off the house
@@ -1654,7 +1701,12 @@ let spawn_arcane_trap ~houses ~center ~start =
               (* the fire runs along the stroke from its first corner *)
               let lit = clamp01 ((age *. 1.8) -. (u *. 0.6)) in
               let h = (14. +. (16. *. noise i k 5)) *. env *. lit in
-              if h > 1. then draw_flame (lerp x0 x1 u) (lerp y0 y1 u) ~w:(4. +. (3. *. noise i k 7)) ~h age (i * 40 + k) (env *. lit)
+              if h > 1. then
+                draw_flame (lerp x0 x1 u) (lerp y0 y1 u)
+                  ~w:(4. +. (3. *. noise i k 7))
+                  ~h age
+                  ((i * 40) + k)
+                  (env *. lit)
             done)
           strokes;
       Array.iteri
@@ -1664,7 +1716,9 @@ let spawn_arcane_trap ~houses ~center ~start =
             let u = (age -. t0) /. 1.7 in
             if u > 0. && u < 1. then (
               let fade = Float.min 1. (u /. 0.12) *. ((1. -. u) ** 1.4) in
-              let x = h.x +. ((noise j k 1 -. 0.5) *. 70.) +. (sin ((age *. 2.2) +. float (k + j)) *. 6. *. u) in
+              let x =
+                h.x +. ((noise j k 1 -. 0.5) *. 70.) +. (sin ((age *. 2.2) +. float (k + j)) *. 6. *. u)
+              in
               let y = h.y +. 4. -. (u *. (30. +. (16. *. noise j k 2))) in
               let rad = 8. +. (18. *. u *. (0.6 +. (0.6 *. noise j k 3))) in
               circle x y rad (rgb 0.2 0.12 0.3 (0.5 *. fade));
@@ -1717,11 +1771,13 @@ let spawn_warcry ~source ~foe ~foe_life ~foe_pid ~start =
         additive (fun () ->
             let burst = Float.max 0. (1. -. (age /. 0.22)) in
             if burst > 0.02 then (
-              circle source.x source.y (18. +. ((1. -. burst) *. 36.)) (rgb 1. 0.72 0.22 (fade *. burst *. 0.45));
+              circle source.x source.y
+                (18. +. ((1. -. burst) *. 36.))
+                (rgb 1. 0.72 0.22 (fade *. burst *. 0.45));
               circle source.x source.y (8. +. ((1. -. burst) *. 10.)) (rgb 1. 0.95 0.7 (fade *. burst *. 0.9));
               for k = 0 to 11 do
                 let ang = heading +. ((float k -. 5.5) *. 0.13) +. ((noise k 1 3 -. 0.5) *. 0.08) in
-                let len = (22. +. (float k *. 2.4) +. (noise k 2 5 *. 10.)) *. (1. -. burst *. 0.25) in
+                let len = (22. +. (float k *. 2.4) +. (noise k 2 5 *. 10.)) *. (1. -. (burst *. 0.25)) in
                 let x1 = source.x +. (cos ang *. len) and y1 = source.y +. (sin ang *. len) in
                 line source.x source.y x1 y1 3.2 (rgb 1. 0.7 0.2 (fade *. burst *. 0.45));
                 line source.x source.y x1 y1 1.3 (rgb 1. 0.95 0.7 (fade *. burst *. 0.9))
@@ -1729,7 +1785,7 @@ let spawn_warcry ~source ~foe ~foe_life ~foe_pid ~start =
             for w = 0 to 4 do
               let born = float w *. 0.07 in
               let a = age -. born in
-              if a > 0. then (
+              if a > 0. then
                 let u = ease_out (clamp01 (a /. 0.62)) in
                 let life = clamp01 (1. -. ((a -. 0.55) /. 0.4)) in
                 let al = fade *. life in
@@ -1741,18 +1797,18 @@ let spawn_warcry ~source ~foe ~foe_life ~foe_pid ~start =
                   let thick = 3.6 -. (u *. 1.8) in
                   oval cx cy rx ry thick (rgb 0.95 0.55 0.12 (al *. 0.35));
                   oval cx cy rx ry (thick *. 0.45) (rgb 1. 0.92 0.55 (al *. 0.85));
-                  oval cx cy (rx *. 0.92) (ry *. 0.92) 1.1 (rgb 1. 0.78 0.3 (al *. 0.4))))
+                  oval cx cy (rx *. 0.92) (ry *. 0.92) 1.1 (rgb 1. 0.78 0.3 (al *. 0.4)))
             done;
             (* the shout flattens into a pressure wall across the enemy row *)
             let wall = clamp01 ((age -. 0.24) /. 0.18) in
-            if wall > 0. && n > 0 then (
-              let gone = clamp01 ((age -. 0.42) /. 0.55) in
-              let al = fade *. (1. -. gone) *. (0.4 +. (0.6 *. sin (wall *. Float.pi))) in
-              if al > 0.02 then (
-                let rx = span *. 0.52 *. ease_out wall in
-                oval dest.x dest.y rx (22. +. (10. *. wall)) 3.4 (rgb 1. 0.62 0.18 (al *. 0.55));
-                oval dest.x dest.y rx (18. +. (8. *. wall)) 1.4 (rgb 1. 0.95 0.65 al);
-                circle dest.x dest.y (rx *. 0.15) (rgb 1. 0.85 0.4 (al *. 0.18))));
+            (if wall > 0. && n > 0 then
+               let gone = clamp01 ((age -. 0.42) /. 0.55) in
+               let al = fade *. (1. -. gone) *. (0.4 +. (0.6 *. sin (wall *. Float.pi))) in
+               if al > 0.02 then (
+                 let rx = span *. 0.52 *. ease_out wall in
+                 oval dest.x dest.y rx (22. +. (10. *. wall)) 3.4 (rgb 1. 0.62 0.18 (al *. 0.55));
+                 oval dest.x dest.y rx (18. +. (8. *. wall)) 1.4 (rgb 1. 0.95 0.65 al);
+                 circle dest.x dest.y (rx *. 0.15) (rgb 1. 0.85 0.4 (al *. 0.18))));
             Array.iteri
               (fun i (p : spot) ->
                 let hit = age -. 0.26 -. (float i *. 0.035) in
@@ -1763,10 +1819,13 @@ let spawn_warcry ~source ~foe ~foe_life ~foe_pid ~start =
                   oval p.x p.y (10. +. (k *. 32.)) (7. +. (k *. 22.)) 2.4 (rgb 1. 0.78 0.28 (al *. 0.7));
                   oval p.x p.y (8. +. (k *. 24.)) (5. +. (k *. 16.)) 1.2 (rgb 1. 0.95 0.7 al);
                   (* leftover hush: a tight ring as abilities are stripped *)
-                  if hit > 0.22 then (
+                  if hit > 0.22 then
                     let hush = clamp01 ((hit -. 0.22) /. 0.45) in
-                    oval p.x p.y (16. +. (hush *. 4.)) (12. +. (hush *. 3.)) 1.4
-                      (rgb 0.95 0.7 0.25 ((1. -. hush) *. fade *. 0.55))));
+                    oval p.x p.y
+                      (16. +. (hush *. 4.))
+                      (12. +. (hush *. 3.))
+                      1.4
+                      (rgb 0.95 0.7 0.25 ((1. -. hush) *. fade *. 0.55)));
                 (* motes thrown off the hit *)
                 if hit > 0. && hit < 0.45 then
                   for m = 0 to 5 do
@@ -1783,6 +1842,836 @@ let spawn_warcry ~source ~foe ~foe_life ~foe_pid ~start =
               let k = phit /. 0.75 in
               let al = (1. -. k) *. fade in
               circle foe_life.x foe_life.y (16. +. (k *. 48.)) (rgb 1. 0.5 0.1 (al *. 0.32));
-              oval foe_life.x foe_life.y (14. +. (k *. 40.)) (14. +. (k *. 40.)) 2.6
+              oval foe_life.x foe_life.y
+                (14. +. (k *. 40.))
+                (14. +. (k *. 40.))
+                2.6
                 (rgb 1. 0.8 0.3 (al *. 0.75));
               circle foe_life.x foe_life.y 10. (rgb 1. 0.95 0.7 al))))
+
+(* Warp Earthquake: the ground splits along the opponent's row, and every creature
+   on it takes the difference between the two mana pools in its own element. The
+   creatures tremble as the seam races out from the middle, and the dust it
+   throws up rolls in behind them rather than over their faces, so the smoke is
+   drawn under the cards and the card occludes the middle of every plume. *)
+let spawn_quake ~centers ~floors ~foe_pid ~start =
+  let duration = 1.9 in
+  let n = Array.length floors in
+  Array.iteri
+    (fun i _ ->
+      add_shake foe_pid i ~start:(start +. (0.06 +. (float i *. 0.07))) ~duration:0.9 ~strength:1.25)
+    floors;
+  let ox = if n = 0 then 0. else floors.(0).x in
+  let oy = if n = 0 then 0. else floors.(0).y in
+  let width = if n = 0 then 300. else Array.fold_left (fun m (p : spot) -> Float.max m p.x) ox floors -. ox in
+  let card = fun i -> if i < Array.length centers then centers.(i) else floors.(i) in
+  mk ~under:true ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.35) in
+      if fade > 0.02 then (
+        let open_ = ease_out (clamp01 (age /. 0.32)) in
+        let hold = clamp01 ((1.35 -. age) /. 0.45) in
+        (* the seam: a jagged crack that reaches further as it opens *)
+        for s = 0 to 30 do
+          let u0 = float s /. 30. and u1 = float (s + 1) /. 30. in
+          let reach = clamp01 ((age /. 0.45) -. (Float.abs (((u0 +. u1) /. 2.) -. 0.5) *. 0.8)) in
+          if reach > 0. then (
+            let jag u = ((noise s 1 4 -. 0.5) *. 7.) +. ((noise s 2 7 -. 0.5) *. 4. *. open_) in
+            let x0 = ox +. (width *. u0) and x1 = ox +. (width *. u1) in
+            let y0 = oy +. jag u0 and y1 = oy +. jag u1 in
+            let a = reach *. hold *. fade in
+            line x0 y0 x1 y1 (1.4 +. (open_ *. 3.4)) (rgb 0.05 0.035 0.03 (a *. 0.85));
+            line x0 (y0 -. 1.6) x1 (y1 -. 1.6) 1. (rgb 1. 0.6 0.16 (a *. 0.45)))
+        done;
+        (* smoke rolling up behind each creature: wide and soft, so what shows is
+           the column either side of the card and the crown above it *)
+        Array.iteri
+          (fun i (p : spot) ->
+            let hit = 0.06 +. (float i *. 0.07) in
+            let c = card i in
+            for k = 0 to 9 do
+              let r = noise i k 11 in
+              let a = age -. (hit +. (float k *. 0.05)) in
+              if a > 0. && a < 1.05 then
+                let span = 0.55 +. (r *. 0.4) in
+                let u = clamp01 (a /. span) in
+                let rise = ease_out u in
+                let py = p.y -. (rise *. (60. +. (r *. 80.))) in
+                (* the plume leans out as it climbs, clearing the card's edges *)
+                let px = c.x +. ((noise i k 13 -. 0.5) *. (12. +. (rise *. 66.))) in
+                let rad = (13. +. (r *. 15.)) *. (0.55 +. (rise *. 1.45)) in
+                let al = fade *. sin (u *. Float.pi) *. (0.16 +. (r *. 0.12)) in
+                if al > 0.004 then (
+                  ellipse px py rad (rad *. 0.8) (rgb 0.44 0.38 0.33 al);
+                  ellipse px (py -. (rad *. 0.25)) (rad *. 0.7) (rad *. 0.5) (rgb 0.62 0.57 0.5 (al *. 0.5)))
+            done)
+          floors))
+
+(* Limbo Nether Grasp: every creature the caster owns is dragged under into the
+   between, and each soul it lets go is worth 3 damage to the opponent. It reads as
+   a hub and its spokes -- each of your creatures throws arcs at the sphere hanging
+   between the two rows, and the sphere throws arcs back at each of theirs -- so
+   what you give up and what it buys are both on screen, and the sphere swells with
+   however many souls it was given. The legs are several bowed arcs rather than one
+   ray, which is what makes them read as grasping rather than as a laser. *)
+let spawn_nether_grasp ~own_centers ~foe_targets ~hub ~souls ~foe_pid ~start =
+  let duration = 1.8 in
+  let gather = 0.7 in
+  let travel = 0.4 in
+  let hub_r = 15. +. (float souls *. 2.4) in
+  Array.iteri
+    (fun i _ -> add_shake foe_pid i ~start:(start +. gather +. travel +. 0.1) ~duration:0.45 ~strength:0.85)
+    foe_targets;
+  (* [legs] arcs bowed off the straight line between two points, drawn as far as
+     [reach] so they grow along their length, with a bright head at the tip *)
+  let arcs ~age ~x0 ~y0 ~x1 ~y1 ~legs ~reach ~width ~a seed =
+    let dx = x1 -. x0 and dy = y1 -. y0 in
+    let len = Float.max 1. (hypot dx dy) in
+    let nx = -.dy /. len and ny = dx /. len in
+    let bow_max = 14. +. (len *. 0.14) in
+    let steps = 11 in
+    for k = 0 to legs - 1 do
+      let f = (float k /. float (max 1 (legs - 1))) -. 0.5 in
+      let bow = f *. 2. *. bow_max in
+      let c1x = x0 +. (dx *. 0.25) +. (nx *. bow) in
+      let c1y = y0 +. (dy *. 0.25) +. (ny *. bow) in
+      let c2x = x0 +. (dx *. 0.72) +. (nx *. bow *. 0.55) in
+      let c2y = y0 +. (dy *. 0.72) +. (ny *. bow *. 0.55) in
+      let px u = bezier x0 c1x c2x x1 u in
+      let py u = bezier y0 c1y c2y y1 u in
+      (* the arc crawls outward, so each leg reads as its own lash *)
+      let at = Float.min reach ((age *. 2.6) -. (f *. 0.35)) in
+      if at > 0.02 then
+        for s = 0 to steps - 1 do
+          let u0 = float s /. float steps *. at and u1 = float (s + 1) /. float steps *. at in
+          let flick = 0.55 +. (0.45 *. sin (((u1 *. 3.) +. float k +. (seed *. 0.7)) *. Float.pi)) in
+          line (px u0) (py u0) (px u1) (py u1) (width *. flick) (rgb 0.62 0.28 1. (a *. 0.55))
+        done
+    done;
+    (* the head at the tip of each arc *)
+    for k = 0 to legs - 1 do
+      let f = (float k /. float (max 1 (legs - 1))) -. 0.5 in
+      let bow = f *. 2. *. bow_max in
+      let c1x = x0 +. (dx *. 0.25) +. (nx *. bow) in
+      let c1y = y0 +. (dy *. 0.25) +. (ny *. bow) in
+      let c2x = x0 +. (dx *. 0.72) +. (nx *. bow *. 0.55) in
+      let c2y = y0 +. (dy *. 0.72) +. (ny *. bow *. 0.55) in
+      let u = Float.min reach ((age *. 2.6) -. (f *. 0.35)) in
+      if u > 0.05 && u < 0.995 then
+        circle (bezier x0 c1x c2x x1 u) (bezier y0 c1y c2y y1 u) 2.4 (rgb 0.95 0.85 1. (a *. 0.85))
+    done
+  in
+  (* beat one: each creature flares as it enters Limbo-state and lashes a soul out
+     at the sphere, so the cost is countable *)
+  let gather_souls age fade =
+    Array.iteri
+      (fun i (p : spot) ->
+        let a = age -. (float i *. 0.055) in
+        if a <= 0. || age >= gather +. 0.4 then ()
+        else
+          let flare = Float.max 0. (1. -. (a /. 0.18)) in
+          if flare > 0.02 then (
+            circle p.x p.y (9. +. (flare *. 22.)) (rgb 0.5 0.2 0.9 (flare *. fade *. 0.28));
+            circle p.x p.y (2.5 +. (flare *. 6.)) (rgb 0.95 0.85 1. (flare *. fade *. 0.8)));
+          if a < travel then
+            arcs ~age:a ~x0:p.x ~y0:p.y ~x1:hub.x ~y1:hub.y ~legs:3 ~reach:1. ~width:2.2 ~a:(fade *. 0.9)
+              (float i)
+          else
+            (* arriving: the sphere takes it *)
+            let hit = Float.max 0. (1. -. ((a -. travel) /. 0.22)) in
+            if hit > 0.02 then
+              circle hub.x hub.y (hub_r *. (0.5 +. (hit *. 0.8))) (rgb 0.5 0.2 0.9 (hit *. fade *. 0.3)))
+      own_centers
+  in
+  (* the sphere, swelling as it is fed and dimming as it spends itself *)
+  let draw_hub age fade =
+    let fed = clamp01 (age /. gather) in
+    let spent = if age < gather then 0. else clamp01 ((age -. gather) /. (duration -. gather)) in
+    let live = Float.min 1. (fed *. 1.3) *. (1. -. (spent *. 0.85)) in
+    if live > 0.02 then (
+      let r = hub_r *. (0.4 +. (fed *. 0.6)) in
+      let pulse = 1. +. (sin (age *. 11.) *. 0.06) in
+      circle hub.x hub.y (r *. 1.7 *. pulse) (rgb 0.32 0.08 0.58 (live *. fade *. 0.16));
+      circle hub.x hub.y r (rgb 0.55 0.2 0.9 (live *. fade *. 0.3));
+      circle hub.x hub.y (r *. 0.6) (rgb 0.82 0.58 1. (live *. fade *. 0.42));
+      circle hub.x hub.y (r *. 0.26) (rgb 1. 0.95 1. (live *. fade *. 0.75)))
+  in
+  (* beat two: the sphere lashes out at each of the opponent's creatures *)
+  let spend age fade =
+    let ba = age -. gather in
+    Array.iteri
+      (fun i (f : spot) ->
+        let a = ba -. (float i *. 0.06) in
+        if a <= 0. then ()
+        else if a < travel then
+          arcs ~age:a ~x0:hub.x ~y0:hub.y ~x1:f.x ~y1:f.y ~legs:3 ~reach:1. ~width:2.4 ~a:(fade *. 0.9)
+            (float (i + 7))
+        else
+          (* the hit *)
+          let hit = Float.max 0. (1. -. ((a -. travel) /. 0.24)) in
+          if hit > 0.02 then (
+            circle f.x f.y (9. +. (hit *. 26.)) (rgb 0.55 0.2 0.9 (hit *. fade *. 0.32));
+            circle f.x f.y (2.5 +. (hit *. 7.)) (rgb 0.95 0.85 1. (hit *. fade *. 0.6))))
+      foe_targets
+  in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.3) in
+      if fade > 0.01 then
+        additive (fun () ->
+            if age < gather +. 0.4 then gather_souls age fade;
+            draw_hub age fade;
+            if age > gather then spend age fade))
+
+(* Limbo Redemption: a creature held between worlds is pulled back out whole.
+   Chains and grave dirt fall away as a pale column lifts its soul clear. *)
+let spawn_redemption ~target ~start =
+  let duration = 1.6 in
+  let cy = target.y in
+  mk ~start ~duration (fun ~age ->
+      let fade = clamp01 (age /. 0.12) *. Float.min 1. ((duration -. age) /. 0.3) in
+      if fade > 0.01 then (
+        (* the column of light the soul comes up through *)
+        let col = ease_out (clamp01 (age /. 0.5)) in
+        ellipse target.x cy (16. +. (col *. 16.)) (4. +. (col *. 5.)) (rgb 0.85 0.82 0.7 (fade *. 0.22));
+        for k = 0 to 6 do
+          let r = noise k 3 5 in
+          let ph = Float.rem ((float k /. 7.) +. (age *. 0.7)) 1. in
+          rect
+            (target.x -. (5. +. (r *. 6.)) +. ((r -. 0.5) *. 10.))
+            (cy -. (ph *. 62. *. col))
+            ((5. +. (r *. 6.)) *. 2.)
+            (16. +. (r *. 20.))
+            (rgb 0.95 0.92 0.8 (fade *. 0.07))
+        done;
+        (* chains and clods of grave dirt dropping away *)
+        let drop = clamp01 ((age -. 0.15) /. 0.8) in
+        if drop > 0. && drop < 1. then
+          for k = 0 to 7 do
+            let r = noise k 7 9 in
+            let x = target.x +. ((r -. 0.5) *. 44.) in
+            let y = cy -. 18. +. (drop *. (30. +. (r *. 40.))) in
+            line x (y -. 7.) x y 1.6 (rgb 0.45 0.42 0.4 ((1. -. drop) *. fade *. 0.55));
+            ellipse x y
+              (2.6 +. (r *. 2.4))
+              (2. +. (r *. 1.8))
+              (rgb 0.3 0.26 0.22 ((1. -. drop) *. fade *. 0.6))
+          done;
+        (* the soul flame settling onto the board *)
+        let lift = ease_out (clamp01 (age /. 0.65)) in
+        let sy = cy -. (6. +. (lift *. 30.)) in
+        let fa = fade *. (1. -. (lift *. 0.45)) in
+        circle target.x sy (7. +. (lift *. 5.)) (rgb 0.95 0.9 0.75 (fa *. 0.25));
+        circle target.x (sy -. 2.) (3.6 +. (lift *. 2.2)) (rgb 1. 0.98 0.9 (fa *. 0.8));
+        for i = 0 to 7 do
+          let r = noise i 11 13 in
+          let u = Float.rem ((float i /. 8.) +. (age *. 0.9)) 1. in
+          circle
+            (target.x +. ((r -. 0.5) *. 26. *. (1. -. u)))
+            (cy -. (u *. 46.))
+            (1.6 *. (1. -. (u *. 0.5)))
+            (rgb 0.9 0.88 0.7 (fade *. (1. -. u) *. 0.8))
+        done))
+
+(* Emotion — Revolt.  The foe's own creatures turn on their master: crimson
+   bolts bend back from every occupied foe slot into the foe's life portrait. *)
+let revolt_bolt =
+  { glow = (0.55, 0.02, 0.06); body = (1., 0.26, 0.08); core = (1., 0.9, 0.6); orb = false }
+
+let spawn_revolt ~from_points ~to_ ~start =
+  let duration = 1.15 in
+  Array.iter (fun from_ -> spawn (spawn_lightning ~style:revolt_bolt [ from_; to_ ] ~start)) from_points;
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.24) in
+      if fade > 0.02 then (
+        let hit = clamp01 ((age -. 0.12) /. 0.28) in
+        let pulse = 0.65 +. (0.35 *. sin (age *. 18.)) in
+        additive (fun () ->
+            let a = fade *. (1. -. hit) *. 0.55 in
+            circle to_.x to_.y (18. +. (hit *. 32.)) (rgb 0.9 0.04 0.06 (a *. 0.35));
+            circle to_.x to_.y (7. +. (hit *. 14.)) (rgb 1. 0.24 0.08 (a *. 0.8));
+            circle to_.x to_.y (3. +. (hit *. 5.)) (rgb 1. 0.9 0.65 (a *. pulse));
+            for k = 0 to 5 do
+              let ang = (float k *. (Float.pi /. 3.)) +. (age *. 1.8) in
+              let len = (16. +. (hit *. 24.)) *. (0.7 +. (0.3 *. noise k 3 5)) in
+              line to_.x to_.y
+                (to_.x +. (cos ang *. len))
+                (to_.y +. (sin ang *. len *. 0.55))
+                1.4
+                (rgb 1. 0.3 0.12 (a *. 0.45))
+            done)))
+
+(* Emotion — Loneliness.  Cold violet fog wells up out of every slot whose
+   opposite is empty: low banks around the card, wisps rising, and a few pale
+   motes that fade into the dark. *)
+let spawn_loneliness ~spots ~start =
+  let duration = 1.7 in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. (age /. 0.2) *. Float.min 1. ((duration -. age) /. 0.3) in
+      if fade > 0.02 then
+        Array.iteri
+          (fun i p ->
+            let breathe = 0.5 +. (0.5 *. sin ((age *. 1.5) +. (float i *. 1.3))) in
+            (* the bank settling over the slot, then crawling up the card *)
+            let rise = Float.min 1. (age /. 0.55) in
+            ellipse p.x (p.y +. 24.) (34. +. (8. *. rise)) (9. +. (5. *. rise))
+              (rgb 0.34 0.30 0.52 (fade *. 0.18 *. (0.65 +. (0.35 *. breathe))));
+            ellipse p.x (p.y +. 18.) (27. +. (6. *. rise)) (7. +. (4. *. rise))
+              (rgb 0.62 0.58 0.80 (fade *. 0.12 *. (0.5 +. (0.5 *. breathe))));
+            for k = 0 to 7 do
+              let n = noise i k 17 and ph = noise i k 31 *. Float.pi *. 2. in
+              let u = Float.rem ((age *. 0.38) +. n +. (float k *. 0.12)) 1. in
+              let x = p.x +. ((n -. 0.5) *. 54.) +. (sin ((age *. 0.8) +. ph +. float k) *. 7.) in
+              let y = p.y +. 22. -. (u *. 42.) +. ((noise i k 43 -. 0.5) *. 16.) in
+              let rad = 13. +. (n *. 13.) +. (sin ((age *. 1.2) +. ph) *. 3.) in
+              let a = fade *. (0.08 +. (0.08 *. (1. -. u))) *. (0.55 +. (0.45 *. breathe)) in
+              circle x y rad (rgb 0.48 0.44 0.68 a);
+              circle (x -. (rad *. 0.22)) (y -. (rad *. 0.16)) (rad *. 0.55)
+                (rgb 0.70 0.68 0.88 (a *. 0.7))
+            done;
+            (* a thin cold glimmer in the fog *)
+            additive (fun () ->
+                let tw = Float.max 0. (sin ((age *. 3.2) +. (float i *. 1.9))) in
+                circle
+                  (p.x +. (sin ((age *. 0.9) +. float i) *. 19.))
+                  (p.y -. 5. -. (age *. 7.))
+                  1.6
+                  (rgb 0.82 0.80 1. (fade *. 0.45 *. tw));
+                circle (p.x -. 17.) (p.y +. 12. -. (age *. 3.)) 1.2
+                  (rgb 0.72 0.70 0.95 (fade *. 0.3))))
+          spots)
+
+(* Emotion — Hope Warrior.  At death its light breaks out of the empty slot:
+   warm arcs curl into every surviving ally, while the same radiance lashes out
+   at every foe creature.  The arc geometry follows Nether Grasp: several bowed
+   legs per target crawling outward to a bright head. *)
+let spawn_hope ~from_ ~allies ~foes ~start =
+  let duration = 1.55 in
+  let travel = 0.52 in
+  let arcs ~age ~x0 ~y0 ~x1 ~y1 ~legs ~reach ~width ~r ~g ~b ~a seed =
+    let dx = x1 -. x0 and dy = y1 -. y0 in
+    let len = Float.max 1. (hypot dx dy) in
+    let nx = -.dy /. len and ny = dx /. len in
+    let bow_max = 12. +. (len *. 0.16) in
+    let steps = 12 in
+    for k = 0 to legs - 1 do
+      let f = (float k /. float (max 1 (legs - 1))) -. 0.5 in
+      let bow = f *. 2. *. bow_max in
+      let c1x = x0 +. (dx *. 0.24) +. (nx *. bow) in
+      let c1y = y0 +. (dy *. 0.24) +. (ny *. bow) in
+      let c2x = x0 +. (dx *. 0.74) +. (nx *. bow *. 0.55) in
+      let c2y = y0 +. (dy *. 0.74) +. (ny *. bow *. 0.55) in
+      let px u = bezier x0 c1x c2x x1 u in
+      let py u = bezier y0 c1y c2y y1 u in
+      let at = Float.min reach ((age *. 2.4) -. (f *. 0.28)) in
+      if at > 0.02 then
+        for s = 0 to steps - 1 do
+          let u0 = float s /. float steps *. at and u1 = float (s + 1) /. float steps *. at in
+          let flick = 0.58 +. (0.42 *. sin (((u1 *. 3.) +. float k +. (seed *. 0.7)) *. Float.pi)) in
+          line (px u0) (py u0) (px u1) (py u1) (width *. flick) (rgb r g b (a *. 0.5))
+        done
+    done;
+    for k = 0 to legs - 1 do
+      let f = (float k /. float (max 1 (legs - 1))) -. 0.5 in
+      let bow = f *. 2. *. bow_max in
+      let c1x = x0 +. (dx *. 0.24) +. (nx *. bow) in
+      let c1y = y0 +. (dy *. 0.24) +. (ny *. bow) in
+      let c2x = x0 +. (dx *. 0.74) +. (nx *. bow *. 0.55) in
+      let c2y = y0 +. (dy *. 0.74) +. (ny *. bow *. 0.55) in
+      let u = Float.min reach ((age *. 2.4) -. (f *. 0.28)) in
+      if u > 0.05 && u < 0.995 then (
+        circle (bezier x0 c1x c2x x1 u) (bezier y0 c1y c2y y1 u) 2.5 (rgb 1. 0.97 0.8 (a *. 0.9));
+        circle (bezier x0 c1x c2x x1 u) (bezier y0 c1y c2y y1 u) 4.4 (rgb r g b (a *. 0.25)))
+    done
+  in
+  let deliver age fade spots ~ally =
+    Array.iteri
+      (fun i (p : spot) ->
+        let a = age -. (float i *. 0.045) in
+        if a > 0. then
+          let r, g, b = if ally then (1., 0.84, 0.45) else (1., 0.46, 0.14) in
+          if a < travel then
+            arcs ~age:a ~x0:from_.x ~y0:from_.y ~x1:p.x ~y1:p.y ~legs:3 ~reach:1.
+              ~width:(if ally then 2.1 else 2.5) ~r ~g ~b ~a:(fade *. 0.9)
+              (float i +. if ally then 0. else 17.)
+          else
+            let hit = Float.max 0. (1. -. ((a -. travel) /. 0.26)) in
+            if hit > 0.02 then
+              if ally then (
+                circle p.x p.y (10. +. (hit *. 10.)) (rgb 1. 0.86 0.45 (hit *. fade *. 0.3));
+                circle p.x p.y (3. +. (hit *. 5.)) (rgb 1. 0.97 0.78 (hit *. fade *. 0.7));
+                for k = 0 to 4 do
+                  let n = noise i k 23 in
+                  circle
+                    (p.x +. ((n -. 0.5) *. 28.))
+                    (p.y -. 8. -. (hit *. (18. +. (n *. 20.))))
+                    (1.5 +. (n *. 1.4))
+                    (rgb 1. 0.94 0.65 (hit *. fade *. 0.65))
+                done)
+              else (
+                circle p.x p.y (9. +. (hit *. 24.)) (rgb 1. 0.42 0.1 (hit *. fade *. 0.38));
+                circle p.x p.y (2.5 +. (hit *. 7.)) (rgb 1. 0.88 0.58 (hit *. fade *. 0.72));
+                for k = 0 to 6 do
+                  let ang = (float k *. (Float.pi /. 3.)) +. (age *. 1.5) in
+                  let len = (8. +. (hit *. 18.)) *. (0.6 +. (0.4 *. noise i k 29)) in
+                  line p.x p.y
+                    (p.x +. (cos ang *. len))
+                    (p.y +. (sin ang *. len))
+                    1.4
+                    (rgb 1. 0.64 0.22 (hit *. fade *. 0.6))
+                done))
+      spots
+  in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. (age /. 0.14) *. Float.min 1. ((duration -. age) /. 0.32) in
+      if fade > 0.02 then
+        additive (fun () ->
+            let burst = clamp01 (age /. 0.3) in
+            let pulse = 0.62 +. (0.38 *. sin (age *. 15.)) in
+            circle from_.x from_.y (12. +. (burst *. 42.))
+              (rgb 1. 0.82 0.32 (fade *. (1. -. burst) *. 0.35));
+            circle from_.x from_.y (5. +. (burst *. 16.))
+              (rgb 1. 0.94 0.7 (fade *. (1. -. burst) *. 0.85));
+            for k = 0 to 11 do
+              let ang = (float k *. (Float.pi /. 6.)) +. (age *. 0.45) in
+              let len = (10. +. (burst *. 34.)) *. (0.55 +. (0.45 *. noise k 4 9)) in
+              line from_.x from_.y
+                (from_.x +. (cos ang *. len))
+                (from_.y +. (sin ang *. len *. 0.8))
+                1.5
+                (rgb 1. 0.86 0.45 (fade *. (1. -. burst) *. 0.45))
+            done;
+            circle from_.x from_.y (2.5 +. (burst *. 5.)) (rgb 1. 1. 0.92 (fade *. pulse));
+            deliver age fade allies ~ally:true;
+            deliver age fade foes ~ally:false))
+
+(* Emotion — Coward Warrior.  Before the card dies it shakes apart: the slot
+   itself trembles, sickly green nerves crawl around the frame, and a little
+   dust and sweat fly off it.  This is a blocking effect so the death fade
+   waits until the coward has visibly lost its nerve. *)
+let spawn_coward ~at ~pid ~num ~start =
+  let duration = 0.58 in
+  add_shake pid num ~start ~duration ~strength:1.35;
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. (age /. 0.08) *. Float.min 1. ((duration -. age) /. 0.1) in
+      if fade > 0.02 then (
+        let tremble = 1. +. (1.7 *. Float.abs (sin (age *. 32.))) in
+        let tight = ease_out (clamp01 (age /. duration)) in
+        let rx = 31. -. (tight *. 7.) and ry = 42. -. (tight *. 9.) in
+        let a = fade *. (0.18 +. (0.18 *. tight)) in
+        ellipse at.x at.y rx ry (rgb 0.52 0.62 0.22 (a *. 0.4));
+        ellipse at.x at.y (rx *. 0.72) (ry *. 0.72) (rgb 0.76 0.82 0.3 (a *. 0.5));
+        for k = 0 to 7 do
+          let ph = (float k *. 0.83) +. (age *. 19.) in
+          let side = if k mod 2 = 0 then -1. else 1. in
+          let x = at.x +. (side *. (26. +. (tremble *. 4.))) in
+          let y = at.y +. (sin ph *. (24. +. (tremble *. 5.))) in
+          let len = 5. +. (3. *. noise k 3 7) in
+          line x y (x +. (side *. len)) (y +. (cos ph *. 2.)) 1.2
+            (rgb 0.8 0.9 0.58 (fade *. 0.4))
+        done;
+        (* dust kicked up from the slot floor *)
+        for k = 0 to 5 do
+          let n = noise k 9 11 and u = clamp01 ((age -. (float k *. 0.035)) /. 0.4) in
+          if u > 0. then
+            circle
+              (at.x +. ((n -. 0.5) *. 48.))
+              (at.y +. 27. -. (u *. 10.))
+              (2. +. (n *. 3.) +. (u *. 2.))
+              (rgb 0.52 0.43 0.32 (fade *. (1. -. u) *. 0.35))
+        done;
+        (* a couple of panicked sweat drops at the brow *)
+        for k = 0 to 2 do
+          let u = clamp01 ((age -. (0.05 +. (float k *. 0.06))) /. 0.38) in
+          if u > 0. then
+            ellipse
+              (at.x -. 12. +. (float k *. 12.))
+              (at.y -. 33. +. (u *. 18.))
+              1.8 (2.8 +. (u *. 1.2))
+              (rgb 0.7 0.9 0.75 (fade *. (1. -. u) *. 0.55))
+        done))
+
+(* Emotion — Love Warrior.  A warm rose-gold heartbeat flashes over the card
+   whenever it actually heals, with a soft halo and a few rising glints. *)
+let spawn_love_flash ~at ~start =
+  let duration = 0.62 in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. (age /. 0.05) *. Float.min 1. ((duration -. age) /. 0.18) in
+      if fade > 0.02 then
+        additive (fun () ->
+            let u = clamp01 (age /. duration) in
+            let first = Float.max 0. (1. -. (age /. 0.2)) in
+            let second =
+              if age < 0.16 then 0. else Float.max 0. (1. -. ((age -. 0.16) /. 0.2))
+            in
+            let pulse = Float.max first second in
+            circle at.x at.y (22. +. (u *. 18.)) (rgb 1. 0.36 0.55 (fade *. 0.1));
+            circle at.x at.y (12. +. (pulse *. 24.)) (rgb 1. 0.58 0.7 (fade *. pulse *. 0.32));
+            circle at.x at.y (4. +. (pulse *. 9.)) (rgb 1. 0.92 0.86 (fade *. pulse *. 0.7));
+            for k = 0 to 9 do
+              let ang = (float k *. (Float.pi *. 2. /. 10.)) +. (age *. 1.2) in
+              let len = (16. +. (pulse *. 18.)) *. (0.65 +. (0.35 *. noise k 4 7)) in
+              line at.x at.y
+                (at.x +. (cos ang *. len))
+                (at.y +. (sin ang *. len *. 0.72))
+                1.2
+                (rgb 1. 0.52 0.64 (fade *. pulse *. 0.38))
+            done;
+for k = 0 to 5 do
+               let n = noise k 6 13 in
+               let rise = u *. (24. +. (n *. 24.)) in
+               circle
+                 (at.x +. ((n -. 0.5) *. 36.) +. (sin ((age *. 2.) +. float k) *. 4.))
+                 (at.y +. 24. -. rise)
+                 (1.2 +. (n *. 1.2))
+                 (rgb 1. 0.85 0.72 (fade *. (1. -. u) *. 0.6))
+             done))
+
+(* ---------------------------------------------------------------- paganist *)
+
+(* The Paganist pays in creatures and in its own blood, so every one of its
+   spells reads as a sacrifice being made somewhere: something on a side of the
+   board is torn open, and the cost of that lands on the other side. *)
+
+(* Final Offering: the caster's own creatures are split open one after the other
+   and everything harvested out of them runs to the foe as one stream. *)
+let final_offering_duration = 1.6
+
+let spawn_final_offering ~own ~foe_life ~start =
+  let duration = final_offering_duration in
+  let gather = 0.5 and flight = 0.6 in
+  let n = max 1 (Array.length own) in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.3) in
+      if fade > 0.02 then (
+        (* the offerings are cut open in turn, each one a little behind the last *)
+        additive (fun () ->
+            Array.iteri
+              (fun i (p : spot) ->
+                let a = age -. (float i *. 0.06) in
+                if a > 0. && a < 0.55 then (
+                  let k = clamp01 (a /. 0.35) in
+                  let split = k *. 15. in
+                  let jag = (noise i 3 1 -. 0.5) *. 7. in
+                  let th = 2. +. (k *. 2.5) in
+                  line (p.x -. split) (p.y -. 42. +. jag) (p.x -. split -. jag) (p.y +. 42.) th
+                    (rgb 0.9 0.12 0.14 ((1. -. k) *. fade));
+                  line (p.x +. split) (p.y -. 42. -. jag) (p.x +. split +. jag) (p.y +. 42.) th
+                    (rgb 0.9 0.12 0.14 ((1. -. k) *. fade));
+                  circle p.x p.y (6. +. (k *. 20.)) (rgb 0.6 0.03 0.05 ((1. -. k) *. 0.45 *. fade))))
+              own);
+        (* the harvest crosses to the other side *)
+        if age > gather then (
+          additive (fun () ->
+              for k = 0 to 17 do
+                let a = age -. gather -. (float k *. 0.03) in
+                if a >= 0. && a <= flight then (
+                  let t = ease_out (a /. flight) in
+                  let src = own.(k mod n) in
+                  let sx = src.x +. ((noise k 5 2 -. 0.5) *. 44.) in
+                  let sy = src.y +. ((noise k 7 4 -. 0.5) *. 76.) in
+                  (* the stream bows outward as it flies, so it does not read as one line *)
+                  let bow = (sin (t *. Float.pi) *. 30.) *. (noise k 11 6 -. 0.5) in
+                  let x = sx +. ((foe_life.x -. sx) *. t) -. bow in
+                  let y = sy +. ((foe_life.y -. sy) *. t) in
+                  let r = (3. +. (noise k 13 8 *. 3.)) *. (1. -. (t *. 0.45)) in
+                  circle x y r (rgb 0.8 0.05 0.07 (fade *. 0.9));
+                  circle x y (r *. 0.5) (rgb 1. 0.45 0.3 (fade *. 0.8)))
+              done);
+        if age > gather +. flight then (
+          (* and lands *)
+          let k = clamp01 ((age -. gather -. flight) /. 0.45) in
+          let out = 1. -. k in
+          additive (fun () ->
+              circle foe_life.x foe_life.y (14. +. (k *. 64.)) (rgb 0.7 0.05 0.08 (out *. 0.5 *. fade));
+              circle foe_life.x foe_life.y (7. +. (k *. 30.)) (rgb 1. 0.5 0.35 (out *. 0.65 *. fade));
+              for kk = 0 to 9 do
+                let ang = (float kk *. 0.628) +. k in
+                let rad = k *. 96. *. (0.5 +. noise kk 2 1) in
+                circle
+                  (foe_life.x +. (cos ang *. rad))
+                  (foe_life.y +. (sin ang *. rad))
+                  (2. +. (k *. 2.2))
+                  (rgb 0.85 0.08 0.1 (out *. 0.65 *. fade))
+              done)))))
+
+(* Unholy Contract: a pact is inscribed on the chosen creature, sealed with a
+   flash, and then pulled out of it along a cord back to the payer. *)
+let unholy_contract_duration = 1.35
+
+let spawn_unholy_contract ~at ~foe_life ~start =
+  let duration = unholy_contract_duration in
+  let inscribed = 0.36 and pull = 0.5 in
+  let tau = Float.pi *. 2. in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.25) in
+      if fade > 0.02 then (
+        (* the seal draws itself: a ring traced arc by arc, then a triangle inside it *)
+        let u = clamp01 (age /. inscribed) in
+        let rad = 30. *. (0.55 +. (0.45 *. swing_out u)) in
+        let a = fade *. (0.4 +. (0.6 *. u)) in
+        let seg = 24 in
+        for m = 0 to seg - 1 do
+          if float m /. float seg < u then (
+            let t0 = float m /. float seg and t1 = float (m + 1) /. float seg in
+            line
+              (at.x +. (cos (t0 *. tau) *. rad))
+              (at.y +. (sin (t0 *. tau) *. rad))
+              (at.x +. (cos (t1 *. tau) *. rad))
+              (at.y +. (sin (t1 *. tau) *. rad))
+              2.2 (rgb 0.75 0.05 0.12 a))
+        done;
+        if u > 0.55 then (
+          let tu = clamp01 ((u -. 0.55) /. 0.45) in
+          for i = 0 to 2 do
+            let a0 = (float i *. 2.0944) +. 0.5 in
+            let a1 = a0 +. 2.0944 in
+            line
+              (at.x +. (cos a0 *. rad *. 0.72))
+              (at.y +. (sin a0 *. rad *. 0.72))
+              (at.x +. (cos a1 *. rad *. 0.72))
+              (at.y +. (sin a1 *. rad *. 0.72))
+              1.8 (rgb 0.8 0.1 0.16 (a *. tu))
+          done);
+        (* the seal closes and goes white *)
+        if age > inscribed then (
+          let k = clamp01 ((age -. inscribed) /. 0.2) in
+          additive (fun () ->
+              circle at.x at.y (rad *. (1. +. (k *. 1.3))) (rgb 0.9 0.15 0.15 ((1. -. k) *. 0.45 *. fade));
+              circle at.x at.y (rad *. 0.5 *. (1. -. k)) (rgb 1. 0.7 0.5 ((1. -. k) *. fade))));
+        (* then the cord is drawn taut and the price is collected *)
+        if age > inscribed +. 0.1 then (
+          let k = clamp01 ((age -. inscribed -. 0.1) /. pull) in
+          let x0 = at.x +. ((foe_life.x -. at.x) *. k) in
+          let y0 = at.y +. ((foe_life.y -. at.y) *. k) in
+          additive (fun () ->
+              line at.x at.y x0 y0 (3.2 *. (1. -. (k *. 0.6)))
+                (rgb 0.7 0.03 0.06 (fade *. (0.5 +. (k *. 0.5))));
+              line at.x at.y x0 y0 1.2 (rgb 1. 0.35 0.25 (fade *. (0.6 +. (k *. 0.4))));
+              for m = 0 to 5 do
+                let t = clamp01 (k +. 0.18 -. (float m *. 0.06)) in
+                circle
+                  (at.x +. ((foe_life.x -. at.x) *. t))
+                  (at.y +. ((foe_life.y -. at.y) *. t))
+                  (2.4 +. (noise m 4 1 *. 2.4))
+                  (rgb 0.85 0.08 0.1 (fade *. (1. -. t)))
+              done;
+              circle foe_life.x foe_life.y (11. +. (k *. 28.)) (rgb 0.75 0.06 0.1 (fade *. 0.32));
+              circle foe_life.x foe_life.y 6. (rgb 1. 0.4 0.3 (fade *. 0.5 *. (1. -. k)))))))
+
+(* Terrorize: dread reaches the chosen creature as a black bloom of tendrils,
+   then opens as an eye over the foe's portrait and does not blink. *)
+let terrorize_duration = 1.2
+
+let spawn_terrorize ~at ~foe_life ~start =
+  let duration = terrorize_duration in
+  let hit = 0.34 in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.28) in
+      let k = clamp01 (age /. hit) in
+      if fade > 0.02 then (
+        (* tendrils claw out of the dark at the victim and curl back in *)
+        additive (fun () ->
+            for i = 0 to 11 do
+              let ang = (float i *. 0.5236) +. ((noise i 2 1 -. 0.5) *. 0.5) in
+              let reach = 12. +. (swing_out k *. 74.) in
+              let wob = (noise i 4 (int_of_float (age *. 26.)) -. 0.5) *. 14. in
+              let seg = 5 in
+              for m = 0 to seg - 1 do
+                let t0 = float m /. float seg and t1 = float (m + 1) /. float seg in
+                let pt t =
+                  ( at.x +. (cos ang *. (reach *. t)) +. (wob *. t),
+                    at.y +. (sin ang *. (reach *. t)) )
+                in
+                let px0, py0 = pt t0 and px1, py1 = pt t1 in
+                line px0 py0 px1 py1 (3.2 *. (1. -. (t0 *. 0.7))) (rgb 0.3 0.04 0.28 (fade *. 0.75));
+                line px0 py0 px1 py1 (1.2 *. (1. -. t0)) (rgb 0.85 0.3 0.9 (fade *. 0.65))
+              done;
+              if k > 0.88 then (
+                let ex = at.x +. (cos ang *. reach) and ey = at.y +. (sin ang *. reach) in
+                circle ex ey 3. (rgb 0.9 0.5 1. (fade *. 0.7)))
+            done);
+        (* the fear carries on into its owner *)
+        if age > hit *. 0.65 then (
+          let k2 = clamp01 ((age -. (hit *. 0.65)) /. 0.5) in
+          let rx = 48. *. swing_out k2 and ry = 32. *. swing_out k2 in
+          (* the lid is drawn opaque, so the pale iris inside reads against it *)
+          ellipse foe_life.x foe_life.y rx ry (rgb 0.12 0.02 0.14 ((1. -. (k2 *. 0.85)) *. fade));
+          additive (fun () ->
+              ellipse foe_life.x foe_life.y (rx *. 0.5) (ry *. 0.62) (rgb 0.45 0.06 0.35 ((1. -. k2) *. 0.45 *. fade));
+              circle foe_life.x foe_life.y ((10. *. (1. -. k2)) +. 2.) (rgb 1. 0.75 0.8 ((1. -. k2) *. fade));
+              for i = 0 to 7 do
+                let ang = (float i *. 0.7854) +. 0.2 in
+                let reach = 74. *. k2 *. (0.55 +. noise i 3 2) in
+                line
+                  foe_life.x foe_life.y
+                  (foe_life.x +. (cos ang *. reach))
+                  (foe_life.y +. (sin ang *. reach))
+                  (2.2 *. (1. -. k2))
+                  (rgb 0.5 0.1 0.6 ((1. -. k2) *. 0.55 *. fade))
+              done))))
+
+(* Obliterate: a sign is struck over the whole foe row, each slot takes its own
+   blow in turn, and what is left burns down to the foe's portrait. *)
+let obliterate_duration = 2.0
+
+let spawn_obliterate ~foe ~foe_pid ~foe_life ~start =
+  let duration = obliterate_duration in
+  let strike = 0.42 and sweep = 1.15 in
+  let n = max 1 (Array.length foe) in
+  (* the row takes the hit lane by lane, so the shake walks along it *)
+  Array.iteri
+    (fun i _ ->
+      add_shake foe_pid i ~start:(start +. (strike +. (float i *. 0.08))) ~duration:0.55 ~strength:1.15)
+    foe;
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.35) in
+      if fade > 0.02 then (
+        (* the sign closes over the row before anything is hit *)
+        if age < strike +. 0.3 then (
+          let u = clamp01 (age /. strike) in
+          let close = ease_out u in
+          additive (fun () ->
+              for i = 0 to 3 do
+                let w = (1. -. (close *. 0.72)) *. (180. +. (float i *. 90.)) in
+                line (foe_life.x -. w) (foe_life.y +. (float i *. 26. -. 40.))
+                     (foe_life.x +. w) (foe_life.y +. (float i *. 26. -. 40.))
+                  2.4 (rgb 0.75 0.06 0.1 (fade *. (0.25 +. (u *. 0.55))))
+              done));
+        (* each lane is struck in turn *)
+        Array.iteri
+          (fun i (p : spot) ->
+            let at_ = strike +. (float i *. 0.08) in
+            let a = age -. at_ in
+            if a >= 0. then (
+              (* a mark burns onto the slot, then blows *)
+              if a < 0.4 then (
+                let k = clamp01 (a /. 0.4) in
+                additive (fun () ->
+                    circle p.x p.y (30. *. (1. -. k) +. 4.) (rgb 0.85 0.1 0.12 ((1. -. k) *. 0.55 *. fade));
+                    circle p.x p.y (14. *. (1. -. k)) (rgb 1. 0.6 0.45 ((1. -. k) *. fade))));
+              (* the slot is left burning *)
+              if a < 0.85 then (
+                let k = clamp01 (a /. 0.85) in
+                additive (fun () ->
+                    for kk = 0 to 7 do
+                      let rise = k *. (30. +. (noise kk 6 3 *. 34.)) in
+                      circle
+                        (p.x +. ((noise (i * 7 + kk) 3 2 -. 0.5) *. 34.))
+                        (p.y +. 30. -. rise)
+                        (3. +. (noise kk 8 5 *. 5.))
+                        (rgb (0.9 +. (noise kk 9 1 *. 0.1)) 0.25 0.05 ((1. -. k) *. 0.75 *. fade))
+                    done))))
+          foe;
+        (* a wall of dark fire rolls across the row *)
+        if age > strike +. 0.2 && age < strike +. 0.2 +. sweep then (
+          let t0 = strike +. 0.2 in
+          let u = clamp01 ((age -. t0) /. sweep) in
+          additive (fun () ->
+              Array.iteri
+                (fun i (p : spot) ->
+                  (* the flame front passes the lanes one at a time *)
+                  let at_ = float i /. float n in
+                  let local = clamp01 ((u -. at_) *. 2.4) in
+                  if local > 0. then (
+                    let h = 40. +. (local *. 62.) in
+                    for kk = 0 to 5 do
+                      let fx = p.x +. ((noise (i * 5 + kk) 2 1 -. 0.5) *. 40.) in
+                      let fh = h *. (0.45 +. (noise kk 4 6 *. 0.75)) in
+                      circle fx (p.y +. 26. -. (fh *. 0.5)) (10. +. (noise kk 5 3 *. 9.))
+                        (rgb 0.75 0.05 0.05 ((0.5 +. (local *. 0.5)) *. fade));
+                      circle fx (p.y +. 26. -. (fh *. 0.45)) (5. +. (noise kk 7 9 *. 6.))
+                        (rgb 1. 0.55 0.2 ((0.4 +. (local *. 0.6)) *. fade))
+                    done))
+                foe));
+        (* and the row is gone: the foe itself is struck last *)
+        if age > strike +. sweep then (
+          let k = clamp01 ((age -. strike -. sweep) /. 0.45) in
+          let out = 1. -. k in
+          additive (fun () ->
+              circle foe_life.x foe_life.y (16. +. (k *. 70.)) (rgb 0.65 0.04 0.06 (out *. 0.5 *. fade));
+              circle foe_life.x foe_life.y (8. +. (k *. 34.)) (rgb 1. 0.5 0.3 (out *. 0.65 *. fade));
+              for kk = 0 to 11 do
+                let ang = (float kk *. 0.5236) +. k in
+                let rad = k *. 110. *. (0.4 +. noise kk 3 2) in
+                circle
+                  (foe_life.x +. (cos ang *. rad))
+                  (foe_life.y +. (sin ang *. rad))
+                  (2. +. (k *. 2.4))
+                  (rgb 0.85 0.07 0.09 (out *. 0.6 *. fade))
+              done))))
+
+(* River of Blood: the caster opens its own veins first, and only the blood
+   that spills far enough to reach the other side lands there. *)
+let river_of_blood_duration = 1.8
+
+let spawn_river_of_blood ~own_life ~foe ~foe_life ~start =
+  let duration = river_of_blood_duration in
+  let open_ = 0.3 and flood = 0.85 in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.35) in
+      if fade > 0.02 then (
+        (* the caster is cut open, and the wound stays open while it floods *)
+        if age < open_ +. flood then (
+          let k = clamp01 (age /. open_) in
+          additive (fun () ->
+              for kk = 0 to 9 do
+                let ang = (float kk *. 0.628) -. Float.pi +. ((noise kk 3 1 -. 0.5) *. 0.6) in
+                let len = 16. +. (k *. 44.) in
+                circle
+                  (own_life.x +. (cos ang *. len))
+                  (own_life.y +. (sin ang *. len))
+                  (3. +. (noise kk 5 2 *. 5.))
+                  (rgb 0.75 0.02 0.05 (fade *. 0.8))
+              done);
+              circle own_life.x own_life.y (8. +. (k *. 20.)) (rgb 0.55 0.02 0.04 (fade *. 0.5)));
+        (* the flood pours across to the other side *)
+        if age > open_ then (
+          additive (fun () ->
+              for k = 0 to 23 do
+                let a = age -. open_ -. (float k *. 0.035) in
+                if a >= 0. && a <= flood then (
+                  let t = ease_out (a /. flood) in
+                  let sx = own_life.x +. ((noise k 7 3 -. 0.5) *. 40.) in
+                  let sy = own_life.y +. ((noise k 11 5 -. 0.5) *. 50.) in
+                  (* the sheet widens as it goes, so it reads as a spill and not a bead *)
+                  let widen = 1. +. (t *. 2.2) in
+                  let x = sx +. ((foe_life.x -. sx) *. t) +. ((noise k 13 7 -. 0.5) *. 14. *. t) in
+                  let y = sy +. ((foe_life.y -. sy) *. t) in
+                  let r = (3.5 +. (noise k 17 9 *. 4.)) *. widen in
+                  circle x y r (rgb 0.72 0.02 0.04 (fade *. 0.85));
+                  circle x y (r *. 0.45) (rgb 1. 0.4 0.28 (fade *. 0.7)))
+              done));
+        (* every enemy creature is caught in it *)
+        if age > open_ +. 0.35 then (
+          additive (fun () ->
+              Array.iteri
+                (fun i (p : spot) ->
+                  let a = age -. open_ -. 0.35 -. (float i *. 0.06) in
+                  if a >= 0. && a < 0.6 then (
+                    let k = clamp01 (a /. 0.6) in
+                    circle p.x p.y (8. +. (k *. 30.)) (rgb 0.65 0.03 0.05 ((1. -. k) *. 0.45 *. fade));
+                    for kk = 0 to 5 do
+                      let ang = (float kk *. 1.047) +. (noise kk 4 6 -. 0.5) in
+                      let rad = k *. 46. *. (0.4 +. noise kk 6 3) in
+                      circle
+                        (p.x +. (cos ang *. rad))
+                        (p.y +. (sin ang *. rad))
+                        (1.6 +. (noise kk 8 1 *. 2.4))
+                        (rgb 0.85 0.06 0.07 ((1. -. k) *. 0.7 *. fade))
+                    done))
+                foe));
+        (* and the far bank is reached *)
+        if age > open_ +. flood then (
+          let k = clamp01 ((age -. open_ -. flood) /. 0.55) in
+          let out = 1. -. k in
+          additive (fun () ->
+              circle foe_life.x foe_life.y (18. +. (k *. 76.)) (rgb 0.7 0.03 0.05 (out *. 0.5 *. fade));
+              circle foe_life.x foe_life.y (9. +. (k *. 36.)) (rgb 1. 0.45 0.3 (out *. 0.6 *. fade));
+              for kk = 0 to 11 do
+                let ang = (float kk *. 0.5236) +. k in
+                let rad = k *. 120. *. (0.4 +. noise kk 5 4) in
+                circle
+                  (foe_life.x +. (cos ang *. rad))
+                  (foe_life.y +. (sin ang *. rad))
+                  (2. +. (k *. 2.6))
+                  (rgb 0.85 0.06 0.08 (out *. 0.6 *. fade))
+              done))))

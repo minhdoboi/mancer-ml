@@ -13,7 +13,13 @@ type campaign_dlg =
   | Camp_fight of Campaign.node
   | Camp_meeting of Campaign.node
   | Camp_restart
-  | Camp_note of { title : string; body : string; ack : unit -> unit }
+  | Camp_note of {
+      title : string;
+      body : string;
+      portrait : string option;
+      button : string;
+      ack : unit -> unit;
+    }
   | Camp_end of { node : Campaign.node; won : bool }
 
 type campaign_ui = {
@@ -82,6 +88,7 @@ let parchment_card ~title ~portrait ~subtitle ~message buttons =
   click_full (fun () -> ());
   let msg_w = 400. in
   let face = 112. in
+  let face_h = if Option.is_some portrait then face +. 12. else 0. in
   let type_size = 20. in
   let line_h = 26. in
   let lines = wrap ~font:paper_font type_size msg_w message in
@@ -93,21 +100,26 @@ let parchment_card ~title ~portrait ~subtitle ~message buttons =
   let box_w = 520. in
   let box_h =
     Float.min (vh -. 16.)
-      (edge +. title_h +. 8. +. face +. 12. +. sub_h +. 8. +. msg_h +. 16. +. btn_h +. edge)
+      (edge +. title_h +. 8. +. face_h +. sub_h +. 8. +. msg_h +. 16. +. btn_h +. edge)
   in
   let box = rect ((vw -. box_w) /. 2.) ((vh -. box_h) /. 2.) box_w box_h in
   paper box;
   on_click box (fun () -> ());
   text ~font:paper_font ~size:22. ~color:ink (box.x +. 40.) (box.y +. 22.) title;
-  draw_face portrait (rect (box.x +. ((box.w -. face) /. 2.)) (box.y +. edge +. title_h) face face);
-  let y = ref (box.y +. edge +. title_h +. face +. 12.) in
+  (match portrait with
+  | Some id ->
+      draw_face id (rect (box.x +. ((box.w -. face) /. 2.)) (box.y +. edge +. title_h) face face)
+  | None -> ());
+  let y = ref (box.y +. edge +. title_h +. face_h) in
   if subtitle <> "" then (
     text_c ~font:paper_font ~size:type_size ~color:ink box !y subtitle;
     y := !y +. sub_h);
   y := !y +. 8.;
   List.iteri
     (fun i l ->
-      text_c ~font:paper_font ~size:type_size ~color:ink (rect box.x !y box.w 0.) (!y +. (float i *. line_h)) l)
+      text_c ~font:paper_font ~size:type_size ~color:ink (rect box.x !y box.w 0.)
+        (!y +. (float i *. line_h))
+        l)
     lines;
   paper_btn_row ~size:16. ~cx:(box.x +. (box.w /. 2.)) ~y:(box.y +. box.h -. edge -. btn_h) buttons
 
@@ -121,7 +133,7 @@ let draw_campaign_end ~node ~won ~replay ~map =
       in
       parchment_card
         ~title:(Assets.text (if won then "campaign.end.win.title" else "campaign.end.lose.title"))
-        ~portrait:f.portrait_id ~subtitle:(mage_line node)
+        ~portrait:(Some f.portrait_id) ~subtitle:(mage_line node)
         ~message:(end_line ~node_id:node.id ~bot_id:f.bot_id ~won)
         buttons
 
@@ -144,7 +156,39 @@ let maybe_notes (camp : campaign_ui) =
             {
               title = Assets.text "campaign.night.rest.title";
               body = Assets.text "campaign.night.rest";
-              ack = (fun () -> Prefs.mark_night_rested (Prefs.load ()));
+              portrait = None;
+              button = Assets.text "campaign.next";
+              ack =
+                (fun () ->
+                  camp.dlg <-
+                    Camp_note
+                      {
+                        title = Assets.text "campaign.night.visit.title";
+                        body = Assets.text "campaign.night.visit";
+                        portrait = Some "night-host";
+                        button = Assets.text "campaign.next";
+                        ack =
+                          (fun () ->
+                            camp.dlg <-
+                              Camp_note
+                                {
+                                  title = Assets.text "campaign.night.meal.title";
+                                  body = Assets.text "campaign.night.meal";
+                                  portrait = Some "night-soup";
+                                  button = Assets.text "campaign.next";
+                                  ack =
+                                    (fun () ->
+                                      camp.dlg <-
+                                        Camp_note
+                                          {
+                                            title = Assets.text "campaign.night.out.title";
+                                            body = Assets.text "campaign.night.out";
+                                            portrait = None;
+                                            button = Assets.text "campaign.continue";
+                                            ack = (fun () -> Prefs.mark_night_rested (Prefs.load ()));
+                                          });
+                                });
+                      });
             }
       else
         match List.assoc_opt "antimancer" Campaign.isolate_path with
@@ -157,6 +201,8 @@ let maybe_notes (camp : campaign_ui) =
                 {
                   title = Assets.text "campaign.antimancer.wake.title";
                   body = Assets.text "campaign.antimancer.wake";
+                  portrait = None;
+                  button = Assets.text "campaign.continue";
                   ack = (fun () -> Prefs.mark_wake_far (Prefs.load ()));
                 }
         | _ -> ()
@@ -223,7 +269,7 @@ let draw_campaign (camp : campaign_ui) =
           let lit = ((not (Campaign.is_playable a)) || List.mem a.id completed) && via_ok in
           draw_curve a b (if lit then 3.1 else 2.2) (if lit then rgba 237 199 82 217 else rgba 46 41 31 115)
       | _ -> ())
-    Campaign.edges;
+    (Campaign.edges ());
   List.iter
     (fun (n : Campaign.node) ->
       if n.chapter = chapter then (
@@ -240,7 +286,7 @@ let draw_campaign (camp : campaign_ui) =
         if n.id = here then (
           circle_at x y 12.5 (rgba 242 242 255 217);
           circle_at x y 9.5 (rgba 38 46 71 89))))
-    Campaign.nodes;
+    (Campaign.nodes ());
   (match Campaign.by_id here with
   | None -> ()
   | Some n ->
@@ -251,7 +297,7 @@ let draw_campaign (camp : campaign_ui) =
       if n.chapter = chapter && Campaign.is_playable n && List.mem n.id open_ids then
         let r = rect (map_x n.x -. hit_r) (map_y n.y -. hit_r) (hit_r *. 2.) (hit_r *. 2.) in
         on_click r (fun () -> camp.dlg <- (if Campaign.is_fight n then Camp_fight n else Camp_meeting n)))
-    Campaign.nodes;
+    (Campaign.nodes ());
   let finished = Campaign.is_finished completed in
   let back = Assets.text "button.back" in
   pbutton ~size:16.
@@ -261,6 +307,13 @@ let draw_campaign (camp : campaign_ui) =
   let restart = Assets.text "campaign.restart" in
   let rw = paper_btn_w ~size:16. restart in
   pbutton ~size:16. (rect (vw -. 16. -. rw) 12. rw 26.) restart (fun () -> camp.dlg <- Camp_restart);
+  (if debug_mode () then
+     let label = "Reload map" in
+     let w = paper_btn_w ~size:16. label in
+     pbutton ~size:16. (rect (vw -. 16. -. w) 44. w 26.) label (fun () ->
+         match Campaign.reload () with
+         | Ok () -> ()
+         | Error e -> prerr_endline ("campaign reload failed: " ^ e)));
   text_c ~font:bold ~size:22. ~color:fg (rect 0. 0. vw 0.) 16.
     (Assets.text (if finished then "campaign.complete" else "campaign.title"));
   text_c ~size:14. ~color:muted (rect 0. 0. vw 0.) 44.
@@ -276,14 +329,12 @@ let draw_campaign (camp : campaign_ui) =
       match camp.dlg with
       | Camp_none -> ()
       | Camp_note n ->
-          parchment_card ~title:n.title
-            ~portrait:(Prefs.player_portrait (Prefs.load ()))
-            ~subtitle:"" ~message:n.body
+          parchment_card ~title:n.title ~portrait:n.portrait ~subtitle:"" ~message:n.body
             [
-              ( Assets.text "campaign.continue",
+              ( n.button,
                 fun () ->
-                  n.ack ();
-                  camp.dlg <- Camp_none );
+                  camp.dlg <- Camp_none;
+                  n.ack () );
             ]
       | Camp_restart ->
           let night = chapter = Campaign.Night in
@@ -312,8 +363,7 @@ let draw_campaign (camp : campaign_ui) =
             @ [ (Assets.text "button.cancel", fun () -> camp.dlg <- Camp_none) ]
           in
           parchment_card ~title:(Assets.text "campaign.restart")
-            ~portrait:(Prefs.player_portrait (Prefs.load ()))
-            ~subtitle:""
+            ~portrait:None ~subtitle:""
             ~message:(Assets.text (if night then "campaign.restart.choice" else "campaign.restart.confirm"))
             buttons
       | Camp_fight n -> (
@@ -322,7 +372,7 @@ let draw_campaign (camp : campaign_ui) =
           | Some f ->
               parchment_card
                 ~title:(Assets.text ("campaign." ^ n.id ^ ".name"))
-                ~portrait:f.portrait_id ~subtitle:(mage_line n)
+                ~portrait:(Some f.portrait_id) ~subtitle:(mage_line n)
                 ~message:(Assets.text ("campaign." ^ n.id ^ ".message"))
                 (( Assets.text "button.fight",
                    fun () ->
@@ -366,7 +416,7 @@ let draw_campaign (camp : campaign_ui) =
               in
               parchment_card
                 ~title:(Assets.text ("campaign." ^ n.id ^ ".name"))
-                ~portrait:m.portrait_id
+                ~portrait:(Some m.portrait_id)
                 ~subtitle:(Assets.text ("campaign." ^ n.id ^ ".name"))
                 ~message:(Assets.text ("campaign." ^ n.id ^ ".message"))
                 choices)

@@ -1,5 +1,4 @@
-(** Summoner bot: iterative-deepening best-first settle
-    ([priv/sp/bot/summoner/SummonerBot.scala]). *)
+(** Summoner bot: iterative-deepening best-first settle ([priv/sp/bot/summoner/SummonerBot.scala]). *)
 
 open Sp
 

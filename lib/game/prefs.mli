@@ -69,8 +69,9 @@ val set_ai_opponent : t -> string -> unit
 val debug_mode : t -> bool
 val set_debug_mode : t -> bool -> unit
 
-(** Lobby ambient sound; on by default. *)
 val ambient_sound : t -> bool
+(** Lobby ambient sound; on by default. *)
+
 val set_ambient_sound : t -> bool -> unit
 val user_name : t -> string option
 val card_theme : t -> string

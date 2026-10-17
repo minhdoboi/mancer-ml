@@ -31,11 +31,12 @@ val leaf_value : desc:game_desc -> ?bot_id:player_id -> game_state -> float
 val execute : settings -> pid:player_id -> desc:game_desc -> game_state -> command option
 
 val mover : settings -> Game.mover
-(** Snapshot [updater.state] and search it against a guessed opponent deck
-    ({!Belief.blind}). The live game is not mutated. *)
+(** Snapshot [updater.state] and search it against a guessed opponent deck ({!Belief.blind}). The live game is
+    not mutated. *)
 
 type step = { cmd : command option; state : game_state; next : player_id; ended : player_id option }
 
+(** One Oracle engine over a fixed [desc], for Diviner's per-world playouts. *)
 module Search : sig
   type t
 
@@ -46,4 +47,3 @@ module Search : sig
   val sims : t -> int
   val playouts : t -> int
 end
-(** One Oracle engine over a fixed [desc], for Diviner's per-world playouts. *)

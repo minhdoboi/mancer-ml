@@ -31,13 +31,7 @@ let day_last = "wind"
 let night_last = "highpriest"
 let day_start_id = "day_start"
 let night_start_id = "night_start"
-
-let fight house_key bot_id portrait_id ?life () = { house_key; bot_id; portrait_id; life }
-let meeting portrait_id ?(choices = []) () = { portrait_id; choices }
 let choice id = { id }
-
-let node ?(fight = None) ?(meeting = None) id chapter x y unlock =
-  { id; chapter; x; y; fight; unlock; meeting }
 
 let starters =
   [
@@ -70,173 +64,79 @@ let play_bot = function
   | ("summoner" | "strategist" | "diviner" | "oracle" | "lecturer" | "greedy") as id -> id
   | _ -> "lecturer"
 
-let mountain_approaches = [ "dreamweaver"; "powermancer"; "quantumancer" ]
-let f = Option.some
+(* The map itself (nodes, positions, unlocks, edges) lives in [campaign_map.json]
+   and is embedded at build time as [Campaign_map_data.json]. Dev mode can
+   re-read the file from disk with [reload]. *)
+let parse_node j =
+  let open Yojson.Basic.Util in
+  let strings k j = j |> member k |> to_list |> List.map to_string in
+  let fight_of j =
+    {
+      house_key = j |> member "house_key" |> to_string;
+      bot_id = j |> member "bot_id" |> to_string;
+      portrait_id = j |> member "portrait_id" |> to_string;
+      life = j |> member "life" |> to_int_option;
+    }
+  in
+  let meeting_of j =
+    {
+      portrait_id = j |> member "portrait_id" |> to_string;
+      choices = (match member "choices" j with `Null -> [] | _ -> List.map choice (strings "choices" j));
+    }
+  in
+  let opt f k = match member k j with `Null -> None | v -> Some (f v) in
+  {
+    id = j |> member "id" |> to_string;
+    chapter =
+      (match j |> member "chapter" |> to_string with
+      | "day" -> Day
+      | "night" -> Night
+      | c -> failwith ("campaign_map.json: unknown chapter " ^ c));
+    x = j |> member "x" |> to_number;
+    y = j |> member "y" |> to_number;
+    fight = opt fight_of "fight";
+    unlock =
+      (match (member "after" j, member "after_any" j) with
+      | `Null, `Null -> Open
+      | _, `Null -> After (strings "after" j)
+      | `Null, _ -> After_any (strings "after_any" j)
+      | _ -> failwith "campaign_map.json: both after and after_any");
+    meeting = opt meeting_of "meeting";
+  }
 
-let nodes =
-  [
-    node day_start_id Day 0.16 0.16 Open;
-    node "entomologist" Day 0.22 0.28 Open
-      ~fight:(f (fight "entomologist" "summoner" "summoner-f" ~life:30 ()));
-    node "duckwoman" Day 0.33 0.43 (After [ "entomologist" ])
-      ~meeting:(f (meeting "duckwoman" ~choices:[ choice go_city; choice avoid_city ] ()));
-    node "disciples" Day 0.10 0.54 (After [ avoid_city ])
-      ~fight:(f (fight "disciples" "strategist" "disciples" ~life:40 ()));
-    node "farmer" Day 0.14 0.63 (After [ "disciples" ]) ~meeting:(f (meeting "farmer" ()));
-    node "junk" Day 0.20 0.66 (After [ "farmer" ]) ~fight:(f (fight "junk" "strategist" "junk" ~life:40 ()));
-    node "beaver" Day 0.35 0.70 (After [ "junk" ]) ~meeting:(f (meeting "beaver" ()));
-    node "spiritshaman" Day 0.50 0.75 (After [ "beaver" ])
-      ~fight:(f (fight "spiritshaman" "gambler" "spiritshaman" ~life:50 ()));
-    node "quantumancer" Day 0.64 0.76 (After [ "spiritshaman" ])
-      ~fight:(f (fight "quantumancer" "gambler" "quantumancer" ~life:50 ()));
-    node "meteomancer" Day 0.37 0.15 Open
-      ~fight:(f (fight "meteomancer" "summoner" "summoner" ~life:30 ()));
-    node "seasons" Day 0.48 0.22 (After [ "meteomancer" ])
-      ~fight:(f (fight "seasons" "strategist" "seasons" ~life:40 ()));
-    node "sower" Day 0.70 0.42 (After [ "seasons" ]) ~fight:(f (fight "sower" "summoner" "sower" ~life:30 ()));
-    node "otter" Day 0.82 0.46 (After [ "sower" ]) ~meeting:(f (meeting "otter" ()));
-    node "fairy_knight" Day 0.94 0.55 (After [ "otter" ])
-      ~fight:(f (fight "fairy" "strategist" "fairy_knight" ~life:40 ()));
-    node "ram" Day 0.93 0.625 (After [ "fairy_knight" ]) ~meeting:(f (meeting "ram" ()));
-    node "dreamweaver" Day 0.91 0.70 (After [ "ram" ])
-      ~fight:(f (fight "dreamweaver" "strategist" "dreamweaver" ~life:40 ()));
-    node "dudes" Day 0.45 0.50 (After_any [ go_city; "seasons" ])
-      ~fight:(f (fight "Dudes" "strategist" "strategist-2" ~life:40 ()));
-    node "rabbit" Day 0.525 0.55 (After [ "dudes" ]) ~meeting:(f (meeting "rabbit" ()));
-    node "colors" Day 0.62 0.54 (After [ "rabbit" ])
-      ~fight:(f (fight "colors" "strategist" "colors" ~life:40 ()));
-    node "elementalist" Day 0.67 0.68 (After [ "colors" ])
-      ~fight:(f (fight "elementalist" "gambler" "elementalist" ~life:50 ()));
-    node "powermancer" Day 0.72 0.72 (After [ "elementalist" ])
-      ~fight:(f (fight "powermancer" "gambler" "powermancer" ~life:50 ()));
-    node "mountainking" Day 0.75 0.80 (After_any mountain_approaches)
-      ~fight:(f (fight "mountainking" "gambler" "mountainking" ~life:50 ()));
-    node "wind" Day 0.80 0.86 (After [ "mountainking" ]) ~fight:(f (fight "wind" "lecturer" "lecturer-f" ()));
-    node night_start_id Night 0.44 0.45 (After [ day_last ]);
-    node "crowd" Night 0.39 0.50 (After [ bring_city ]) ~meeting:(f (meeting "crowd" ()));
-    node "antimancer" Night 0.37 0.54 (After [ "crowd" ])
-      ~fight:(f (fight "antimancer" "lecturer" "antimancer" ()));
-    node "zen" Night 0.10 0.76 (After [ "antimancer" ]) ~fight:(f (fight "zen" "lecturer" "zen" ()));
-    node "fisherman" Night 0.32 0.80 (After [ "zen" ]) ~meeting:(f (meeting "fisherman" ()));
-    node "conjurer" Night 0.55 0.78 (After [ "fisherman" ])
-      ~fight:(f (fight "conjurer" "lecturer" "conjurer" ()));
-    node "chronomaster" Night 0.62 0.81 (After [ "conjurer" ])
-      ~fight:(f (fight "chronomaster" "gambler" "chronomaster" ()));
-    node "shaman" Night 0.67 0.74 (After [ to_mountain ]) ~fight:(f (fight "shaman" "gambler" "shaman" ()));
-    node "warp" Night 0.56 0.48 (After [ day_last ]) ~fight:(f (fight "warp" "lecturer" "warp" ()));
-    node "elder" Night 0.71 0.56 (After [ "warp" ]) ~meeting:(f (meeting "elder" ()));
-    node "kinetician" Night 0.81 0.65 (After [ "elder" ])
-      ~fight:(f (fight "kinetician" "gambler" "kinetician" ~life:50 ()));
-    node "girl" Night 0.76 0.66 (After [ "kinetician" ])
-      ~meeting:(f (meeting "girl" ~choices:[ choice to_mountain; choice to_valley ] ()));
-    node "rogue" Night 0.45 0.53 (After [ day_last ]) ~fight:(f (fight "rogue" "lecturer" "rogue" ()));
-    node "fishman" Night 0.43 0.58 (After [ "rogue" ]) ~meeting:(f (meeting "fishman" ()));
-    node "tinker" Night 0.50 0.57 (After [ "fishman" ]) ~fight:(f (fight "tinker" "lecturer" "tinker" ()));
-    node "battlemage" Night 0.58 0.65 (After [ "tinker" ])
-      ~fight:(f (fight "battlemage" "lecturer" "battlemage" ()));
-    node "snowblood" Night 0.68 0.70 (After [ "battlemage" ])
-      ~fight:(f (fight "snowblood" "gambler" "snowblood" ()));
-    node "shadowmage" Night 0.49 0.24 (After [ stay_land ])
-      ~fight:(f (fight "shadowmage" "oracle" "shadowmage" ()));
-    node "panther" Night 0.62 0.36 (After [ "shadowmage" ]) ~meeting:(f (meeting "panther" ()));
-    node "shadowcaster" Night 0.75 0.48 (After [ "panther" ])
-      ~fight:(f (fight "shadowcaster" "oracle" "shadowcaster" ()));
-    node "darkpriest" Night 0.87 0.65 (After [ "shadowcaster" ])
-      ~fight:(f (fight "darkpriest" "oracle" "darkpriest" ()));
-    node "vampires" Night 0.92 0.72 (After [ "darkpriest" ])
-      ~fight:(f (fight "vampires" "oracle" "vampires" ()));
-    node "deer" Night 0.87 0.78 (After [ "vampires" ]) ~meeting:(f (meeting "deer" ()));
-    node "soulreaper" Night 0.97 0.86 (After [ "deer" ]) ~fight:(f (fight "reaper" "oracle" "soulreaper" ()));
-    node "darksider" Night 0.70 0.63 (After_any [ "darkpriest"; to_valley ])
-      ~fight:(f (fight "darksider" "oracle" "darksider" ()));
-    node "patou" Night 0.67 0.67 (After [ "darksider" ]) ~meeting:(f (meeting "patou" ()));
-    node "faerie_druid" Night 0.38 0.35 (After [ day_last ])
-      ~fight:(f (fight "faerie" "oracle" "oracle-f" ()));
-    node "soulbinder" Night 0.32 0.31 (After [ "faerie_druid" ])
-      ~fight:(f (fight "soulbinder" "oracle" "soulbinder" ()));
-    node "catboy" Night 0.25 0.28 (After [ "soulbinder" ])
-      ~meeting:(f (meeting "catboy" ~choices:[ choice bring_city; choice stay_land ] ()));
-    node "limbo" Night 0.82 0.83 (After_any [ "snowblood"; "soulreaper"; "shaman"; "patou"; "chronomaster" ])
-      ~fight:(f (fight "limbo" "diviner" "limbo" ()));
-    node "highpriest" Night 0.88 0.92 (After [ "limbo" ])
-      ~fight:(f (fight "highpriest" "diviner" "highpriest" ()));
-  ]
+let parse_map json =
+  let open Yojson.Basic.Util in
+  let nodes = json |> member "nodes" |> to_list |> List.map parse_node in
+  let edges =
+    json |> member "edges" |> to_list
+    |> List.map (fun j ->
+           {
+             from = j |> member "from" |> to_string;
+             toward = j |> member "to" |> to_string;
+             via = j |> member "via" |> to_string_option;
+           })
+  in
+  let tbl = Hashtbl.create 64 in
+  List.iter (fun n -> Hashtbl.replace tbl n.id n) nodes;
+  (nodes, edges, tbl)
 
-let by_id_tbl =
-  let t = Hashtbl.create 64 in
-  List.iter (fun n -> Hashtbl.replace t n.id n) nodes;
-  t
-
-let by_id id = Hashtbl.find_opt by_id_tbl id
+let current = ref (parse_map (Yojson.Basic.from_string Campaign_map_data.json))
+let nodes () = let n, _, _ = !current in n
+let edges () = let _, e, _ = !current in e
+let by_id id = let _, _, t = !current in Hashtbl.find_opt t id
 let node id = match by_id id with Some n -> n | None -> failwith ("unknown campaign node " ^ id)
+
+let map_file () =
+  Option.value (Sys.getenv_opt "MANCER_CAMPAIGN_MAP") ~default:"lib/game/campaign_map.json"
+
+let reload () =
+  try
+    current := parse_map (Yojson.Basic.from_file (map_file ()));
+    Ok ()
+  with e -> Error (Printexc.to_string e)
+
 let is_fight n = Option.is_some n.fight
 let is_playable n = Option.is_some n.fight || Option.is_some n.meeting
-
-let edge ?(via = None) from toward = { from; toward; via }
-
-let edges =
-  [
-    edge day_start_id "entomologist";
-    edge "entomologist" "duckwoman";
-    edge "duckwoman" "dudes" ~via:(Some go_city);
-    edge "duckwoman" "disciples" ~via:(Some avoid_city);
-    edge day_start_id "meteomancer";
-    edge "meteomancer" "seasons";
-    edge "seasons" "sower";
-    edge "seasons" "dudes";
-    edge "sower" "otter";
-    edge "otter" "fairy_knight";
-    edge "fairy_knight" "ram";
-    edge "ram" "dreamweaver";
-    edge "dreamweaver" "mountainking";
-    edge "dudes" "rabbit";
-    edge "rabbit" "colors";
-    edge "colors" "elementalist";
-    edge "elementalist" "powermancer";
-    edge "powermancer" "mountainking";
-    edge "disciples" "farmer";
-    edge "farmer" "junk";
-    edge "junk" "beaver";
-    edge "beaver" "spiritshaman";
-    edge "spiritshaman" "quantumancer";
-    edge "quantumancer" "mountainking";
-    edge "mountainking" "wind";
-    edge "crowd" "antimancer";
-    edge "zen" "fisherman";
-    edge "fisherman" "conjurer";
-    edge "conjurer" "chronomaster";
-    edge "chronomaster" "limbo";
-    edge "shaman" "limbo";
-    edge night_start_id "warp";
-    edge "warp" "elder";
-    edge "elder" "kinetician";
-    edge "kinetician" "girl";
-    edge "girl" "shaman" ~via:(Some to_mountain);
-    edge "girl" "darksider" ~via:(Some to_valley);
-    edge night_start_id "faerie_druid";
-    edge "faerie_druid" "soulbinder";
-    edge "soulbinder" "catboy";
-    edge "catboy" "crowd" ~via:(Some bring_city);
-    edge "catboy" "shadowmage" ~via:(Some stay_land);
-    edge night_start_id "rogue";
-    edge "rogue" "fishman";
-    edge "fishman" "tinker";
-    edge "tinker" "battlemage";
-    edge "battlemage" "snowblood";
-    edge "snowblood" "limbo";
-    edge "shadowmage" "panther";
-    edge "panther" "shadowcaster";
-    edge "shadowcaster" "darkpriest";
-    edge "darkpriest" "vampires";
-    edge "vampires" "deer";
-    edge "deer" "soulreaper";
-    edge "soulreaper" "limbo";
-    edge "darkpriest" "darksider";
-    edge "darksider" "patou";
-    edge "patou" "limbo";
-    edge "limbo" "highpriest";
-  ]
-
 let mem_id ids id = List.mem id ids
 let chapter_of completed = if mem_id completed day_last then Night else Day
 
@@ -262,7 +162,7 @@ let available completed =
         if n.chapter = chapter && is_playable n && (not (mem_id completed n.id)) && is_unlocked n completed
         then Some n.id
         else None)
-      nodes
+      (nodes ())
   in
   match List.find_opt (fun (won, _) -> mem_id completed won) isolate_path with
   | Some (_, path) -> List.filter (mem_id path) open_ids
@@ -281,7 +181,9 @@ let house_of specials key =
 let end_message_key ~node_id ~bot_id ~won ~has_key =
   let suffix = if won then "win" else "lose" in
   let candidates =
-    [ "campaign." ^ node_id ^ "." ^ suffix; "campaign.end." ^ bot_id ^ "." ^ suffix; "campaign.end." ^ suffix ]
+    [
+      "campaign." ^ node_id ^ "." ^ suffix; "campaign.end." ^ bot_id ^ "." ^ suffix; "campaign.end." ^ suffix;
+    ]
   in
   match List.find_opt has_key candidates with Some k -> k | None -> List.hd (List.rev candidates)
 
@@ -302,6 +204,9 @@ let npcs =
     "catboy";
     "panther";
     "crowd";
+    "gardener";
+    "night-host";
+    "night-soup";
   ]
 
 let campaign_portraits =
@@ -314,6 +219,8 @@ let campaign_portraits =
     "powermancer";
     "mountainking";
     "seasons";
+    "emotion";
+    "paganist";
     "quantumancer";
     "spiritshaman";
     "fairy_knight";

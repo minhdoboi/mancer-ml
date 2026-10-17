@@ -42,7 +42,7 @@ let gust t =
   let a = sin ((two_pi *. 0.052 *. t) +. 2.2)
   and b = sin ((two_pi *. 0.089 *. t) +. 5.6)
   and c = sin ((two_pi *. 0.023 *. t) +. 1.1) in
-  let e = (((a *. 0.5) +. (b *. 0.3) +. (c *. 0.6)) /. 1.4 +. 1.) /. 2. in
+  let e = ((((a *. 0.5) +. (b *. 0.3) +. (c *. 0.6)) /. 1.4) +. 1.) /. 2. in
   Float.pow e 1.3
 
 (* deep gust body from [lo] plus a higher hiss from [mid] that swells with the gust *)
@@ -98,6 +98,7 @@ let create () =
     }
 
 let pole cutoff = 1. -. exp (-.two_pi *. cutoff /. float sample_rate)
+
 let step (s1, s2) k x =
   let s1 = s1 +. (k *. (x -. s1)) in
   let s2 = s2 +. (k *. (s1 -. s2)) in
@@ -122,8 +123,9 @@ let fill o ~target ~waves_target ~volume =
       let a = sin ((two_pi *. 0.043 *. t) +. x)
       and b = sin ((two_pi *. 0.071 *. t) +. (x *. 2.3))
       and c = sin ((two_pi *. 0.19 *. t) +. (x *. 4.1)) in
-      let e = Float.max 0. ((((a *. 0.6) +. (b *. 0.4) +. (c *. 0.2)) /. 1.2 +. 0.15) /. 1.15) in
-      e *. e in
+      let e = Float.max 0. (((((a *. 0.6) +. (b *. 0.4) +. (c *. 0.2)) /. 1.2) +. 0.15) /. 1.15) in
+      e *. e
+    in
     let wind_mod x = o.waves +. (bare *. (0.18 +. (1.6 *. irr x))) in
     let wl = wind_level +. (0.3 *. bare) in
     let l = o.n1 ((t *. 3.1) +. (sin (t *. 0.02) *. 0.5)) *. env *. surge *. 0.5 *. o.waves in
@@ -159,5 +161,9 @@ let update ~active ~wind ~volume =
     !state
 
 let unload () =
-  Option.iter (fun o -> R.stop_audio_stream o.stream; R.unload_audio_stream o.stream) !state;
+  Option.iter
+    (fun o ->
+      R.stop_audio_stream o.stream;
+      R.unload_audio_stream o.stream)
+    !state;
   state := None

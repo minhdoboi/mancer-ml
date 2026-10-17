@@ -11,7 +11,7 @@ sous-tend tous.
 | `fx_lightning.ml` | géométrie fractale des éclairs, planification des sauts, cinq styles de couleur |
 | `fx_flames.ml` | la colonne de flammes, la nappe de feu qui roule, les braises, l'inferno |
 | `fx_particles.ml` | l'émetteur générique et la fumée au survol |
-| `fx_dedicated.ml` | dix-sept chorégraphies sur mesure (poison, faux, aurore, …) |
+| `fx_dedicated.ml` | vingt-deux chorégraphies sur mesure (poison, faux, aurore, …) |
 | `fx_scenes.ml` | folie, onde de choc, confettis, bannière, victoire |
 | `fx_stage.ml` | la table : clé de carte → effet |
 
@@ -981,7 +981,7 @@ dernière particule ait toujours le temps de mourir.
 
 ### 5.3 Scènes dédiées et shaders
 
-`fx_dedicated.ml` contient dix-sept effets qui n'entrent pas dans une table de
+`fx_dedicated.ml` contient vingt-deux effets qui n'entrent pas dans une table de
 looks — `spawn_poison` (une tige de Bézier, une floraison à six pétales, de la
 fumée qui voyage), `spawn_scythe`, `spawn_aurora`, `spawn_apocalypse`,
 `spawn_burial`, `spawn_heal_haze` et ainsi de suite. Ils partagent le même

@@ -5,7 +5,8 @@ open Sp
 val seen_cards : updater -> pid:player_id -> card list
 (** Opponent cards revealed so far (events seen since first call, plus their board). *)
 
-val sample : desc:game_desc -> bot_id:player_id -> seen:card list -> n:int -> Random.State.t -> player_desc list
+val sample :
+  desc:game_desc -> bot_id:player_id -> seen:card list -> n:int -> Random.State.t -> player_desc list
 (** Up to [n] distinct legal opponent decks containing [seen]. Never the real deck. *)
 
 val seen_key : card list -> string
@@ -21,9 +22,8 @@ val with_belief : game_state -> game_desc -> player_id -> player_desc -> game_st
 (** Replace the opponent of the given player by a guessed deck, in state and desc. *)
 
 val guess : updater -> pid:player_id -> player_desc
-(** Oversized guessed deck ({!superset} of {!superset_samples} deals), kept per
-    seat until a new opponent card is seen. *)
+(** Oversized guessed deck ({!superset} of {!superset_samples} deals), kept per seat until a new opponent card
+    is seen. *)
 
-val blind :
-  (pid:player_id -> desc:game_desc -> game_state -> command option) -> Game.mover
+val blind : (pid:player_id -> desc:game_desc -> game_state -> command option) -> Game.mover
 (** [blind execute] is a mover that runs [execute] against {!guess}, not the real deck. *)

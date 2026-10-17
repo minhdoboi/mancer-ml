@@ -463,6 +463,20 @@ let photographer_ignores_far_deaths () =
   kill u 0 3;
   check_bool "stays empty" true (is_empty u 0 3)
 
+(* The Photographer a death leaves behind has no reaction of its own: one mass damage
+   over a neighbour and its own neighbour gives one Photographer, not a chain *)
+let photographer_does_not_chain () =
+  let u = new_game ~special:Warp.house () in
+  place u 0 "fire.goblin" 0;
+  place u 0 "fire.dragon" 1;
+  place u 0 "warp.photographer" 2;
+  step u (fun () ->
+      Slot.update (slot u 0 0) (fun st -> { st with life = 3 });
+      Slot.update (slot u 0 1) (fun st -> { st with life = 3 }));
+  step u (fun () -> Slots.inflict_creatures (player u 0).slots_update (mk_damage 5 (ctx 1)));
+  check_string "neighbour replaced" "warp.photographer" (Option.get (occupant u 0 1));
+  check_bool "no chain" true (is_empty u 0 0)
+
 let errant_hides_after_a_kill () =
   let u = new_game ~special:Warp.house () in
   place u 0 "warp.errant" 0;
@@ -643,6 +657,7 @@ let () =
           test_case "stranger merge occupant" `Quick stranger_merge_makes_a_new_occupant;
           test_case "photographer" `Quick photographer_replaces_neighbour;
           test_case "photographer far" `Quick photographer_ignores_far_deaths;
+          test_case "photographer chain" `Quick photographer_does_not_chain;
           test_case "errant" `Quick errant_hides_after_a_kill;
         ] );
       ( "dreamweaver",

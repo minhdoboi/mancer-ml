@@ -15,13 +15,13 @@ end
 
 module Eval : sig
   val world_mean : screen:float -> sum:float -> n:int -> float
+
   val score : ?aversion:float -> float list -> float
   (** Mean minus a penalty toward the worst world. *)
 end
 
-val execute :
-  ?seen:card list -> settings -> pid:player_id -> desc:game_desc -> game_state -> command option
-(** [seen] are opponent cards already revealed; every sampled belief contains them.
-    [desc] is used as given for the bot's own deck; the opponent's is never searched. *)
+val execute : ?seen:card list -> settings -> pid:player_id -> desc:game_desc -> game_state -> command option
+(** [seen] are opponent cards already revealed; every sampled belief contains them. [desc] is used as given
+    for the bot's own deck; the opponent's is never searched. *)
 
 val mover : settings -> Game.mover

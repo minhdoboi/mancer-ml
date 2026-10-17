@@ -74,7 +74,7 @@ let looks =
     ("sower.devouring", look Shadow Own_slots 0.3 0.55 0.2 ());
     ("sower.pollination", look Rise Target 0.85 0.9 0.35 ());
     ("shaman.hunger", look Rise Own_target 0.9 0.25 0.15 ());
-    ("elementalist.freeze", look Ice All_slots 0.7 0.9 1. ());
+    ("elementalist.freeze", look Ice Own_life 0.7 0.9 1. ());
     ("elementalist.incineration", look Fireburst All_slots 1. 0.28 0.02 ());
     ("highpriest.Simoom", look Swirl Foe_slots 0.9 0.7 0.35 ());
     ("highpriest.Curseofchaos", look Fireburst Target 0.95 0.25 0.1 ());
@@ -84,7 +84,6 @@ let looks =
 
 let custom =
   [
-    "shadowmage.eclipse";
     "elementalist.avalanche";
     "kinetician.call";
     "kinetician.barrier";
@@ -123,7 +122,19 @@ let custom =
     "darkpriest.BlackMass.name";
     "battlemage.warcry";
     "colors.Discoloration.name";
+    "emotion.revolt";
+    "emotion.loneliness";
+    "paganist.offering";
+    "paganist.contract";
+    "paganist.terrorize";
+    "paganist.obliterate";
+    "paganist.blood";
   ]
 
+(* Spells whose visual is not a cast overlay at all. Eclipse darkens the whole
+   board for as long as the shield is up -- see [draw_eclipse] in gui_board.ml,
+   which reads the player's own shield value every frame -- so casting it needs
+   nothing here, and a flare on top only fought with that. *)
+let elsewhere = [ "shadowmage.eclipse" ]
 let get key = List.assoc_opt key looks
-let covered key = Option.is_some (get key) || List.mem key custom
+let covered key = Option.is_some (get key) || List.mem key custom || List.mem key elsewhere

@@ -42,8 +42,8 @@ let siege : card_effect =
   Option.iter (fun s -> Slot.inflict s (ability_damage env 8)) target
 
 let marine =
-  creature ~key:"Marine" ~attack:(attack 4) ~life:17
-    ~description:"troopers.marine.description" ~new_reaction:marine_reaction ()
+  creature ~key:"Marine" ~attack:(attack 4) ~life:17 ~description:"troopers.marine.description"
+    ~new_reaction:marine_reaction ()
 
 let () = marine_card := Some marine
 
@@ -56,14 +56,12 @@ let cards =
     creature ~key:"Barracks" ~attack:(attack 2) ~life:17 ~description:"troopers.barracks.description"
       ~effects:(effects [ (On_turn, add_mana 1 [ 4 ]) ])
       ();
-    creature ~key:"Wraith" ~attack:(attack 4) ~life:24
-      ~description:"troopers.wraith.description"
+    creature ~key:"Wraith" ~attack:(attack 4) ~life:24 ~description:"troopers.wraith.description"
       ~effects:(effects [ (On_turn, focus (damage_creatures ~is_ability:true 2)) ])
       ();
     creature ~key:"Goliath" ~attack:(attack 6) ~life:20 ~description:"troopers.goliath.description"
       ~new_reaction:goliath_reaction ();
-    creature ~key:"SiegeTank" ~attack:(attack 8) ~life:29
-      ~description:"troopers.siegetank.description"
+    creature ~key:"SiegeTank" ~attack:(attack 8) ~life:29 ~description:"troopers.siegetank.description"
       ~effects:(effects [ (On_turn, focus siege) ])
       ();
     spell ~key:"NuclearMissile" ~description:"troopers.nuclearmissile.description"

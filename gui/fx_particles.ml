@@ -268,7 +268,9 @@ let spawn_nature_care (spots : spot list) ~start =
               if a > 0. && a < life then (
                 let k = a /. life in
                 let x0 = p.x +. ((noise i j 3 -. 0.5) *. 40.) in
-                let sway = sin ((a *. (3. +. (noise i j 4 *. 2.))) +. (noise i j 5 *. 6.28)) *. (10. +. (10. *. k)) in
+                let sway =
+                  sin ((a *. (3. +. (noise i j 4 *. 2.))) +. (noise i j 5 *. 6.28)) *. (10. +. (10. *. k))
+                in
                 let x = x0 +. sway +. ((noise i j 6 -. 0.5) *. 30. *. k) in
                 let y = p.y -. 6. -. ((50. +. (60. *. noise i j 7)) *. (1. -. ((1. -. k) ** 1.6))) in
                 let ang = (a *. (3. +. (noise i j 8 *. 4.))) +. (noise i j 9 *. 6.28) in
@@ -276,7 +278,9 @@ let spawn_nature_care (spots : spot list) ~start =
                 let len = 4.5 +. (noise i j 10 *. 4.) in
                 let tone = noise i j 11 in
                 let r, g, b =
-                  if tone < 0.3 then (0.62, 0.8, 0.22) else if tone < 0.65 then (0.25, 0.68, 0.2) else (0.15, 0.5, 0.15)
+                  if tone < 0.3 then (0.62, 0.8, 0.22)
+                  else if tone < 0.65 then (0.25, 0.68, 0.2)
+                  else (0.15, 0.5, 0.15)
                 in
                 leaf x y ang len al r g b;
                 leaf x y (ang +. Float.pi) (len *. 0.7) al (r *. 0.8) (g *. 0.85) b)
@@ -358,13 +362,16 @@ let spawn_acid_rain (floors : spot array) ~start =
                       let hx = x -. (slant *. (1. -. q)) in
                       line (hx -. 3.) (y -. 16.) hx y 1.5 (rgb 0.25 0.9 0.18 (0.55 *. power));
                       circle hx y 1.5 (rgb 0.75 1. 0.55 (0.8 *. power)))
-                    else (
+                    else
                       let q = (p -. 0.82) /. 0.18 in
                       let w = 3. +. (9. *. q) in
                       ellipse x (f.y -. depth) w (w *. 0.35) (rgb 0.45 1. 0.3 ((1. -. q) *. 0.55 *. power));
                       if q < 0.7 then
-                        circle (x +. ((noise d j 6 -. 0.5) *. 16. *. q)) (f.y -. depth -. (7. *. sin (q *. 4.)))
-                          1.2 (rgb 0.7 1. 0.5 ((1. -. q) *. 0.8 *. power))))
+                        circle
+                          (x +. ((noise d j 6 -. 0.5) *. 16. *. q))
+                          (f.y -. depth -. (7. *. sin (q *. 4.)))
+                          1.2
+                          (rgb 0.7 1. 0.5 ((1. -. q) *. 0.8 *. power)))
                 done)
               floors);
       (* acrid smoke rising where the drops eat into the ground: it shows the damage *)

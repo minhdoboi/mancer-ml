@@ -1,0 +1,1045 @@
+{
+  "nodes": [
+    {
+      "id": "day_start",
+      "chapter": "day",
+      "x": 0.16,
+      "y": 0.16
+    },
+    {
+      "id": "entomologist",
+      "chapter": "day",
+      "x": 0.22,
+      "y": 0.28,
+      "fight": {
+        "house_key": "entomologist",
+        "bot_id": "summoner",
+        "portrait_id": "summoner-f",
+        "life": 30
+      }
+    },
+    {
+      "id": "duckwoman",
+      "chapter": "day",
+      "x": 0.33,
+      "y": 0.43,
+      "after": [
+        "entomologist"
+      ],
+      "meeting": {
+        "portrait_id": "duckwoman",
+        "choices": [
+          "go_city",
+          "avoid_city"
+        ]
+      }
+    },
+    {
+      "id": "disciples",
+      "chapter": "day",
+      "x": 0.1,
+      "y": 0.54,
+      "after": [
+        "avoid_city"
+      ],
+      "fight": {
+        "house_key": "disciples",
+        "bot_id": "strategist",
+        "portrait_id": "disciples",
+        "life": 40
+      }
+    },
+    {
+      "id": "farmer",
+      "chapter": "day",
+      "x": 0.14,
+      "y": 0.63,
+      "after": [
+        "disciples"
+      ],
+      "meeting": {
+        "portrait_id": "farmer"
+      }
+    },
+    {
+      "id": "junk",
+      "chapter": "day",
+      "x": 0.2,
+      "y": 0.66,
+      "after": [
+        "farmer"
+      ],
+      "fight": {
+        "house_key": "junk",
+        "bot_id": "strategist",
+        "portrait_id": "junk",
+        "life": 40
+      }
+    },
+    {
+      "id": "beaver",
+      "chapter": "day",
+      "x": 0.35,
+      "y": 0.7,
+      "after": [
+        "junk"
+      ],
+      "meeting": {
+        "portrait_id": "beaver"
+      }
+    },
+    {
+      "id": "spiritshaman",
+      "chapter": "day",
+      "x": 0.5,
+      "y": 0.75,
+      "after": [
+        "beaver"
+      ],
+      "fight": {
+        "house_key": "spiritshaman",
+        "bot_id": "gambler",
+        "portrait_id": "spiritshaman",
+        "life": 50
+      }
+    },
+    {
+      "id": "paganist",
+      "chapter": "day",
+      "x": 0.57,
+      "y": 0.78,
+      "after": [
+        "spiritshaman"
+      ],
+      "fight": {
+        "house_key": "paganist",
+        "bot_id": "gambler",
+        "portrait_id": "paganist",
+        "life": 50
+      }
+    },
+    {
+      "id": "quantumancer",
+      "chapter": "day",
+      "x": 0.64,
+      "y": 0.76,
+      "after": [
+        "paganist"
+      ],
+      "fight": {
+        "house_key": "quantumancer",
+        "bot_id": "gambler",
+        "portrait_id": "quantumancer",
+        "life": 50
+      }
+    },
+    {
+      "id": "meteomancer",
+      "chapter": "day",
+      "x": 0.37,
+      "y": 0.16,
+      "fight": {
+        "house_key": "meteomancer",
+        "bot_id": "summoner",
+        "portrait_id": "summoner",
+        "life": 30
+      }
+    },
+    {
+      "id": "seasons",
+      "chapter": "day",
+      "x": 0.48,
+      "y": 0.22,
+      "after": [
+        "meteomancer"
+      ],
+      "fight": {
+        "house_key": "seasons",
+        "bot_id": "strategist",
+        "portrait_id": "seasons",
+        "life": 40
+      }
+    },
+    {
+      "id": "emotion",
+      "chapter": "day",
+      "x": 0.565,
+      "y": 0.285,
+      "after": [
+        "seasons"
+      ],
+      "fight": {
+        "house_key": "emotion",
+        "bot_id": "gambler",
+        "portrait_id": "emotion",
+        "life": 40
+      }
+    },
+    {
+      "id": "sower",
+      "chapter": "day",
+      "x": 0.65,
+      "y": 0.35,
+      "after": [
+        "emotion"
+      ],
+      "fight": {
+        "house_key": "sower",
+        "bot_id": "summoner",
+        "portrait_id": "sower",
+        "life": 30
+      }
+    },
+    {
+      "id": "otter",
+      "chapter": "day",
+      "x": 0.68,
+      "y": 0.42,
+      "after": [
+        "sower"
+      ],
+      "meeting": {
+        "portrait_id": "otter"
+      }
+    },
+    {
+      "id": "fairy_knight",
+      "chapter": "day",
+      "x": 0.9399999999999999,
+      "y": 0.53,
+      "after": [
+        "otter"
+      ],
+      "fight": {
+        "house_key": "fairy",
+        "bot_id": "strategist",
+        "portrait_id": "fairy_knight",
+        "life": 40
+      }
+    },
+    {
+      "id": "ram",
+      "chapter": "day",
+      "x": 0.93,
+      "y": 0.625,
+      "after": [
+        "fairy_knight"
+      ],
+      "meeting": {
+        "portrait_id": "ram"
+      }
+    },
+    {
+      "id": "dreamweaver",
+      "chapter": "day",
+      "x": 0.91,
+      "y": 0.7,
+      "after": [
+        "ram"
+      ],
+      "fight": {
+        "house_key": "dreamweaver",
+        "bot_id": "strategist",
+        "portrait_id": "dreamweaver",
+        "life": 40
+      }
+    },
+    {
+      "id": "dudes",
+      "chapter": "day",
+      "x": 0.45,
+      "y": 0.5,
+      "after_any": [
+        "go_city",
+        "otter"
+      ],
+      "fight": {
+        "house_key": "Dudes",
+        "bot_id": "strategist",
+        "portrait_id": "strategist-2",
+        "life": 40
+      }
+    },
+    {
+      "id": "rabbit",
+      "chapter": "day",
+      "x": 0.525,
+      "y": 0.55,
+      "after": [
+        "dudes"
+      ],
+      "meeting": {
+        "portrait_id": "rabbit"
+      }
+    },
+    {
+      "id": "colors",
+      "chapter": "day",
+      "x": 0.62,
+      "y": 0.54,
+      "after": [
+        "rabbit"
+      ],
+      "fight": {
+        "house_key": "colors",
+        "bot_id": "strategist",
+        "portrait_id": "colors",
+        "life": 40
+      }
+    },
+    {
+      "id": "elementalist",
+      "chapter": "day",
+      "x": 0.64,
+      "y": 0.57,
+      "after": [
+        "colors"
+      ],
+      "fight": {
+        "house_key": "elementalist",
+        "bot_id": "gambler",
+        "portrait_id": "elementalist",
+        "life": 50
+      }
+    },
+    {
+      "id": "gardener",
+      "chapter": "day",
+      "x": 0.62,
+      "y": 0.64,
+      "after": [
+        "elementalist"
+      ],
+      "meeting": {
+        "portrait_id": "gardener"
+      }
+    },
+    {
+      "id": "powermancer",
+      "chapter": "day",
+      "x": 0.73,
+      "y": 0.745,
+      "after": [
+        "gardener"
+      ],
+      "fight": {
+        "house_key": "powermancer",
+        "bot_id": "gambler",
+        "portrait_id": "powermancer",
+        "life": 50
+      }
+    },
+    {
+      "id": "mountainking",
+      "chapter": "day",
+      "x": 0.75,
+      "y": 0.8,
+      "after_any": [
+        "dreamweaver",
+        "powermancer",
+        "quantumancer"
+      ],
+      "fight": {
+        "house_key": "mountainking",
+        "bot_id": "gambler",
+        "portrait_id": "mountainking",
+        "life": 50
+      }
+    },
+    {
+      "id": "wind",
+      "chapter": "day",
+      "x": 0.8,
+      "y": 0.86,
+      "after": [
+        "mountainking"
+      ],
+      "fight": {
+        "house_key": "wind",
+        "bot_id": "lecturer",
+        "portrait_id": "lecturer-f"
+      }
+    },
+    {
+      "id": "night_start",
+      "chapter": "night",
+      "x": 0.44,
+      "y": 0.45,
+      "after": [
+        "wind"
+      ]
+    },
+    {
+      "id": "crowd",
+      "chapter": "night",
+      "x": 0.39,
+      "y": 0.5,
+      "after": [
+        "bring_city"
+      ],
+      "meeting": {
+        "portrait_id": "crowd"
+      }
+    },
+    {
+      "id": "antimancer",
+      "chapter": "night",
+      "x": 0.37,
+      "y": 0.54,
+      "after": [
+        "crowd"
+      ],
+      "fight": {
+        "house_key": "antimancer",
+        "bot_id": "lecturer",
+        "portrait_id": "antimancer"
+      }
+    },
+    {
+      "id": "zen",
+      "chapter": "night",
+      "x": 0.1,
+      "y": 0.76,
+      "after": [
+        "antimancer"
+      ],
+      "fight": {
+        "house_key": "zen",
+        "bot_id": "lecturer",
+        "portrait_id": "zen"
+      }
+    },
+    {
+      "id": "fisherman",
+      "chapter": "night",
+      "x": 0.27,
+      "y": 0.88,
+      "after": [
+        "zen"
+      ],
+      "meeting": {
+        "portrait_id": "fisherman"
+      }
+    },
+    {
+      "id": "conjurer",
+      "chapter": "night",
+      "x": 0.53,
+      "y": 0.81,
+      "after": [
+        "fisherman"
+      ],
+      "fight": {
+        "house_key": "conjurer",
+        "bot_id": "lecturer",
+        "portrait_id": "conjurer"
+      }
+    },
+    {
+      "id": "chronomaster",
+      "chapter": "night",
+      "x": 0.62,
+      "y": 0.83,
+      "after": [
+        "conjurer"
+      ],
+      "fight": {
+        "house_key": "chronomaster",
+        "bot_id": "gambler",
+        "portrait_id": "chronomaster"
+      }
+    },
+    {
+      "id": "shaman",
+      "chapter": "night",
+      "x": 0.67,
+      "y": 0.74,
+      "after": [
+        "to_mountain"
+      ],
+      "fight": {
+        "house_key": "shaman",
+        "bot_id": "gambler",
+        "portrait_id": "shaman"
+      }
+    },
+    {
+      "id": "warp",
+      "chapter": "night",
+      "x": 0.5600000000000001,
+      "y": 0.48,
+      "after": [
+        "wind"
+      ],
+      "fight": {
+        "house_key": "warp",
+        "bot_id": "lecturer",
+        "portrait_id": "warp"
+      }
+    },
+    {
+      "id": "elder",
+      "chapter": "night",
+      "x": 0.71,
+      "y": 0.5600000000000001,
+      "after": [
+        "warp"
+      ],
+      "meeting": {
+        "portrait_id": "elder"
+      }
+    },
+    {
+      "id": "kinetician",
+      "chapter": "night",
+      "x": 0.8100000000000001,
+      "y": 0.65,
+      "after": [
+        "elder"
+      ],
+      "fight": {
+        "house_key": "kinetician",
+        "bot_id": "gambler",
+        "portrait_id": "kinetician",
+        "life": 50
+      }
+    },
+    {
+      "id": "girl",
+      "chapter": "night",
+      "x": 0.76,
+      "y": 0.66,
+      "after": [
+        "kinetician"
+      ],
+      "meeting": {
+        "portrait_id": "girl",
+        "choices": [
+          "to_mountain",
+          "to_valley"
+        ]
+      }
+    },
+    {
+      "id": "rogue",
+      "chapter": "night",
+      "x": 0.45,
+      "y": 0.53,
+      "after": [
+        "wind"
+      ],
+      "fight": {
+        "house_key": "rogue",
+        "bot_id": "lecturer",
+        "portrait_id": "rogue"
+      }
+    },
+    {
+      "id": "fishman",
+      "chapter": "night",
+      "x": 0.43,
+      "y": 0.58,
+      "after": [
+        "rogue"
+      ],
+      "meeting": {
+        "portrait_id": "fishman"
+      }
+    },
+    {
+      "id": "tinker",
+      "chapter": "night",
+      "x": 0.5,
+      "y": 0.57,
+      "after": [
+        "fishman"
+      ],
+      "fight": {
+        "house_key": "tinker",
+        "bot_id": "lecturer",
+        "portrait_id": "tinker"
+      }
+    },
+    {
+      "id": "battlemage",
+      "chapter": "night",
+      "x": 0.58,
+      "y": 0.65,
+      "after": [
+        "tinker"
+      ],
+      "fight": {
+        "house_key": "battlemage",
+        "bot_id": "lecturer",
+        "portrait_id": "battlemage"
+      }
+    },
+    {
+      "id": "snowblood",
+      "chapter": "night",
+      "x": 0.68,
+      "y": 0.7,
+      "after": [
+        "battlemage"
+      ],
+      "fight": {
+        "house_key": "snowblood",
+        "bot_id": "gambler",
+        "portrait_id": "snowblood"
+      }
+    },
+    {
+      "id": "shadowmage",
+      "chapter": "night",
+      "x": 0.49,
+      "y": 0.24,
+      "after": [
+        "stay_land"
+      ],
+      "fight": {
+        "house_key": "shadowmage",
+        "bot_id": "oracle",
+        "portrait_id": "shadowmage"
+      }
+    },
+    {
+      "id": "panther",
+      "chapter": "night",
+      "x": 0.62,
+      "y": 0.36,
+      "after": [
+        "shadowmage"
+      ],
+      "meeting": {
+        "portrait_id": "panther"
+      }
+    },
+    {
+      "id": "shadowcaster",
+      "chapter": "night",
+      "x": 0.75,
+      "y": 0.48,
+      "after": [
+        "panther"
+      ],
+      "fight": {
+        "house_key": "shadowcaster",
+        "bot_id": "oracle",
+        "portrait_id": "shadowcaster"
+      }
+    },
+    {
+      "id": "darkpriest",
+      "chapter": "night",
+      "x": 0.87,
+      "y": 0.65,
+      "after": [
+        "shadowcaster"
+      ],
+      "fight": {
+        "house_key": "darkpriest",
+        "bot_id": "oracle",
+        "portrait_id": "darkpriest"
+      }
+    },
+    {
+      "id": "vampires",
+      "chapter": "night",
+      "x": 0.92,
+      "y": 0.72,
+      "after": [
+        "darkpriest"
+      ],
+      "fight": {
+        "house_key": "vampires",
+        "bot_id": "oracle",
+        "portrait_id": "vampires"
+      }
+    },
+    {
+      "id": "deer",
+      "chapter": "night",
+      "x": 0.87,
+      "y": 0.78,
+      "after": [
+        "vampires"
+      ],
+      "meeting": {
+        "portrait_id": "deer"
+      }
+    },
+    {
+      "id": "soulreaper",
+      "chapter": "night",
+      "x": 0.97,
+      "y": 0.86,
+      "after": [
+        "deer"
+      ],
+      "fight": {
+        "house_key": "reaper",
+        "bot_id": "oracle",
+        "portrait_id": "soulreaper"
+      }
+    },
+    {
+      "id": "darksider",
+      "chapter": "night",
+      "x": 0.7,
+      "y": 0.63,
+      "after_any": [
+        "darkpriest",
+        "to_valley"
+      ],
+      "fight": {
+        "house_key": "darksider",
+        "bot_id": "oracle",
+        "portrait_id": "darksider"
+      }
+    },
+    {
+      "id": "patou",
+      "chapter": "night",
+      "x": 0.67,
+      "y": 0.67,
+      "after": [
+        "darksider"
+      ],
+      "meeting": {
+        "portrait_id": "patou"
+      }
+    },
+    {
+      "id": "faerie_druid",
+      "chapter": "night",
+      "x": 0.38,
+      "y": 0.35,
+      "after": [
+        "wind"
+      ],
+      "fight": {
+        "house_key": "faerie",
+        "bot_id": "oracle",
+        "portrait_id": "oracle-f"
+      }
+    },
+    {
+      "id": "soulbinder",
+      "chapter": "night",
+      "x": 0.32,
+      "y": 0.31,
+      "after": [
+        "faerie_druid"
+      ],
+      "fight": {
+        "house_key": "soulbinder",
+        "bot_id": "oracle",
+        "portrait_id": "soulbinder"
+      }
+    },
+    {
+      "id": "catboy",
+      "chapter": "night",
+      "x": 0.25,
+      "y": 0.28,
+      "after": [
+        "soulbinder"
+      ],
+      "meeting": {
+        "portrait_id": "catboy",
+        "choices": [
+          "bring_city",
+          "stay_land"
+        ]
+      }
+    },
+    {
+      "id": "limbo",
+      "chapter": "night",
+      "x": 0.82,
+      "y": 0.84,
+      "after_any": [
+        "snowblood",
+        "soulreaper",
+        "shaman",
+        "patou",
+        "chronomaster"
+      ],
+      "fight": {
+        "house_key": "limbo",
+        "bot_id": "diviner",
+        "portrait_id": "limbo"
+      }
+    },
+    {
+      "id": "highpriest",
+      "chapter": "night",
+      "x": 0.88,
+      "y": 0.92,
+      "after": [
+        "limbo"
+      ],
+      "fight": {
+        "house_key": "highpriest",
+        "bot_id": "diviner",
+        "portrait_id": "highpriest"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "day_start",
+      "to": "entomologist"
+    },
+    {
+      "from": "entomologist",
+      "to": "duckwoman"
+    },
+    {
+      "from": "duckwoman",
+      "to": "dudes",
+      "via": "go_city"
+    },
+    {
+      "from": "duckwoman",
+      "to": "disciples",
+      "via": "avoid_city"
+    },
+    {
+      "from": "day_start",
+      "to": "meteomancer"
+    },
+    {
+      "from": "meteomancer",
+      "to": "seasons"
+    },
+    {
+      "from": "seasons",
+      "to": "emotion"
+    },
+    {
+      "from": "emotion",
+      "to": "sower"
+    },
+    {
+      "from": "sower",
+      "to": "otter"
+    },
+    {
+      "from": "otter",
+      "to": "dudes"
+    },
+    {
+      "from": "otter",
+      "to": "fairy_knight"
+    },
+    {
+      "from": "fairy_knight",
+      "to": "ram"
+    },
+    {
+      "from": "ram",
+      "to": "dreamweaver"
+    },
+    {
+      "from": "dreamweaver",
+      "to": "mountainking"
+    },
+    {
+      "from": "dudes",
+      "to": "rabbit"
+    },
+    {
+      "from": "rabbit",
+      "to": "colors"
+    },
+    {
+      "from": "colors",
+      "to": "elementalist"
+    },
+    {
+      "from": "elementalist",
+      "to": "gardener"
+    },
+    {
+      "from": "gardener",
+      "to": "powermancer"
+    },
+    {
+      "from": "powermancer",
+      "to": "mountainking"
+    },
+    {
+      "from": "disciples",
+      "to": "farmer"
+    },
+    {
+      "from": "farmer",
+      "to": "junk"
+    },
+    {
+      "from": "junk",
+      "to": "beaver"
+    },
+    {
+      "from": "beaver",
+      "to": "spiritshaman"
+    },
+    {
+      "from": "spiritshaman",
+      "to": "paganist"
+    },
+    {
+      "from": "paganist",
+      "to": "quantumancer"
+    },
+    {
+      "from": "quantumancer",
+      "to": "mountainking"
+    },
+    {
+      "from": "mountainking",
+      "to": "wind"
+    },
+    {
+      "from": "crowd",
+      "to": "antimancer"
+    },
+    {
+      "from": "zen",
+      "to": "fisherman"
+    },
+    {
+      "from": "fisherman",
+      "to": "conjurer"
+    },
+    {
+      "from": "conjurer",
+      "to": "chronomaster"
+    },
+    {
+      "from": "chronomaster",
+      "to": "limbo"
+    },
+    {
+      "from": "shaman",
+      "to": "limbo"
+    },
+    {
+      "from": "night_start",
+      "to": "warp"
+    },
+    {
+      "from": "warp",
+      "to": "elder"
+    },
+    {
+      "from": "elder",
+      "to": "kinetician"
+    },
+    {
+      "from": "kinetician",
+      "to": "girl"
+    },
+    {
+      "from": "girl",
+      "to": "shaman",
+      "via": "to_mountain"
+    },
+    {
+      "from": "girl",
+      "to": "darksider",
+      "via": "to_valley"
+    },
+    {
+      "from": "night_start",
+      "to": "faerie_druid"
+    },
+    {
+      "from": "faerie_druid",
+      "to": "soulbinder"
+    },
+    {
+      "from": "soulbinder",
+      "to": "catboy"
+    },
+    {
+      "from": "catboy",
+      "to": "crowd",
+      "via": "bring_city"
+    },
+    {
+      "from": "catboy",
+      "to": "shadowmage",
+      "via": "stay_land"
+    },
+    {
+      "from": "night_start",
+      "to": "rogue"
+    },
+    {
+      "from": "rogue",
+      "to": "fishman"
+    },
+    {
+      "from": "fishman",
+      "to": "tinker"
+    },
+    {
+      "from": "tinker",
+      "to": "battlemage"
+    },
+    {
+      "from": "battlemage",
+      "to": "snowblood"
+    },
+    {
+      "from": "snowblood",
+      "to": "limbo"
+    },
+    {
+      "from": "shadowmage",
+      "to": "panther"
+    },
+    {
+      "from": "panther",
+      "to": "shadowcaster"
+    },
+    {
+      "from": "shadowcaster",
+      "to": "darkpriest"
+    },
+    {
+      "from": "darkpriest",
+      "to": "vampires"
+    },
+    {
+      "from": "vampires",
+      "to": "deer"
+    },
+    {
+      "from": "deer",
+      "to": "soulreaper"
+    },
+    {
+      "from": "soulreaper",
+      "to": "limbo"
+    },
+    {
+      "from": "darkpriest",
+      "to": "darksider"
+    },
+    {
+      "from": "darksider",
+      "to": "patou"
+    },
+    {
+      "from": "patou",
+      "to": "limbo"
+    },
+    {
+      "from": "limbo",
+      "to": "highpriest"
+    }
+  ]
+}

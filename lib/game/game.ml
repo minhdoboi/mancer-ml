@@ -127,9 +127,7 @@ let commands_for pid (state : game_state) (cd : card_desc) =
   | Select_target_creature -> List.map (fun n -> command (Some n)) (Shadowmage.visible_creatures op)
   | Select_any_creature ->
       List.map (fun n -> command (Some n)) (filled_nums p)
-      @ List.map
-          (fun n -> command ~flag:(Some Target_other) (Some n))
-          (Shadowmage.visible_creatures op)
+      @ List.map (fun n -> command ~flag:(Some Target_other) (Some n)) (Shadowmage.visible_creatures op)
 
 let place_rank ~enemy (cmd : command) =
   match cmd.cmd_input with
@@ -232,9 +230,7 @@ let available_commands (u : updater) (p : player_update) =
           let visible_foes =
             Array.to_list (Player.other p).slots_update.slot_updates
             |> List.filter_map (fun s ->
-                match s.value with
-                | Some st when st.data <> Stealthed -> Some s.num
-                | _ -> None)
+                match s.value with Some st when st.data <> Stealthed -> Some s.num | _ -> None)
           in
           match cd.cd_card.input_spec with
           | Select_owner_slot -> List.map (fun n -> command cd (Some n)) open_slots

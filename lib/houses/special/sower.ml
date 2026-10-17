@@ -76,9 +76,7 @@ let flower_direct : card_effect =
 let monster_attack target d player =
   if single_target_attack target d player then
     Slots.foreach player.slots_update (fun slot ->
-        match slot.value with
-        | Some st when is_monster st.card.c_card -> Slot.heal slot st.max_life
-        | _ -> ())
+        match slot.value with Some st when is_monster st.card.c_card -> Slot.heal slot st.max_life | _ -> ())
 
 let healing_attack target d player =
   match target with

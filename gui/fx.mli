@@ -4,7 +4,7 @@ open Mancer
 open Sp
 
 type spot = { x : float; y : float }
-type t = { start : float; duration : float; draw : age:float -> unit }
+type t = { start : float; duration : float; under : bool; draw : age:float -> unit }
 type recipe = { duration : float; blocking : bool; make : start:float -> t }
 
 type layout = {
@@ -28,6 +28,10 @@ val set_font : Raylib.Font.t -> unit
 val load : unit -> unit
 val unload : unit -> unit
 val spawn : t -> unit
+
+val draw_underlay : now:float -> unit
+(** Draws the effects flagged [t.under], for the frame pass that runs before the
+    cards, so they sit behind the board instead of over it. *)
 val draw_all : now:float -> unit
 
 val set_scroll : float -> unit
@@ -85,6 +89,9 @@ val warp_uniforms : amount:float -> unit
 
 val set_trap_spots : (int * spot * float) list -> unit
 (** Centres and radii of the Arcane Trap pentagrams to draw this frame, keyed by the trapped player. *)
+
+val set_frost_spots : (int * spot * float) list -> unit
+(** Centres and half-sizes of the portraits to coat in Deep Freeze frost this frame, keyed by player. *)
 
 val trap_center : layout -> player_id -> spot * float
 (** Where a player's lasting pentagram sits: the middle of their slot row. *)

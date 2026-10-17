@@ -41,14 +41,18 @@ let player_portraits =
     "tide";
     "gale";
     "grove";
-    "old-thinker";
-    "stout-hearth";
-    "night-scholar";
+    "willow-wise";
+    "bramble-bellow";
+    "hootwise";
     "ash-wanderer";
     "mist-seer";
     "lamp-scribe";
     "river-aunt";
     "grove-crone";
+    "reeve-an";
+    "khan-jure";
+    "scowl-master";
+    "nox-tyro";
   ]
 
 type opponent = { opp_bot : string; opp_kind : string; opp_portrait : string; opp_level : int }
@@ -120,8 +124,11 @@ let house_groups =
       ("tiapoka", [ "antimancer"; "powermancer" ]);
       ("CyberneticPony", [ "battlemage" ]);
       ("panderson", [ "chronomaster" ]);
-      ("olds", [ "Dudes"; "Troopers" ]);
+      ("olds", [ "Dudes" ]);
+      ("garcia1000", [ "Troopers" ]);
       ("badsleep", [ "junk"; "disciples"; "snowblood"; "warp"; "zen" ]);
+      ("Floofy", [ "emotion" ]);
+      ("Zannoland", [ "paganist" ]);
     ]
 
 let group_of_house key =
@@ -376,5 +383,5 @@ let pick_card t (cd : card_desc) hd =
   else
     match choices t cd.cd_card with
     | [] -> No_target
-    | [ c ] when (match cd.cd_card.input_spec with Select_target _ -> false | _ -> true) -> Play c
+    | [ c ] when match cd.cd_card.input_spec with Select_target _ -> false | _ -> true -> Play c
     | cmds -> Choose cmds

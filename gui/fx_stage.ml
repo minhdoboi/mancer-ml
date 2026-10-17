@@ -68,7 +68,14 @@ let for_spell layout (c : command) =
         |> Array.of_list
       in
       let look =
-        { Spell_looks.style = Spell_looks.Ring; aim = Spell_looks.Own_slots; r = 0.9; g = 0.9; b = 0.95; power = 1. }
+        {
+          Spell_looks.style = Spell_looks.Ring;
+          aim = Spell_looks.Own_slots;
+          r = 0.9;
+          g = 0.9;
+          b = 0.95;
+          power = 1.;
+        }
       in
       let own_life = layout.life player and foe_life = layout.life other in
       Some
@@ -141,7 +148,8 @@ let for_spell layout (c : command) =
   | "earth.care" ->
       let life = layout.life player in
       let spots = match target with Some t -> [ t; life ] | None -> [ life ] in
-      Some (recipe ~duration:nature_care_duration ~blocking:true (fun ~start -> spawn_nature_care spots ~start))
+      Some
+        (recipe ~duration:nature_care_duration ~blocking:true (fun ~start -> spawn_nature_care spots ~start))
   | "earth.therapy" ->
       let spots = [ layout.life player ] in
       Some (recipe ~duration:pollen_duration ~blocking:true (fun ~start -> spawn_pollen spots ~start))
@@ -258,7 +266,10 @@ let for_spell layout (c : command) =
              spawn_equilibrium ~opp_house ~opp_life ~own_house ~own_life ~start))
   | "fire.apocalypse" ->
       let spots pid = layout.occupied pid |> List.map (layout.slot_center pid) in
-      let everything = slots_of player layout.slot_center |> Array.to_list |> fun l -> l @ Array.to_list (slots_of other layout.slot_center) in
+      let everything =
+        slots_of player layout.slot_center |> Array.to_list |> fun l ->
+        l @ Array.to_list (slots_of other layout.slot_center)
+      in
       let n = float (List.length everything) in
       let sum f = List.fold_left (fun a (p : spot) -> a +. f p) 0. everything in
       let center = { x = sum (fun p -> p.x) /. n; y = sum (fun p -> p.y) /. n } in
@@ -321,7 +332,9 @@ let for_spell layout (c : command) =
         let nums = match layout.occupied other with [] -> base_slot_list | ns -> ns in
         Array.of_list (List.map (fun n -> (n, layout.slot_floor other n)) nums)
       in
-      Some (recipe ~duration:1.75 ~blocking:true (fun ~start -> spawn_scatterbomb ~pid:other ~src:source ~bases ~start))
+      Some
+        (recipe ~duration:1.75 ~blocking:true (fun ~start ->
+             spawn_scatterbomb ~pid:other ~src:source ~bases ~start))
   | "rogue.trap" ->
       let houses = Array.init 5 (layout.house other) in
       let center = fst (Fx_core.trap_center_of layout other) in
@@ -339,24 +352,43 @@ let for_spell layout (c : command) =
         c.cmd_input
   | "seasons.SolarWave.name" ->
       let own = slots_of player layout.slot_center and foe = slots_of other layout.slot_center in
-      Some
-        (recipe ~duration:1.8 ~blocking:true (fun ~start -> spawn_solar_wave ~own ~foe ~foe_life ~start))
+      Some (recipe ~duration:1.8 ~blocking:true (fun ~start -> spawn_solar_wave ~own ~foe ~foe_life ~start))
   | "seasons.EternalSummer.name" ->
       let own = slots_of player layout.slot_center and foe = slots_of other layout.slot_center in
       let hand = source in
-      Some
-        (recipe ~duration:2.2 ~blocking:true (fun ~start -> spawn_eternal_summer ~own ~foe ~hand ~start))
+      Some (recipe ~duration:2.2 ~blocking:true (fun ~start -> spawn_eternal_summer ~own ~foe ~hand ~start))
   | "kinetician.warp" ->
-      Option.map (fun t -> recipe ~duration:1.6 ~blocking:true (fun ~start -> spawn_warp_reality ~target:t ~start)) target
+      Option.map
+        (fun t -> recipe ~duration:1.6 ~blocking:true (fun ~start -> spawn_warp_reality ~target:t ~start))
+        target
   | "kinetician.barrier" ->
-      Option.map (fun t -> recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_force_barrier ~target:t ~start)) target
+      Option.map
+        (fun t -> recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_force_barrier ~target:t ~start))
+        target
   | "conjurer.pain" ->
       Option.map
-        (fun t -> recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_pain_of_essence ~target:t ~foe_life ~start))
+        (fun t ->
+          recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_pain_of_essence ~target:t ~foe_life ~start))
         target
   | "conjurer.bravery" ->
       let spots = Array.of_list (List.map (layout.slot_center player) (layout.occupied player)) in
       Some (recipe ~duration:1.5 ~blocking:true (fun ~start -> spawn_bravery ~spots ~start))
+  | "emotion.revolt" ->
+      let from_points =
+        layout.occupied other |> List.map (layout.slot_center other) |> Array.of_list
+      in
+      Some
+        (recipe ~duration:1.15 ~blocking:true (fun ~start ->
+             spawn_revolt ~from_points ~to_:foe_life ~start))
+  | "emotion.loneliness" ->
+      let lonely pid =
+        layout.occupied pid
+        |> List.filter (fun n -> layout.slot_card (Sp.other pid) n = None)
+        |> List.map (layout.slot_center pid)
+      in
+      let spots = Array.of_list (lonely player @ lonely other) in
+      Some
+        (recipe ~duration:1.7 ~blocking:true (fun ~start -> spawn_loneliness ~spots ~start))
   | "conjurer.nectar" ->
       Option.map
         (fun t ->
@@ -371,7 +403,8 @@ let for_spell layout (c : command) =
       let foe_air = layout.house other 2 and own_air = layout.house player 2 in
       let life = layout.life player in
       Some
-        (recipe ~duration:2.2 ~blocking:true (fun ~start -> spawn_energetic_vortex ~foe_air ~own_air ~life ~start))
+        (recipe ~duration:2.2 ~blocking:true (fun ~start ->
+             spawn_energetic_vortex ~foe_air ~own_air ~life ~start))
   | "wind.EternalStorm.name" ->
       let slots = Array.append (slots_of player layout.slot_center) (slots_of other layout.slot_center) in
       Some (recipe ~duration:1.3 ~blocking:true (fun ~start -> spawn_eternal_storm ~slots ~start))
@@ -380,6 +413,85 @@ let for_spell layout (c : command) =
       Some
         (recipe ~duration:1.25 ~blocking:true (fun ~start ->
              spawn_warcry ~source ~foe ~foe_life ~foe_pid:other ~start))
+  | "elementalist.freeze" ->
+      (* Deep Freeze touches the players, not the slots: icicles fall on both portraits. *)
+      let look =
+        {
+          Spell_looks.style = Spell_looks.Ice;
+          aim = Spell_looks.Own_life;
+          r = 0.7;
+          g = 0.9;
+          b = 1.;
+          power = 1.;
+        }
+      in
+      let duration = style_duration look in
+      let lives = [| layout.life player; layout.life other |] in
+      Some
+        (recipe ~duration ~blocking:true (fun ~start ->
+             mk ~start ~duration (fun ~age ->
+                 let fade = Float.min 1. ((duration -. age) /. 0.22) in
+                 if fade > 0.02 then
+                   Array.iter
+                     (fun own_life ->
+                       draw_style look ~own:[||] ~foe:[||] ~own_life ~foe_life:own_life ~target:None ~age fade)
+                     lives)))
+  | "warp.quake" ->
+      let centers = slots_of other layout.slot_center in
+      let floors = slots_of other layout.slot_floor in
+      Some
+        (recipe ~duration:1.9 ~blocking:true (fun ~start ->
+             spawn_quake ~centers ~floors ~foe_pid:other ~start))
+  | "limbo.nether" ->
+      let row_mid pid =
+        let r = slots_of pid layout.slot_center in
+        let m = r.(Array.length r / 2) in
+        { x = m.x; y = m.y }
+      in
+      let mine = row_mid player and theirs = row_mid other in
+      (* the sphere hangs between the two rows *)
+      let hub = { x = (mine.x +. theirs.x) /. 2.; y = (mine.y +. theirs.y) /. 2. } in
+      let own_centers = Array.of_list (List.map (layout.slot_center player) (layout.occupied player)) in
+      let foe_targets = Array.of_list (List.map (layout.slot_center other) (layout.occupied other)) in
+      (* every creature the caster owns is given up, and each is worth 3 damage *)
+      let souls = Array.length own_centers in
+      Some
+        (recipe ~duration:1.8 ~blocking:true (fun ~start ->
+             spawn_nether_grasp ~own_centers ~foe_targets ~hub ~souls ~foe_pid:other ~start))
+  | "limbo.redemption" ->
+      let spot = match target with Some p -> p | None -> layout.slot_center player 0 in
+      Some (recipe ~duration:1.6 ~blocking:true (fun ~start -> spawn_redemption ~target:spot ~start))
+  | "paganist.offering" ->
+      (* whatever the caster can give up is what feeds the stream; a bare board
+         falls back to the caster itself, which is the only thing left to pay *)
+      let own =
+        let occ = layout.occupied player |> List.map (layout.slot_center player) |> Array.of_list in
+        if Array.length occ = 0 then [| layout.life player |] else occ
+      in
+      Some
+        (recipe ~duration:final_offering_duration ~blocking:true (fun ~start ->
+             spawn_final_offering ~own ~foe_life ~start))
+  | "paganist.contract" ->
+      Option.map
+        (fun t ->
+          recipe ~duration:unholy_contract_duration ~blocking:true (fun ~start ->
+              spawn_unholy_contract ~at:t ~foe_life ~start))
+        target
+  | "paganist.terrorize" ->
+      Option.map
+        (fun t -> recipe ~duration:terrorize_duration ~blocking:true (fun ~start -> spawn_terrorize ~at:t ~foe_life ~start))
+        target
+  | "paganist.obliterate" ->
+      let foe = slots_of other layout.slot_center in
+      Some
+        (recipe ~duration:obliterate_duration ~blocking:true (fun ~start ->
+             spawn_obliterate ~foe ~foe_pid:other ~foe_life ~start))
+  | "paganist.blood" ->
+      (* only creatures take the flood, so only creatures get splashed *)
+      let foe = layout.occupied other |> List.map (layout.slot_center other) |> Array.of_list in
+      Some
+        (recipe ~duration:river_of_blood_duration ~blocking:true (fun ~start ->
+             spawn_river_of_blood ~own_life:(layout.life player) ~foe ~foe_life ~start))
   | _ -> Option.map (look_recipe layout c) (Spell_looks.get c.cmd_card.key)
 
 let for_ability layout ~kind ~player ~num ~target =
@@ -400,6 +512,27 @@ let for_ability layout ~kind ~player ~num ~target =
       Some
         (recipe ~duration:0.7 ~blocking:true (fun ~start ->
              spawn_phosphor ~from_:(layout.slot_center player num) ~targets:hits ~start))
+  | "emotion.coward" ->
+      Some
+        (recipe ~duration:0.58 ~blocking:true (fun ~start ->
+             spawn_coward ~at:(layout.slot_center player num) ~pid:player ~num ~start))
+  | "emotion.love" ->
+      Some
+        (recipe ~duration:0.62 ~blocking:false (fun ~start ->
+             spawn_love_flash ~at:(layout.slot_center player num) ~start))
+  | "emotion.hope" ->
+      let allies =
+        layout.occupied player
+        |> List.filter (( <> ) num)
+        |> List.map (layout.slot_center player)
+        |> Array.of_list
+      in
+      let foes =
+        layout.occupied (other player) |> List.map (layout.slot_center (other player)) |> Array.of_list
+      in
+      Some
+        (recipe ~duration:1.55 ~blocking:false (fun ~start ->
+             spawn_hope ~from_:(layout.slot_center player num) ~allies ~foes ~start))
   | "dark_flock_bats" | "vampires.flock" ->
       Option.map
         (fun (_, dest) ->
@@ -453,6 +586,16 @@ let demo_names =
     "drain";
     "firewall";
     "equilibrium";
+    "revolt";
+    "loneliness";
+    "hope";
+    "coward";
+    "love";
+    "offering";
+    "contract";
+    "terrorize";
+    "obliterate";
+    "riverofblood";
   ]
 
 let spawn_demo layout name =
@@ -569,9 +712,24 @@ let spawn_demo layout name =
       let opp_hi = layout.extreme_house opponent `Highest in
       let own_lo = layout.extreme_house owner `Lowest in
       go
-        (spawn_equilibrium
-           ~opp_house:(layout.house opponent opp_hi)
-           ~opp_life:foe_life
-           ~own_house:(layout.house owner own_lo)
-           ~own_life ~start:now)
+        (spawn_equilibrium ~opp_house:(layout.house opponent opp_hi) ~opp_life:foe_life
+           ~own_house:(layout.house owner own_lo) ~own_life ~start:now)
+  | "revolt" -> go (spawn_revolt ~from_points:foe ~to_:foe_life ~start:now)
+  | "loneliness" ->
+      go (spawn_loneliness ~spots:[| own.(0); own.(2); foe.(1); foe.(4) |] ~start:now)
+  | "hope" ->
+      go
+        (spawn_hope ~from_:own.(2)
+           ~allies:[| own.(0); own.(1); own.(3); own.(4); own.(5) |]
+           ~foes:foe ~start:now)
+  | "coward" -> go (spawn_coward ~at:own.(2) ~pid:owner ~num:2 ~start:now)
+  | "love" -> go (spawn_love_flash ~at:own.(2) ~start:now)
+  | "offering" ->
+      go (spawn_final_offering ~own:[| own.(1); own.(2); own.(3) |] ~foe_life ~start:now)
+  | "contract" -> go (spawn_unholy_contract ~at:foe.(2) ~foe_life ~start:now)
+  | "terrorize" -> go (spawn_terrorize ~at:foe.(2) ~foe_life ~start:now)
+  | "obliterate" ->
+      go (spawn_obliterate ~foe ~foe_pid:opponent ~foe_life ~start:now)
+  | "riverofblood" ->
+      go (spawn_river_of_blood ~own_life ~foe:[| foe.(1); foe.(2); foe.(3) |] ~foe_life ~start:now)
   | _ -> ()

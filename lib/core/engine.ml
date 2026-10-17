@@ -173,6 +173,10 @@ module Slot = struct
     | Some st ->
         st.reaction.on_my_remove dead_opt;
         Board.react_remove s.slots s;
+        (* the removal reactions may have edited this slot's attack sources
+           (an Orc next to a moved creature takes its bonus back): return the
+           post-reaction state, or a move re-applies the bonus on the new slot *)
+        let st = Option.value s.value ~default:st in
         st.reaction.clean_up ();
         s.value <- None;
         s.slots.after_change ();

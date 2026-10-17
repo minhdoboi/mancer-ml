@@ -35,9 +35,7 @@ let require_forces_cards () =
   init_all_houses ();
   for seed = 1 to 20 do
     let require = [| [ 11 ]; [ 8 ]; []; []; [] |] in
-    let d =
-      Shuffle.create_player ~rng:(rng seed) ~require ~first:true ~special:Troopers.house (basics ())
-    in
+    let d = Shuffle.create_player ~rng:(rng seed) ~require ~first:true ~special:Troopers.house (basics ()) in
     let idx i = Array.to_list d.desc.pd_houses.(i).phd_cards |> List.map (fun cd -> card_index1 cd.cd_card) in
     Alcotest.(check bool) "fire 11" true (List.mem 11 (idx 0));
     Alcotest.(check bool) "water 8" true (List.mem 8 (idx 1))

@@ -35,7 +35,7 @@ gui/  (mancer_gui, unwrapped)
 lib/  (mancer)
   core/     sp.ml engine.ml common.ml util.ml dice.ml
   houses/   basic/{fire,water,air,earth}.ml
-            special/*.ml          (38 special houses)
+            special/*.ml          (39 special houses)
   bots/     lecturer oracle diviner summoner strategist heuris
   game/     game session table shuffle catalog tournament campaign
             replay game_record prefs assets properties spell_looks

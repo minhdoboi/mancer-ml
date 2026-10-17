@@ -12,6 +12,7 @@ _opam/
 *.cmti
 .vscode/
 .idea/
+.pi/
 *~
 .#*
 \#*#

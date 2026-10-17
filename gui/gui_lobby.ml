@@ -183,7 +183,9 @@ let open_campaign lobby =
 (* Exit sign: an open rectangle with an arrow leaving it. *)
 let draw_door_icon r color =
   let c = alpha_color color and thick = 2.4 *. !scale in
-  let seg (x0, y0) (x1, y1) = R.draw_line_ex (pos (r.x +. x0) (r.y +. y0)) (pos (r.x +. x1) (r.y +. y1)) thick c in
+  let seg (x0, y0) (x1, y1) =
+    R.draw_line_ex (pos (r.x +. x0) (r.y +. y0)) (pos (r.x +. x1) (r.y +. y1)) thick c
+  in
   let h = r.h and w = r.w in
   let my = h /. 2. in
   seg (11., 3.) (1., 3.);
@@ -291,7 +293,7 @@ let draw_duel lobby ~fight =
       | Table.Bot _ -> (ai_portrait_ids, ai_label sd.portrait, set_ai_side sd)
     in
     draw_portrait_chooser ~x ~y:!y ~size:120. ~col_w ~sub ~name_size:18. ~sub_size:16. sd.portrait ids on_pick;
-    (match sd.seat with
+    match sd.seat with
     | Table.Bot _ when debug ->
         let size = 14. in
         List.iteri
@@ -300,7 +302,7 @@ let draw_duel lobby ~fight =
               (!y +. 120. +. 56. +. (float i *. (size +. 3.)))
               l)
           (wrap ~font:paper_font size col_w (ai_description sd.portrait))
-    | Table.Bot _ | Table.Human -> ())
+    | Table.Bot _ | Table.Human -> ()
   in
   side ~x:126. ~label:(Assets.text "lobby.you") ~sd:s0 ~you:true;
   side ~x:426. ~label:(Assets.text "lobby.opponent") ~sd:s1 ~you:false;
@@ -395,11 +397,11 @@ let handle_class_pan gs =
   let down = R.is_mouse_button_down R.MouseButton.Left in
   let released = R.is_mouse_button_released R.MouseButton.Left in
   let _, my = mouse () in
-  if (not down) && not released then (
-    gs.class_grab_y <- None;
-    gs.class_panning <- false)
-  else if max > 0. && not gs.class_drag then (
-    (match gs.class_grab_y with
+  (if (not down) && not released then (
+     gs.class_grab_y <- None;
+     gs.class_panning <- false)
+   else if max > 0. && not gs.class_drag then
+     match gs.class_grab_y with
      | None when down && inside class_view ->
          gs.class_grab_y <- Some my;
          gs.class_grab_scroll <- gs.class_scroll;
@@ -410,7 +412,7 @@ let handle_class_pan gs =
          if gs.class_panning && down then (
            gs.class_scroll <- Float.min max (Float.max 0. (gs.class_grab_scroll -. dy));
            hovering := true)
-     | None -> ()));
+     | None -> ());
   if inside class_view then hovering := true
 
 let draw_class_col gs which x0 =
@@ -438,8 +440,7 @@ let draw_class_col gs which x0 =
             checkbox ~size:15. ~box_s:14. ~release:true ~armed:(not gs.class_panning) ~clip:class_view
               ~checked:(sel h) ~x:r.x ~y:r.y ~max_w:r.w
               (if Assets.has_key h.h_key then Assets.text h.h_key else cap h.h_name)
-              (fun () ->
-                toggle_special gs which h.h_name))
+              (fun () -> toggle_special gs which h.h_name))
         houses;
       y := !y +. (float (class_rows (List.length houses)) *. class_row_h);
       let sr = rect x0 (!y +. 3.) class_col_w 1. in

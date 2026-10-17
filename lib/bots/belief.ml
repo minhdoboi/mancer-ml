@@ -38,7 +38,9 @@ let track_opponent (u : updater) ~pid =
 let seen_cards (u : updater) ~pid =
   let seen = track_opponent u ~pid in
   Array.iter
-    (function Some (s : slot_state) -> Hashtbl.replace seen s.card.c_card.id s.card.c_card | None -> ())
+    (function
+    | Some (s : slot_state) when s.data <> Stealthed -> Hashtbl.replace seen s.card.c_card.id s.card.c_card
+    | _ -> ())
     u.state.players.(other pid).ps_slots;
   Hashtbl.fold (fun _ c acc -> c :: acc) seen []
 
@@ -125,7 +127,12 @@ let with_belief visible desc bot_id belief =
   let opp = other bot_id in
   let p = visible.players.(opp) in
   let players = Array.copy visible.players in
-  players.(opp) <- { p with ps_desc = { init_desc = belief; desc_mods = p.ps_desc.desc_mods } };
+  (* A stealthed Shade Stalker is not on the bot's picture of the board: its
+     slot reads as open, so neither targeting nor slot choice can betray it. *)
+  let ps_slots =
+    Array.map (function Some st when st.data = Stealthed -> None | s -> s) p.ps_slots
+  in
+  players.(opp) <- { p with ps_slots; ps_desc = { init_desc = belief; desc_mods = p.ps_desc.desc_mods } };
   let gd = { gd_players = Array.copy desc.gd_players } in
   gd.gd_players.(opp) <- belief;
   ({ players }, gd)

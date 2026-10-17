@@ -14,7 +14,7 @@ let flame_column ~x ~y ~height ~fat ~hot ~alpha ~t ~id ~licks ~push =
     let bloom = Float.min 34. ((12. *. fat) +. 10.) in
     circle x (y -. 6.) bloom (rgb 1. 0.32 0.02 (alpha *. 0.2));
     for k = 0 to licks - 1 do
-      let lean = sin ((t *. 3.2) +. (float id *. 0.73) +. (float k *. 1.4)) *. 0.45 +. push in
+      let lean = (sin ((t *. 3.2) +. (float id *. 0.73) +. (float k *. 1.4)) *. 0.45) +. push in
       let h =
         height *. (0.78 +. (0.22 *. (0.5 +. (0.5 *. sin ((t *. 11.) +. float id +. (float k *. 2.2))))))
       in
@@ -59,20 +59,21 @@ let fire_sheet ~left ~span ~y ~origin ~speed ~dirs ~t ~fade ~power ~seed =
     let dist = Float.abs d in
     let ok = (d >= 0. && dirs >= 0) || (d <= 0. && dirs <= 0) || dirs = 0 in
     let behind = reach -. dist in
-    if ok && behind > -12. then (
+    if ok && behind > -12. then
       let ignite = clamp01 ((behind +. 12.) /. 30.) in
       let body = exp (-.Float.max 0. (behind -. 40.) /. 230.) in
       let heat = ignite *. Float.max (ignite *. 0.35) body in
-      if heat > 0.04 then (
+      if heat > 0.04 then
         let crest = exp (-.(behind -. 25.) *. (behind -. 25.) /. 2400.) in
         let flick = 0.88 +. (0.12 *. sin ((t *. 30.) +. float (i + seed))) in
         let ragged = 0.8 +. (0.4 *. noise i seed 7) in
         let h = (24. +. (56. *. heat)) *. (0.8 +. (0.9 *. crest)) *. flick *. ragged *. power in
         let side = if d >= 0. then 1. else -1. in
-        flame_column ~x ~y:y ~height:h
+        flame_column ~x ~y ~height:h
           ~fat:((0.8 +. (0.3 *. heat)) *. (0.9 +. (0.3 *. power)))
           ~hot:(Float.min 1. (heat +. (crest *. 0.4)))
-          ~alpha:(fade *. heat) ~t ~id:(i + seed) ~licks:3 ~push:(side *. 0.95 *. crest)))
+          ~alpha:(fade *. heat) ~t ~id:(i + seed) ~licks:3
+          ~push:(side *. 0.95 *. crest)
   done;
   (* glowing bed of coals under the sheet and a white-hot leading edge *)
   let sweep a b =
@@ -90,7 +91,9 @@ let fire_sheet ~left ~span ~y ~origin ~speed ~dirs ~t ~fade ~power ~seed =
   if dirs <= 0 then (
     let xf = Float.max left (origin -. reach) in
     sweep xf origin;
-    circle xf (y -. 20.) (16. +. (5. *. Float.abs (sin ((t *. 26.) +. 1.)))) (rgb 1. 0.9 0.6 (0.45 *. fade *. power)))
+    circle xf (y -. 20.)
+      (16. +. (5. *. Float.abs (sin ((t *. 26.) +. 1.))))
+      (rgb 1. 0.9 0.6 (0.45 *. fade *. power)))
 
 (* embers thrown up along the sheet *)
 let sheet_embers ~left ~span ~y ~origin ~speed ~dirs ~t ~fade ~count =
@@ -98,19 +101,19 @@ let sheet_embers ~left ~span ~y ~origin ~speed ~dirs ~t ~fade ~count =
     let u = noise e 2 5 in
     let x = left +. (u *. span) in
     let d = x -. origin in
-    if (d >= 0. && dirs >= 0) || (d <= 0. && dirs <= 0) || dirs = 0 then (
+    if (d >= 0. && dirs >= 0) || (d <= 0. && dirs <= 0) || dirs = 0 then
       let born = Float.abs d /. speed in
       let life = 0.4 +. (0.35 *. noise e 3 1) in
       let a = t -. born in
       if a > 0. && a < life then
         let p = a /. life in
-        let ex = x +. ((noise e 8 2 -. 0.5) *. 26.) +. (if d >= 0. then 1. else -1.) *. 40. *. a in
+        let ex = x +. ((noise e 8 2 -. 0.5) *. 26.) +. ((if d >= 0. then 1. else -1.) *. 40. *. a) in
         let ey = y -. 14. -. ((70. +. (120. *. noise e 4 6)) *. p) in
         let col =
           if noise e 9 3 > 0.4 then rgb 1. 0.92 0.55 ((1. -. p) *. (1. -. p) *. fade)
           else rgb 1. 0.45 0.05 ((1. -. p) *. (1. -. p) *. fade *. 0.9)
         in
-        circle ex ey (1.5 +. ((1. -. p) *. 2.3)) col)
+        circle ex ey (1.5 +. ((1. -. p) *. 2.3)) col
   done
 
 let bounds bases =
@@ -151,25 +154,26 @@ let spawn_inferno ~target ~others ~start =
             flame_column ~x:tx ~y:ty ~height:(150. *. env) ~fat:1.9 ~hot:1. ~alpha:(fade *. env) ~t ~id:1
               ~licks:5 ~push:0.;
             flame_column ~x:tx ~y:ty ~height:(80. *. env) ~fat:2.5 ~hot:1.
-              ~alpha:(fade *. env *. 0.9) ~t ~id:2 ~licks:4 ~push:0.;
+              ~alpha:(fade *. env *. 0.9)
+              ~t ~id:2 ~licks:4 ~push:0.;
             circle tx (ty -. 24.) (34. *. env) (rgb 1. 0.95 0.75 (0.35 *. fade *. env));
             (* then it bursts outward as a wave over the other slots *)
             if t > delay then (
               let tt = t -. delay in
               fire_sheet ~left ~span ~y:ty ~origin:tx ~speed ~dirs:0 ~t:tt ~fade ~power:0.85 ~seed:40;
               sheet_embers ~left ~span ~y:ty ~origin:tx ~speed ~dirs:0 ~t:tt ~fade ~count:60);
-            if t < 0.45 then (
-              let p = t /. 0.45 in
-              let ring = 16. +. (150. *. p) in
-              let a = (1. -. p) *. fade in
-              for k = 0 to 19 do
-                let ang = float k *. (Float.pi *. 2. /. 20.) in
-                circle
-                  (tx +. (cos ang *. ring))
-                  (ty -. 16. +. (sin ang *. ring *. 0.42))
-                  (2.4 +. ((1. -. p) *. 2.6))
-                  (rgb 1. 0.55 0.08 (a *. 0.7))
-              done);
+            (if t < 0.45 then
+               let p = t /. 0.45 in
+               let ring = 16. +. (150. *. p) in
+               let a = (1. -. p) *. fade in
+               for k = 0 to 19 do
+                 let ang = float k *. (Float.pi *. 2. /. 20.) in
+                 circle
+                   (tx +. (cos ang *. ring))
+                   (ty -. 16. +. (sin ang *. ring *. 0.42))
+                   (2.4 +. ((1. -. p) *. 2.6))
+                   (rgb 1. 0.55 0.08 (a *. 0.7))
+               done);
             for s = 0 to 29 do
               let life = 0.4 +. (0.25 *. noise s 1 4) in
               let a = t -. 0.03 in
@@ -310,7 +314,9 @@ let spawn_scatterbomb ~pid ~src ~bases ~start =
   let fall = 0.45 and gap = 0.1 and boom = 0.7 in
   let duration = (float (max 0 (n - 1)) *. gap) +. fall +. boom in
   let hit i = float (i * 5 mod max 1 n) *. gap in
-  Array.iteri (fun i (num, _) -> add_shake pid num ~start:(start +. hit i +. fall) ~duration:0.35 ~strength:0.7) bases;
+  Array.iteri
+    (fun i (num, _) -> add_shake pid num ~start:(start +. hit i +. fall) ~duration:0.35 ~strength:0.7)
+    bases;
   mk ~start ~duration (fun ~age ->
       Array.iteri
         (fun i (_, base) ->
@@ -324,7 +330,8 @@ let spawn_scatterbomb ~pid ~src ~bases ~start =
             additive (fun () ->
                 for k = 1 to 6 do
                   let pb = Float.max 0. (p -. (float k *. 0.03)) in
-                  let tx = lerp src.x base.x pb and ty = lerp src.y cy pb -. (arc *. 4. *. pb *. (1. -. pb)) in
+                  let tx = lerp src.x base.x pb
+                  and ty = lerp src.y cy pb -. (arc *. 4. *. pb *. (1. -. pb)) in
                   circle tx (ty -. 8.) (3. -. (float k *. 0.4)) (rgb 1. 0.6 0.15 (0.7 -. (float k *. 0.1)))
                 done);
             (* the bomb: round black body, a highlight, a fuse with a bright spark *)

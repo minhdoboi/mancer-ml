@@ -195,6 +195,12 @@ let errant_reaction () =
         match me.value with Some st when has_flag st paused_flag -> Slot.toggle_off me paused_flag | _ -> ());
   }
 
+(* The copy a Photographer leaves behind is the same card but a plain body: with the
+   death reaction it would answer the next death in the same batch and a single mass
+   damage would walk across the board, one Photographer per dead creature *)
+let inert_copy (c : creature) : creature =
+  { c with c_body = { c.c_body with b_new_reaction = (fun () -> Reaction.default ()) } }
+
 (* An adjacent creature that dies is replaced by a Photographer with the same life (broadcast by the house
    listener) *)
 let photo_reaction () =
@@ -210,7 +216,7 @@ let photo_reaction () =
                && dead.d_player.pid = me.slots.player.pid
                && abs (dead.d_num - me.num) = 1 ->
             let slot = dead.d_player.slots_update.slot_updates.(dead.d_num) in
-            Slots.add_creature slot (make_creature photo);
+            Slots.add_creature slot (inert_copy (make_creature photo));
             Slot.update slot (fun st -> { st with life = mine.life })
         | _ -> ());
   }

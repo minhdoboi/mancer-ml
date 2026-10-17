@@ -6,7 +6,11 @@ open Sp
 module R = Raylib
 
 type spot = { x : float; y : float }
-type t = { start : float; duration : float; draw : age:float -> unit }
+
+(* [under] draws the effect behind the board's cards instead of over them, for
+   effects that are part of the scene (smoke rolling in behind a creature) rather
+   than bolts and flares flying across it. *)
+type t = { start : float; duration : float; under : bool; draw : age:float -> unit }
 type recipe = { duration : float; blocking : bool; make : start:float -> t }
 
 type layout = {
@@ -87,7 +91,10 @@ let slots_of pid f = Array.init nb_slots (fun n -> f pid n)
 let scroll_y = ref 0.
 let set_scroll s = scroll_y := s
 let active : (float * t) list ref = ref []
-let spawn e = active := (!scroll_y, e) :: !active
+
+(* Effects flagged [under] are drawn before the cards (see [draw_underlay]). *)
+let underlay : (float * t) list ref = ref []
+let spawn e = if e.under then underlay := (!scroll_y, e) :: !underlay else active := (!scroll_y, e) :: !active
 
 (* A circular vortex seen from above: spiral arms of green and yellow grains
    turning around a bright core. [r] is its radius, [age] drives the spin. *)
@@ -101,12 +108,18 @@ let draw_vortex x y r age alpha =
           let u = float k /. float per_arm in
           let rad = r *. (0.12 +. (0.88 *. u)) in
           (* inner grains turn faster, so the arms wind into a spiral *)
-          let ang = (age *. (9. -. (5. *. u))) +. (float arm *. (Float.pi *. 2. /. float arms)) +. (u *. 2.6) in
+          let ang =
+            (age *. (9. -. (5. *. u))) +. (float arm *. (Float.pi *. 2. /. float arms)) +. (u *. 2.6)
+          in
           let px = x +. (cos ang *. rad) and py = y +. (sin ang *. rad) in
           let yellow = (arm + k) mod 2 = 0 in
           circle px py
             (r *. (0.05 +. (0.06 *. u)))
-            (rgb (if yellow then 1. else 0.65) (if yellow then 0.92 else 0.95) 0.2 (alpha *. (0.95 -. (0.5 *. u))))
+            (rgb
+               (if yellow then 1. else 0.65)
+               (if yellow then 0.92 else 0.95)
+               0.2
+               (alpha *. (0.95 -. (0.5 *. u))))
         done
       done;
       circle x y (r *. 0.18) (rgb 1. 0.97 0.6 (alpha *. 0.9)))
@@ -122,7 +135,8 @@ let draw_powder x y age level =
     let px = x +. ((noise k 1 17 -. 0.5) *. 76.) and py = y +. ((noise k 2 19 -. 0.5) *. 86.) in
     let breathe = 0.85 +. (0.15 *. sin ((age *. 0.9) +. (float k *. 1.7))) in
     let own = clamp01 ((level -. (0.6 *. noise k 7 41)) /. 0.4) in
-    circle px py (0.9 +. (0.9 *. noise k 5 31))
+    circle px py
+      (0.9 +. (0.9 *. noise k 5 31))
       (rgb 0.95 (0.74 +. (0.1 *. noise k 6 37)) 0.22 (0.7 *. breathe *. own))
   done
 
@@ -138,9 +152,10 @@ let warp_amount p =
   | _ -> 0.
 
 let warp_any () = Hashtbl.length warp_marks > 0
-
 let powder_spots : spot list ref = ref []
-let powder_occupied : spot list ref = ref [] (* every occupied slot: a dead creature drops its powder at once *)
+
+let powder_occupied : spot list ref =
+  ref [] (* every occupied slot: a dead creature drops its powder at once *)
 
 (* Fade level (0..1) of each powdered slot, so the powder eases in when the effect
    starts and thins away when it ends instead of vanishing at once. *)
@@ -158,12 +173,17 @@ let update_powder ~now:_ =
       Hashtbl.replace powder_levels k (p, Float.min 1. (lvl +. (dt /. 0.5))))
     !powder_spots;
   let fading =
-    Hashtbl.fold (fun k (p, l) acc -> if List.mem k live then acc else if not (List.mem k occupied) then (k, p, 0.) :: acc else (k, p, l -. (dt /. 2.2)) :: acc) powder_levels []
+    Hashtbl.fold
+      (fun k (p, l) acc ->
+        if List.mem k live then acc
+        else if not (List.mem k occupied) then (k, p, 0.) :: acc
+        else (k, p, l -. (dt /. 2.2)) :: acc)
+      powder_levels []
   in
   List.iter
-    (fun (k, p, l) -> if l <= 0. then Hashtbl.remove powder_levels k else Hashtbl.replace powder_levels k (p, l))
+    (fun (k, p, l) ->
+      if l <= 0. then Hashtbl.remove powder_levels k else Hashtbl.replace powder_levels k (p, l))
     fading
-
 
 (* Arcane Trap: a multi-colour pentagram laid over the victim's slots for as long as their turn is skipped.
    The board reports it every frame; it eases in and out like the powder. *)
@@ -174,7 +194,7 @@ let trap_radius = 108.
 let pentagram_points x y r =
   let y = y +. (r *. (1. -. cos (Float.pi /. 5.)) /. 2.) in
   Array.init 5 (fun i ->
-      let ang = -.Float.pi /. 2. +. (float i *. 2. *. Float.pi /. 5.) in
+      let ang = (-.Float.pi /. 2.) +. (float i *. 2. *. Float.pi /. 5.) in
       (x +. (cos ang *. r), y +. (sin ang *. r)))
 
 (* The star's five strokes, each as its two end corners. *)
@@ -182,12 +202,21 @@ let pentagram_strokes pts = List.init 5 (fun i -> (pts.(i), pts.((i + 2) mod 5))
 
 (* A flickering flame standing on (x, y). *)
 let draw_flame x y ~w ~h age k alpha =
-  let flick = 0.8 +. (0.2 *. sin ((age *. 11.) +. (float k *. 2.3))) +. (0.1 *. sin ((age *. 17.) +. float k)) in
+  let flick =
+    0.8 +. (0.2 *. sin ((age *. 11.) +. (float k *. 2.3))) +. (0.1 *. sin ((age *. 17.) +. float k))
+  in
   let h = h *. flick in
   let sway = sin ((age *. 5.) +. float k) *. w *. 0.4 in
   additive (fun () ->
       tri (x -. w) y (x +. w) y (x +. sway) (y -. h) (rgb 0.75 0.1 0.04 (0.5 *. alpha));
-      tri (x -. (w *. 0.65)) y (x +. (w *. 0.65)) y (x -. (sway *. 0.6)) (y -. (h *. 0.72)) (rgb 1. 0.4 0.05 (0.55 *. alpha));
+      tri
+        (x -. (w *. 0.65))
+        y
+        (x +. (w *. 0.65))
+        y
+        (x -. (sway *. 0.6))
+        (y -. (h *. 0.72))
+        (rgb 1. 0.4 0.05 (0.55 *. alpha));
       tri (x -. (w *. 0.3)) y (x +. (w *. 0.3)) y x (y -. (h *. 0.4)) (rgb 1. 0.85 0.4 (0.65 *. alpha)))
 
 (* Arcane Trap: what remains of the pentagram once its flames have died, a black scorch mark with the faintest
@@ -209,7 +238,8 @@ let draw_pentagram x y r age level =
     strokes;
   additive (fun () ->
       List.iter
-        (fun ((x0, y0), (x1, y1)) -> line x0 y0 x1 y1 1.2 (rgb 0.8 0.15 0.05 (0.06 *. level *. (0.4 +. breathe))))
+        (fun ((x0, y0), (x1, y1)) ->
+          line x0 y0 x1 y1 1.2 (rgb 0.8 0.15 0.05 (0.06 *. level *. (0.4 +. breathe))))
         strokes)
 
 (* Where the pentagram sits: the middle of the lane between the two slot rows, halfway from the opponent's slot
@@ -240,17 +270,91 @@ let update_traps () =
       if live k then Some (p, r, l) else if l -. (dt /. 0.6) <= 0. then None else Some (p, r, l -. (dt /. 0.6)))
     trap_levels
 
+(* Deep Freeze: the portrait is sealed in frost for as long as the frozen turns last. [h] is the half-size of the
+   face, [level] eases the whole coat in and out. *)
+let draw_frost x y h age level =
+  let l = clamp01 level in
+  let x0 = x -. h and y0 = y -. h and w = 2. *. h in
+  (* cold wash over the face, slowly breathing *)
+  let breathe = 0.5 +. (0.5 *. sin (age *. 1.6)) in
+  rect x0 y0 w w (rgb 0.55 0.8 1. (l *. (0.28 +. (0.07 *. breathe))));
+  (* milky frost thickening toward the edges *)
+  let bands = 6 in
+  for i = 0 to bands - 1 do
+    let t = float i /. float bands in
+    let a = l *. 0.32 *. (1. -. t) *. (1. -. t) in
+    let d = t *. h *. 0.55 in
+    let th = h *. 0.55 /. float bands +. 0.5 in
+    rect x0 (y0 +. d) w th (rgb 0.88 0.96 1. a);
+    rect x0 (y0 +. w -. d -. th) w th (rgb 0.88 0.96 1. a);
+    rect (x0 +. d) y0 th w (rgb 0.88 0.96 1. a);
+    rect (x0 +. w -. d -. th) y0 th w (rgb 0.88 0.96 1. a)
+  done;
+  (* icicles hanging from the top edge, crystals creeping up from the bottom corners *)
+  for k = 0 to 8 do
+    let n = noise k 3 71 and m = noise k 5 73 in
+    let grow = clamp01 ((l -. (0.5 *. m)) /. 0.5) in
+    let px = x0 +. (w *. (float k +. 0.5) /. 9.) in
+    let len = h *. (0.22 +. (0.5 *. n)) *. grow in
+    let half = 2.2 +. (2.2 *. m) in
+    tri (px -. half) y0 (px +. half) y0 px (y0 +. len) (rgb 0.82 0.94 1. (0.9 *. l));
+    tri (px -. (half *. 0.4)) y0 (px +. (half *. 0.1)) y0 (px -. (half *. 0.1)) (y0 +. (len *. 0.8))
+      (rgb 1. 1. 1. (0.7 *. l))
+  done;
+  for k = 0 to 5 do
+    let n = noise k 9 79 in
+    let left = k < 3 in
+    let px = if left then x0 else x0 +. w in
+    let dir = if left then 1. else -1. in
+    let len = h *. (0.25 +. (0.35 *. n)) *. l in
+    let base = y0 +. w -. (float (k mod 3) *. h *. 0.26) in
+    tri px base px (base -. 7.) (px +. (dir *. len)) (base -. 3.) (rgb 0.75 0.92 1. (0.85 *. l))
+  done;
+  (* rim of ice *)
+  let rim a c = R.draw_rectangle_lines_ex (R.Rectangle.create (sx x0) (sy y0) (w *. !scale) (w *. !scale)) (a *. !scale) c in
+  rim 3. (rgb 0.8 0.95 1. (0.85 *. l));
+  (* twinkling glints and a few snowflakes drifting down over the face *)
+  additive (fun () ->
+      for k = 0 to 7 do
+        let ph = (age *. 1.3) +. (noise k 1 83 *. 6.3) in
+        let tw = Float.max 0. (sin ph) in
+        let gx = x0 +. (w *. noise k 2 89) and gy = y0 +. (w *. noise k 3 97) in
+        let r = 1.5 +. (3. *. tw) in
+        line (gx -. r) gy (gx +. r) gy 1.1 (rgb 0.85 0.95 1. (l *. tw));
+        line gx (gy -. r) gx (gy +. r) 1.1 (rgb 0.85 0.95 1. (l *. tw))
+      done;
+      for k = 0 to 9 do
+        let fall = Float.rem ((age *. (14. +. (10. *. noise k 4 101))) +. (w *. noise k 5 103)) w in
+        let sway = sin ((age *. 1.4) +. float k) *. 4. in
+        circle (x0 +. (w *. noise k 6 107) +. sway) (y0 +. fall) 1.3 (rgb 0.9 0.97 1. (0.7 *. l))
+      done;
+      circle x y (h *. 1.35) (rgb 0.4 0.7 1. (0.05 *. l *. (0.6 +. breathe))))
+
+let frost_spots : (int * spot * float) list ref = ref []
+let frost_levels : (int, spot * float * float) Hashtbl.t = Hashtbl.create 2
+
+let update_frost () =
+  let dt = Float.min 0.1 (R.get_frame_time ()) in
+  List.iter
+    (fun (k, p, h) ->
+      let l = match Hashtbl.find_opt frost_levels k with Some (_, _, l) -> l | None -> 0. in
+      Hashtbl.replace frost_levels k (p, h, Float.min 1. (l +. (dt /. 0.9))))
+    !frost_spots;
+  let live k = List.exists (fun (k', _, _) -> k = k') !frost_spots in
+  Hashtbl.filter_map_inplace
+    (fun k (p, h, l) ->
+      if live k then Some (p, h, l) else if l -. (dt /. 0.9) <= 0. then None else Some (p, h, l -. (dt /. 0.9)))
+    frost_levels
+
 (* Spots where a lasting Energetic Vortex hangs; the board refreshes them every frame. *)
 let vortex_spots : (spot * float) list ref = ref []
 
-let draw_all ~now =
+(* Runs one effect layer: draws whatever is inside its window now and drops the
+   rest. Effects are pinned to where the board had scrolled to when they were
+   spawned, so they travel with the board. *)
+let run_layer ~now l =
   let base_y = !off_y in
-  List.iter (fun (p, r) -> draw_vortex p.x p.y r now 1.) !vortex_spots;
-  update_powder ~now;
-  Hashtbl.iter (fun _ (p, l) -> draw_powder p.x p.y now l) powder_levels;
-  update_traps ();
-  Hashtbl.iter (fun _ (p, r, l) -> draw_pentagram p.x p.y r now l) trap_levels;
-  active :=
+  l :=
     List.filter
       (fun (spawn_scroll, e) ->
         let age = now -. e.start in
@@ -259,9 +363,22 @@ let draw_all ~now =
           e.draw ~age;
           off_y := base_y);
         now < e.start +. e.duration)
-      !active
+      !l
 
-let mk ~start ~duration draw = { start; duration; draw }
+(* Called before the cards are drawn, over the background. *)
+let draw_underlay ~now = run_layer ~now underlay
+
+let draw_all ~now =
+  List.iter (fun (p, r) -> draw_vortex p.x p.y r now 1.) !vortex_spots;
+  update_powder ~now;
+  Hashtbl.iter (fun _ (p, l) -> draw_powder p.x p.y now l) powder_levels;
+  update_traps ();
+  Hashtbl.iter (fun _ (p, r, l) -> draw_pentagram p.x p.y r now l) trap_levels;
+  update_frost ();
+  Hashtbl.iter (fun _ (p, h, l) -> draw_frost p.x p.y h now l) frost_levels;
+  run_layer ~now active
+
+let mk ?(under = false) ~start ~duration draw = { start; duration; under; draw }
 let recipe ~duration ~blocking make = { duration; blocking; make }
 
 (* ---------------------------------------------------------------- shaders *)
@@ -422,9 +539,12 @@ let slot_offset pid num =
    effects (the victory banner and portrait halo never expire) and shakes. *)
 let clear () =
   active := [];
+  underlay := [];
   Hashtbl.reset powder_levels;
   Hashtbl.reset trap_levels;
   trap_spots := [];
+  Hashtbl.reset frost_levels;
+  frost_spots := [];
   scroll_y := 0.;
   shakes := []
 
@@ -464,9 +584,10 @@ let rock ?(tint = (0.42, 0.38, 0.34)) ~seed x y rad ang a =
     tri x y vx.(k) vy.(k) vx.(k2) vy.(k2) (rgb (tr *. shade) (tg *. shade) (tb *. shade) a)
   in
   for k = 0 to nv - 1 do
-    let mx = (vx.(k) +. vx.((k + 1) mod nv)) /. 2. -. x and my = (vy.(k) +. vy.((k + 1) mod nv)) /. 2. -. y in
+    let mx = ((vx.(k) +. vx.((k + 1) mod nv)) /. 2.) -. x
+    and my = ((vy.(k) +. vy.((k + 1) mod nv)) /. 2.) -. y in
     (* light from the upper left *)
-    let lit = ((-.mx -. my) /. (rad *. 1.4)) in
+    let lit = (-.mx -. my) /. (rad *. 1.4) in
     facet (Float.max 0.35 (Float.min 1.45 (0.85 +. (0.6 *. lit)))) k
   done
 
@@ -531,15 +652,17 @@ let draw_style look ~own ~foe ~own_life ~foe_life ~target ~age fade =
                 let fall = u ** 1.7 in
                 let x = x1 -. (drift *. (1. -. fall)) in
                 let y = ground -. ((200. +. (n *. 90.)) *. (1. -. fall)) in
-                let ang = (age *. (6. +. (n *. 10.)) *. (if k mod 2 = 0 then 1. else -1.)) +. (n *. 6.) in
+                let ang = (age *. (6. +. (n *. 10.)) *. if k mod 2 = 0 then 1. else -1.) +. (n *. 6.) in
                 (* motion streak so it feels heavy and fast *)
                 line (x -. (drift *. 0.35)) (y -. 34.) x y (rad *. 0.8) (rgb 0.55 0.5 0.44 (0.16 *. fade));
                 rock ~tint ~seed x y rad ang fade)
-              else (
+              else
                 let ia = age -. fall_t in
                 (* impact: the rock bursts into chips, dust rolls out; heavy ones leave rubble *)
                 if k < 4 && ia < 0.7 then
-                  rock ~tint ~seed:(seed + 50) (x1 +. ((n -. 0.5) *. 8.)) (ground +. 2.) (rad *. 0.55) (n *. 3.)
+                  rock ~tint ~seed:(seed + 50)
+                    (x1 +. ((n -. 0.5) *. 8.))
+                    (ground +. 2.) (rad *. 0.55) (n *. 3.)
                     (fade *. Float.min 1. ((0.7 -. ia) /. 0.25));
                 if ia < 0.4 then (
                   let q = ia /. 0.4 in
@@ -554,7 +677,7 @@ let draw_style look ~own ~foe ~own_life ~foe_life ~target ~age fade =
                       (fade *. (1. -. q))
                   done;
                   let w = 8. +. (q *. 30. *. (rad /. 9.)) in
-                  ellipse x1 (ground -. 2.) w (w *. 0.38) (rgb 0.6 0.55 0.46 ((1. -. q) *. 0.38 *. fade)))))
+                  ellipse x1 (ground -. 2.) w (w *. 0.38) (rgb 0.6 0.55 0.46 ((1. -. q) *. 0.38 *. fade))))
           done)
         pts
   | Spell_looks.Sprout ->

@@ -199,14 +199,14 @@ let spawn_confetti (slots : spot array) ~start =
   mk ~start ~duration (fun ~age ->
       let fade = Float.min 1. ((duration -. age) /. 0.35) in
       if fade > 0.02 then (
-        if age <= 0.28 then (
-          let p = age /. 0.28 in
-          let a = (1. -. p) *. fade *. 0.55 in
-          Array.iter
-            (fun s ->
-              circle s.x (s.y -. 8.) (22. +. (38. *. p)) (rgb 1. 0.86 0.3 (a *. 0.35));
-              circle s.x (s.y -. 8.) (8. +. (10. *. (1. -. p))) (rgb 1. 0.95 0.7 a))
-            slots);
+        (if age <= 0.28 then
+           let p = age /. 0.28 in
+           let a = (1. -. p) *. fade *. 0.55 in
+           Array.iter
+             (fun s ->
+               circle s.x (s.y -. 8.) (22. +. (38. *. p)) (rgb 1. 0.86 0.3 (a *. 0.35));
+               circle s.x (s.y -. 8.) (8. +. (10. *. (1. -. p))) (rgb 1. 0.95 0.7 a))
+             slots);
         Array.iter
           (fun p ->
             let a = age -. p.born in

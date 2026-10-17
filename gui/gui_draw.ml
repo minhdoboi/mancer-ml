@@ -75,6 +75,7 @@ let shade = rgba 0 0 0 150
 (* Dark ink on paper dialogs (Scala uiskin ink/inkSoft). *)
 let ink = rgba 46 28 23 255
 let ink_soft = rgba 87 64 54 255
+let ink_selected = rgba 244 182 115 255
 let paper_line = rgba 122 90 40 255
 
 (* Multiplies every later fill/text/image. The battle backdrop fade uses this
@@ -332,10 +333,10 @@ let image_circle ?(tint = R.Color.white) tex r =
       let l = R.get_shader_location shader "u_bounds" in
       if R.ShaderLoc.to_int l >= 0 then (
         let p = Ctypes.(allocate_n float ~count:4) in
-        Ctypes.(p <-@ (sx /. tw));
-        Ctypes.(p +@ 1 <-@ (sy /. th));
-        Ctypes.(p +@ 2 <-@ ((sx +. sw) /. tw));
-        Ctypes.(p +@ 3 <-@ ((sy +. src_h) /. th));
+        Ctypes.(p <-@ sx /. tw);
+        Ctypes.(p +@ 1 <-@ sy /. th);
+        Ctypes.(p +@ 2 <-@ (sx +. sw) /. tw);
+        Ctypes.(p +@ 3 <-@ (sy +. src_h) /. th);
         R.set_shader_value shader l (Ctypes.to_voidp p) R.ShaderUniformDataType.Vec4);
       R.begin_shader_mode shader;
       R.draw_texture_pro tex src (screen r) (R.Vector2.create 0. 0.) 0. (alpha_color tint);
@@ -545,14 +546,14 @@ let pbutton ?(selected = false) ?(enabled = true) ?(size = 16.) r label f =
   if hot then hovering := true;
   let fill_c =
     if not enabled then rgba 184 132 55 140
-    else if selected then rgba 168 112 38 255
+    else if selected then rgba 108 52 0 195
     else if hot then rgba 199 143 61 255
     else rgba 184 132 55 255
   in
   fill ~round:0.12 r fill_c;
   outline ~round:0.12 ~thick:1.2 r (if hot || selected then rgba 92 54 18 255 else rgba 110 70 24 230);
   text_c ~font:paper_font ~size
-    ~color:(if enabled then ink else ink_soft)
+    ~color:(if enabled then if selected then ink_selected else ink else ink_soft)
     r
     (r.y +. ((r.h -. size) /. 2.))
     label;

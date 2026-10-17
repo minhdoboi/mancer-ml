@@ -131,9 +131,7 @@ let stalker_attack target d player =
   let damaged =
     List.exists
       (fun (num, life) ->
-        match other.slots_update.slot_updates.(num).value with
-        | Some st -> st.life < life
-        | None -> true)
+        match other.slots_update.slot_updates.(num).value with Some st -> st.life < life | None -> true)
       before
   in
   if damaged then

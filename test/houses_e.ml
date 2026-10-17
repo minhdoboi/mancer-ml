@@ -48,13 +48,16 @@ let called u pid = match (player u pid).pstate.ps_data with Meteo_data d -> d.mt
 let hidden u pid = match (player u pid).pstate.ps_data with Meteo_data d -> d.mt_hidden | _ -> false
 let fate u pid = match (player u pid).pstate.ps_data with Meteo_data d -> d.mt_fate | _ -> -1
 let midnight u pid = match (player u pid).pstate.ps_data with Season_data d -> d.se_midnight | _ -> false
+
 let played_keys u pid =
   match (player u pid).pstate.ps_data with
   | Quantum_data d -> List.map (fun ps -> ps.ps_card.key) d.q_played
   | _ -> []
 
 let wait_name u pid =
-  List.find_map (function Wait_player (p, n) when p = pid -> n | _ -> None) (player u pid).pstate.ps_transitions
+  List.find_map
+    (function Wait_player (p, n) when p = pid -> n | _ -> None)
+    (player u pid).pstate.ps_transitions
 
 (* ---------------------------------------------------------------- conjurer *)
 
@@ -259,7 +262,8 @@ let sealing_concurrent_copies () =
   kill u 0 1;
   check_bool "released" true (enabled_of u 1 "fire.goblin")
 
-let sealing_stolen_drops_list () =  let u = new_game ~mana:ten ~special:Quantumancer.house () in
+let sealing_stolen_drops_list () =
+  let u = new_game ~mana:ten ~special:Quantumancer.house () in
   play u 0 "quantumancer.sealing" ~input:(Some 0) ~cost:6;
   play u 1 "fire.goblin" ~input:(Some 0) ~cost:1;
   step u (fun () -> Slots.move ~dest_player:(player u 1) (player u 0).slots_update 0 3);
@@ -520,8 +524,7 @@ let aurora_heals_and_feeds () =
 let eternal_extra_phases () =
   let u = new_game ~mana:ten ~special:Seasons.house () in
   play u 0 "seasons.EternalSummer.name" ~input:None ~cost:4;
-  check_int "two waits"
-    2
+  check_int "two waits" 2
     (List.length
        (List.filter (function Wait_player (0, _) -> true | _ -> false) (player u 0).pstate.ps_transitions))
 

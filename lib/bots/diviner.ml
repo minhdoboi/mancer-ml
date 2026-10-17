@@ -214,4 +214,5 @@ let execute ?(seen = []) settings ~pid ~desc start =
     in
     search settings ~pid worlds ~deadline
 
-let mover settings (u : updater) pid = execute ~seen:(Belief.seen_cards u ~pid) settings ~pid ~desc:u.desc u.state
+let mover settings (u : updater) pid =
+  execute ~seen:(Belief.seen_cards u ~pid) settings ~pid ~desc:u.desc u.state

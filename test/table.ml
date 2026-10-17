@@ -76,16 +76,18 @@ let duel_roster () =
   check_bool "lecturer not gambler" true (not (List.mem "gambler" (Table.faces_for_bot "lecturer")));
   check_bool "unknown face" true (Table.bot_of_portrait "ember" = None);
   check_bool "unknown bot" true (Table.faces_for_bot "nope" = Table.faces_for_bot "greedy");
-  check_int "twelve player faces" 12 (List.length Table.player_portraits)
+  check_int "sixteen player faces" 16 (List.length Table.player_portraits)
 
 (* The settings classes tab groups special houses by author like Scala. *)
 let house_groups () =
   let grouped = List.map (fun (h : house) -> h.h_key) (List.concat_map snd Table.house_groups) in
   let specials = List.map (fun (h : house) -> h.h_key) (Table.special_houses ()) in
   List.iter (fun h -> check_bool h true (List.mem h grouped)) specials;
-  Alcotest.(check (option string)) "Troopers" (Some "olds") (Table.group_of_house "Troopers");
+  Alcotest.(check (option string)) "Troopers" (Some "garcia1000") (Table.group_of_house "Troopers");
+  Alcotest.(check (option string)) "Dudes" (Some "olds") (Table.group_of_house "Dudes");
   Alcotest.(check (option string)) "zen" (Some "badsleep") (Table.group_of_house "zen");
   Alcotest.(check (option string)) "Wind" (Some "sinist") (Table.group_of_house "Wind");
+  Alcotest.(check (option string)) "emotion" (Some "Floofy") (Table.group_of_house "emotion");
   check_bool "Chronomaster present" true (List.exists (fun (a, _) -> a = "panderson") Table.house_groups)
 
 (* The fight resolves each side's checked house set to one house. *)

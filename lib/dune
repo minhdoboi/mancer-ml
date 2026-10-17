@@ -3,3 +3,14 @@
 (library
  (name mancer)
  (libraries unix str yojson yojson-five))
+
+(rule
+ (targets campaign_map_data.ml)
+ (deps game/campaign_map.json)
+ (action
+  (with-stdout-to
+   campaign_map_data.ml
+   (progn
+    (echo "let json = {json|")
+    (cat game/campaign_map.json)
+    (echo "|json}\n")))))
