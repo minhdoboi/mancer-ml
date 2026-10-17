@@ -35,7 +35,6 @@ let background ui =
 
 (* the ambience setting, remembered outside the lobby (read once at start) *)
 let ambient_on = ref (try Prefs.ambient_sound (Prefs.load ()) with _ -> true)
-
 let window_title = "The Mancer's echo"
 let chrome_btn_w = 54.
 let chrome_dragging = ref false
@@ -247,13 +246,15 @@ let () =
   while not (!quit || R.window_should_close ()) do
     (match !screen with
     | Lobby l -> ambient_on := l.gs.ambient_enabled
-    | Game ui -> (match ui.settings with Some gs -> ambient_on := gs.ambient_enabled | None -> ())
+    | Game ui -> ( match ui.settings with Some gs -> ambient_on := gs.ambient_enabled | None -> ())
     | _ -> ());
     let wind_board = match !screen with Game ui -> (backdrop_house ui).h_key = "wind" | _ -> false in
     Ocean.update
       ~active:(match !screen with Lobby _ -> !ambient_on | Game _ -> !ambient_on && wind_board | _ -> false)
       ~wind:wind_board ~volume:sound_level;
-    let quake_board = match !screen with Game ui -> (backdrop_house ui).h_key = "elementalist" | _ -> false in
+    let quake_board =
+      match !screen with Game ui -> (backdrop_house ui).h_key = "elementalist" | _ -> false
+    in
     Rumble.update ~active:(!ambient_on && quake_board) ~volume:sound_level;
     let limbo_board = match !screen with Game ui -> (backdrop_house ui).h_key = "limbo" | _ -> false in
     Choir.update ~active:(!ambient_on && limbo_board) ~volume:sound_level;

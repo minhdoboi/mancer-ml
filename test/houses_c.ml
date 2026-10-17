@@ -92,8 +92,7 @@ let stalker_untargetable_while_hidden () =
   let sneaks2 =
     Game.legal_commands 1 u.desc u.state |> List.filter (fun c -> c.cmd_card.key = "rogue.sneak")
   in
-  check_bool "stalker targetable after reveal" true
-    (List.exists (fun c -> c.cmd_input = Some 3) sneaks2)
+  check_bool "stalker targetable after reveal" true (List.exists (fun c -> c.cmd_input = Some 3) sneaks2)
 
 let weaver_shields_neighbours () =
   let u = new_game ~mana:all_mana ~special:Shadowmage.house () in

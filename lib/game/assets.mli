@@ -36,8 +36,8 @@ val english_card_name : card -> string
 (** The card's English name, whatever the UI language. Sound clips are keyed by it. *)
 
 val describe : ?state:game_state -> ?player:player_id -> card -> string
-(** Card text. When [state] and [player] are given, [{0}] placeholders (Lightning
-    damage, …) are filled from the board, as in Scala [card.description]. *)
+(** Card text. When [state] and [player] are given, [{0}] placeholders (Lightning damage, …) are filled from
+    the board, as in Scala [card.description]. *)
 
 val card_art : card -> string option
 (** [cards/<key>.jpg|png], else the English card name; creatures are 80x80, spells 95x103. *)

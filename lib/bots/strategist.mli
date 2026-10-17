@@ -1,5 +1,4 @@
-(** Strategist bot: Summoner's search shaped by a tempo plan
-    ([priv/sp/bot/strategist]). *)
+(** Strategist bot: Summoner's search shaped by a tempo plan ([priv/sp/bot/strategist]). *)
 
 open Sp
 
@@ -9,6 +8,7 @@ val default_settings : unit -> settings
 
 type roles = { heal : float; damage : float; presence : float; mana : float }
 type weights = roles
+
 type profile = {
   is_spell : bool;
   attack : int;
@@ -23,6 +23,7 @@ type profile = {
 
 val score_profile : profile -> string -> roles
 val read_tempo : house:roles list -> known:roles list -> float * float
+
 val for_tempo : float -> float -> float * int * int
 (** [(gamma, max_depth, branch_top_k)] for tests. *)
 

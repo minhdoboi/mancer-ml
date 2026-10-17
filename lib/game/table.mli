@@ -25,8 +25,8 @@ val seat_name : seat -> string
 (** ["human"] or the bot id. *)
 
 val random_starter : ?rng:Random.State.t -> unit -> player_id
-(** A coin flip for who takes the first turn, like Scala's duel [Local].
-    Campaign fights keep their scripted starter instead. *)
+(** A coin flip for who takes the first turn, like Scala's duel [Local]. Campaign fights keep their scripted
+    starter instead. *)
 
 val player_portraits : string list
 (** The faces a human seat can wear (Scala [Portraits.players]). *)

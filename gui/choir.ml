@@ -57,11 +57,8 @@ let make_wave f0 =
       let fk = f0 *. float k in
       if fk < 5500. then
         let g =
-          (0.18
-          +. formant fk 700. 140.
-          +. (0.7 *. formant fk 1150. 180.)
-          +. (0.28 *. formant fk 2450. 260.))
-          /. float k ** 0.62
+          (0.18 +. formant fk 700. 140. +. (0.7 *. formant fk 1150. 180.) +. (0.28 *. formant fk 2450. 260.))
+          /. (float k ** 0.62)
         in
         acc := !acc +. (g *. sin (float k *. ph))
     done;
@@ -94,17 +91,28 @@ let voice ~f0 ~pan ~vib_hz ~vib_depth ~swell_hz ~swell_ph ~gain ~guest ~phase =
 (* D-minor chapel, plus a G that joins as a second held note now and then. *)
 let make_voices () =
   [|
-    voice ~f0:73.4 ~pan:(-0.15) ~vib_hz:4.6 ~vib_depth:0.003 ~swell_hz:0.041 ~swell_ph:0.4 ~gain:0.55 ~guest:false ~phase:0.2;
-    voice ~f0:146.8 ~pan:(-0.45) ~vib_hz:5.1 ~vib_depth:0.004 ~swell_hz:0.053 ~swell_ph:1.7 ~gain:0.85 ~guest:false ~phase:1.1;
-    voice ~f0:174.6 ~pan:0.35 ~vib_hz:5.4 ~vib_depth:0.0045 ~swell_hz:0.037 ~swell_ph:3.9 ~gain:0.7 ~guest:false ~phase:2.4;
-    voice ~f0:220.0 ~pan:(-0.25) ~vib_hz:5.7 ~vib_depth:0.005 ~swell_hz:0.061 ~swell_ph:5.2 ~gain:0.9 ~guest:false ~phase:0.6;
-    voice ~f0:293.7 ~pan:0.2 ~vib_hz:5.9 ~vib_depth:0.0055 ~swell_hz:0.047 ~swell_ph:2.1 ~gain:1.0 ~guest:false ~phase:3.3;
-    voice ~f0:349.2 ~pan:0.55 ~vib_hz:6.2 ~vib_depth:0.006 ~swell_hz:0.033 ~swell_ph:4.8 ~gain:0.8 ~guest:false ~phase:4.7;
-    voice ~f0:440.0 ~pan:(-0.05) ~vib_hz:6.4 ~vib_depth:0.0065 ~swell_hz:0.055 ~swell_ph:0.9 ~gain:0.65 ~guest:false ~phase:5.5;
-    voice ~f0:587.3 ~pan:0.4 ~vib_hz:6.8 ~vib_depth:0.007 ~swell_hz:0.029 ~swell_ph:6.1 ~gain:0.35 ~guest:false ~phase:1.8;
-    voice ~f0:98.0 ~pan:0.15 ~vib_hz:4.8 ~vib_depth:0.0035 ~swell_hz:0.044 ~swell_ph:2.8 ~gain:0.5 ~guest:true ~phase:0.9;
-    voice ~f0:196.0 ~pan:(-0.35) ~vib_hz:5.5 ~vib_depth:0.005 ~swell_hz:0.039 ~swell_ph:5.7 ~gain:0.95 ~guest:true ~phase:3.6;
-    voice ~f0:392.0 ~pan:0.5 ~vib_hz:6.1 ~vib_depth:0.006 ~swell_hz:0.051 ~swell_ph:1.3 ~gain:0.85 ~guest:true ~phase:4.2;
+    voice ~f0:73.4 ~pan:(-0.15) ~vib_hz:4.6 ~vib_depth:0.003 ~swell_hz:0.041 ~swell_ph:0.4 ~gain:0.55
+      ~guest:false ~phase:0.2;
+    voice ~f0:146.8 ~pan:(-0.45) ~vib_hz:5.1 ~vib_depth:0.004 ~swell_hz:0.053 ~swell_ph:1.7 ~gain:0.85
+      ~guest:false ~phase:1.1;
+    voice ~f0:174.6 ~pan:0.35 ~vib_hz:5.4 ~vib_depth:0.0045 ~swell_hz:0.037 ~swell_ph:3.9 ~gain:0.7
+      ~guest:false ~phase:2.4;
+    voice ~f0:220.0 ~pan:(-0.25) ~vib_hz:5.7 ~vib_depth:0.005 ~swell_hz:0.061 ~swell_ph:5.2 ~gain:0.9
+      ~guest:false ~phase:0.6;
+    voice ~f0:293.7 ~pan:0.2 ~vib_hz:5.9 ~vib_depth:0.0055 ~swell_hz:0.047 ~swell_ph:2.1 ~gain:1.0
+      ~guest:false ~phase:3.3;
+    voice ~f0:349.2 ~pan:0.55 ~vib_hz:6.2 ~vib_depth:0.006 ~swell_hz:0.033 ~swell_ph:4.8 ~gain:0.8
+      ~guest:false ~phase:4.7;
+    voice ~f0:440.0 ~pan:(-0.05) ~vib_hz:6.4 ~vib_depth:0.0065 ~swell_hz:0.055 ~swell_ph:0.9 ~gain:0.65
+      ~guest:false ~phase:5.5;
+    voice ~f0:587.3 ~pan:0.4 ~vib_hz:6.8 ~vib_depth:0.007 ~swell_hz:0.029 ~swell_ph:6.1 ~gain:0.35
+      ~guest:false ~phase:1.8;
+    voice ~f0:98.0 ~pan:0.15 ~vib_hz:4.8 ~vib_depth:0.0035 ~swell_hz:0.044 ~swell_ph:2.8 ~gain:0.5 ~guest:true
+      ~phase:0.9;
+    voice ~f0:196.0 ~pan:(-0.35) ~vib_hz:5.5 ~vib_depth:0.005 ~swell_hz:0.039 ~swell_ph:5.7 ~gain:0.95
+      ~guest:true ~phase:3.6;
+    voice ~f0:392.0 ~pan:0.5 ~vib_hz:6.1 ~vib_depth:0.006 ~swell_hz:0.051 ~swell_ph:1.3 ~gain:0.85 ~guest:true
+      ~phase:4.2;
   |]
 
 let create () =
@@ -205,12 +213,8 @@ let fill o ~target ~volume =
       dry_r := !dry_r +. (s *. v.pan_r)
     done;
     let dry_l = !dry_l *. p and dry_r = !dry_r *. p in
-    let l =
-      dry_l +. (tap o 0 3969 *. 0.42) +. (tap o 1 7497 *. 0.18) +. (tap o 0 11051 *. 0.16)
-    in
-    let r =
-      dry_r +. (tap o 1 4410 *. 0.42) +. (tap o 0 8379 *. 0.18) +. (tap o 1 12007 *. 0.16)
-    in
+    let l = dry_l +. (tap o 0 3969 *. 0.42) +. (tap o 1 7497 *. 0.18) +. (tap o 0 11051 *. 0.16) in
+    let r = dry_r +. (tap o 1 4410 *. 0.42) +. (tap o 0 8379 *. 0.18) +. (tap o 1 12007 *. 0.16) in
     o.delay.((o.delay_pos * 2) + 0) <- dry_l +. (l *. 0.18);
     o.delay.((o.delay_pos * 2) + 1) <- dry_r +. (r *. 0.18);
     o.delay_pos <- (o.delay_pos + 1) land (delay_len - 1);

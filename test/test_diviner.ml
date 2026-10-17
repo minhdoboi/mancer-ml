@@ -82,10 +82,7 @@ let () =
   let open Alcotest in
   run "diviner"
     [
-      ( "eval",
-        [
-          test_case "stable worlds" `Quick eval_prefers_stable;
-        ] );
+      ("eval", [ test_case "stable worlds" `Quick eval_prefers_stable ]);
       ( "search",
         [
           test_case "pass when broke" `Quick pass_when_broke;

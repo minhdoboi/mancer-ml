@@ -60,9 +60,8 @@ let english_card_name (c : card) =
 
 let describe ?state ?player (c : card) =
   let tmpl = text c.description in
-  match (c.desc_args, state, player) with
-  | Some f, Some st, Some pid -> format tmpl (f st pid)
-  | _ -> tmpl
+  match (c.desc_args, state, player) with Some f, Some st, Some pid -> format tmpl (f st pid) | _ -> tmpl
+
 let images = [ ".jpg"; ".png" ]
 
 (* Keys are alphanumerics; vibe files keep spaces ("dark priest.jpg"). *)

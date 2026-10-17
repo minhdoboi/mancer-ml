@@ -33,7 +33,11 @@ let spell () : Strategist.profile =
   }
 
 let healer () =
-  let r = Strategist.score_profile (creature ~attack:3 ~life:20 ~cost:7 ()) "Every turn heals by 3 owner and his creatures" in
+  let r =
+    Strategist.score_profile
+      (creature ~attack:3 ~life:20 ~cost:7 ())
+      "Every turn heals by 3 owner and his creatures"
+  in
   check_bool "heal > damage" true (r.heal > r.damage);
   check_bool "heal > mana" true (r.heal > r.mana)
 
@@ -44,7 +48,11 @@ let burn_spell () =
   check_bool "damage > mana" true (r.damage > r.mana)
 
 let mana_grower () =
-  let r = Strategist.score_profile (creature ~attack:3 ~life:13 ~cost:3 ()) "Every turn increase fire mana growth by 1" in
+  let r =
+    Strategist.score_profile
+      (creature ~attack:3 ~life:13 ~cost:3 ())
+      "Every turn increase fire mana growth by 1"
+  in
   check_bool "mana > damage" true (r.mana > r.damage);
   check_bool "mana > heal" true (r.mana > r.heal)
 
@@ -54,7 +62,9 @@ let big_body () =
 
 let spawner_presence () =
   let plain = Strategist.score_profile (creature ~attack:4 ~life:16 ~cost:4 ()) "No special ability" in
-  let spawner = Strategist.score_profile (creature ~attack:4 ~life:16 ~cost:4 ()) "Spawn 2 forest spiders around him" in
+  let spawner =
+    Strategist.score_profile (creature ~attack:4 ~life:16 ~cost:4 ()) "Spawn 2 forest spiders around him"
+  in
   check_bool "spawn presence" true (spawner.presence > plain.presence)
 
 let tempo_dial () =
@@ -80,8 +90,12 @@ let houses_on_scale () =
   in
   let engine =
     [
-      Strategist.score_profile (creature ~attack:3 ~life:20 ~cost:7 ()) "Every turn heals by 3 owner and his creatures";
-      Strategist.score_profile (creature ~attack:3 ~life:13 ~cost:3 ()) "Every turn increase fire mana growth by 1";
+      Strategist.score_profile
+        (creature ~attack:3 ~life:20 ~cost:7 ())
+        "Every turn heals by 3 owner and his creatures";
+      Strategist.score_profile
+        (creature ~attack:3 ~life:13 ~cost:3 ())
+        "Every turn increase fire mana growth by 1";
     ]
   in
   let t_burn, _ = Strategist.read_tempo ~house:burn ~known:[] in

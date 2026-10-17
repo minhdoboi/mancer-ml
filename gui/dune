@@ -1,4 +1,5 @@
 ; The raylib front end: the effects and the screens. bin/gui.ml is the entry point.
+
 (library
  (name mancer_gui)
  (wrapped false)

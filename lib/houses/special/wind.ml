@@ -96,8 +96,8 @@ let wind_listener () =
     hl_on_death = (fun () -> true);
     hl_mod =
       (fun d ->
-        if (get_wind (get ())).vortex then (
-          { d with amount = int_of_float (ceil (float_of_int d.amount *. 1.5)) })
+        if (get_wind (get ())).vortex then
+          { d with amount = int_of_float (ceil (float_of_int d.amount *. 1.5)) }
         else d);
     hl_intercept_submit =
       (fun c ->

@@ -108,7 +108,9 @@ let set t key value = persist t [ (key, value) ]
 let get_nonempty t key =
   match get t key with Some v when String.trim v <> "" -> Some (String.trim v) | _ -> None
 
-let get_bool ?(default = false) t key = match get t key with Some v -> String.trim v = "true" | None -> default
+let get_bool ?(default = false) t key =
+  match get t key with Some v -> String.trim v = "true" | None -> default
+
 let split_csv v = String.split_on_char ',' v |> List.map String.trim |> List.filter (( <> ) "")
 let language t = Option.value (get_nonempty t key_language) ~default:default_language
 
@@ -134,7 +136,6 @@ let set_sound_level t v =
 (* lobby ambient sound, on by default unless the sound tab turns it off *)
 let ambient_sound t = get_bool ~default:default_ambient_sound t key_ambient_sound
 let set_ambient_sound t v = persist t [ (key_ambient_sound, string_of_bool v) ]
-
 let player_portrait t = Option.value (get_nonempty t key_player_portrait) ~default:default_player_portrait
 let set_player_portrait t v = persist t [ (key_player_portrait, v) ]
 let ai_opponent t = Option.value (get_nonempty t key_ai_opponent) ~default:default_ai_opponent

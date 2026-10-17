@@ -74,7 +74,7 @@ let looks =
     ("sower.devouring", look Shadow Own_slots 0.3 0.55 0.2 ());
     ("sower.pollination", look Rise Target 0.85 0.9 0.35 ());
     ("shaman.hunger", look Rise Own_target 0.9 0.25 0.15 ());
-    ("elementalist.freeze", look Ice All_slots 0.7 0.9 1. ());
+    ("elementalist.freeze", look Ice Own_life 0.7 0.9 1. ());
     ("elementalist.incineration", look Fireburst All_slots 1. 0.28 0.02 ());
     ("highpriest.Simoom", look Swirl Foe_slots 0.9 0.7 0.35 ());
     ("highpriest.Curseofchaos", look Fireburst Target 0.95 0.25 0.1 ());

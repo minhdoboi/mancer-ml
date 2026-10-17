@@ -29,7 +29,8 @@ let update ~active ~volume =
       let dt = Float.min 0.1 (R.get_frame_time ()) in
       let target = if active then 1. else 0. in
       let step = dt /. fade_time in
-      r.fade <- (if r.fade < target then Float.min target (r.fade +. step) else Float.max target (r.fade -. step));
+      r.fade <-
+        (if r.fade < target then Float.min target (r.fade +. step) else Float.max target (r.fade -. step));
       if r.fade <= 0. && not active then (
         R.stop_music_stream r.music;
         R.unload_music_stream r.music;
@@ -40,5 +41,9 @@ let update ~active ~volume =
     !state
 
 let unload () =
-  Option.iter (fun r -> R.stop_music_stream r.music; R.unload_music_stream r.music) !state;
+  Option.iter
+    (fun r ->
+      R.stop_music_stream r.music;
+      R.unload_music_stream r.music)
+    !state;
   state := None

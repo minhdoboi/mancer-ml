@@ -4,20 +4,15 @@ open Mancer
 
 let check_bool = Alcotest.(check bool)
 let ss = Alcotest.(list string)
-
 let sorted xs = List.sort String.compare xs
 let available done_ = sorted (Campaign.available done_)
 let has done_ id = List.mem id (Campaign.available done_)
 let has_not done_ id = not (has done_ id)
-
-let open_at_start () =
-  Alcotest.check ss "start" [ "entomologist"; "meteomancer" ] (available [])
+let open_at_start () = Alcotest.check ss "start" [ "entomologist"; "meteomancer" ] (available [])
 
 let duckwoman_fork () =
   let after = [ "entomologist" ] in
-  Alcotest.check ss "after entomologist"
-    [ "duckwoman"; "meteomancer" ]
-    (available after);
+  Alcotest.check ss "after entomologist" [ "duckwoman"; "meteomancer" ] (available after);
   check_bool "no farmer" true (has_not after "farmer");
   check_bool "no disciples" true (has_not after "disciples");
   check_bool "no dudes" true (has_not after "dudes");
@@ -94,8 +89,7 @@ let dudes_path () =
   check_bool "colors" true (has (done_ @ [ "rabbit" ]) "colors");
   check_bool "elementalist" true (has (done_ @ [ "rabbit"; "colors" ]) "elementalist");
   check_bool "powermancer" true (has (done_ @ [ "rabbit"; "colors"; "elementalist" ]) "powermancer");
-  check_bool "king" true
-    (has (done_ @ [ "rabbit"; "colors"; "elementalist"; "powermancer" ]) "mountainking")
+  check_bool "king" true (has (done_ @ [ "rabbit"; "colors"; "elementalist"; "powermancer" ]) "mountainking")
 
 let junk_to_king () =
   let done_ = [ "entomologist"; "duckwoman"; Campaign.avoid_city; "disciples" ] in
@@ -140,16 +134,16 @@ let shadow_path () =
   check_bool "panther" true (has (done_ @ [ "shadowmage" ]) "panther");
   check_bool "shadowcaster" true (has (done_ @ [ "shadowmage"; "panther" ]) "shadowcaster");
   check_bool "darkpriest" true (has (done_ @ [ "shadowmage"; "panther"; "shadowcaster" ]) "darkpriest");
-  check_bool "vampires" true (has (done_ @ [ "shadowmage"; "panther"; "shadowcaster"; "darkpriest" ]) "vampires");
-  check_bool "deer" true (has (done_ @ [ "shadowmage"; "panther"; "shadowcaster"; "darkpriest"; "vampires" ]) "deer");
+  check_bool "vampires" true
+    (has (done_ @ [ "shadowmage"; "panther"; "shadowcaster"; "darkpriest" ]) "vampires");
+  check_bool "deer" true
+    (has (done_ @ [ "shadowmage"; "panther"; "shadowcaster"; "darkpriest"; "vampires" ]) "deer");
   check_bool "no reaper yet" true
     (has_not (done_ @ [ "shadowmage"; "panther"; "shadowcaster"; "darkpriest"; "vampires" ]) "soulreaper");
   check_bool "soulreaper" true
     (has (done_ @ [ "shadowmage"; "panther"; "shadowcaster"; "darkpriest"; "vampires"; "deer" ]) "soulreaper");
   check_bool "limbo" true
-    (has
-       (done_ @ [ "shadowmage"; "shadowcaster"; "darkpriest"; "vampires"; "deer"; "soulreaper" ])
-       "limbo")
+    (has (done_ @ [ "shadowmage"; "shadowcaster"; "darkpriest"; "vampires"; "deer"; "soulreaper" ]) "limbo")
 
 let antimancer_path () =
   let fork = [ "wind"; "faerie_druid"; "soulbinder"; "catboy"; Campaign.bring_city ] in
@@ -220,37 +214,39 @@ let houses_resolve () =
       | None -> ()
       | Some f ->
           check_bool f.house_key true (Option.is_some (Campaign.house_of Catalog.specials f.house_key)))
-    Campaign.nodes
+    (Campaign.nodes ())
 
 let portraits_exist () =
   let known =
-    List.map (fun (o : Table.opponent) -> o.Table.opp_portrait) Table.duel_opponents @ Campaign.campaign_portraits
+    List.map (fun (o : Table.opponent) -> o.Table.opp_portrait) Table.duel_opponents
+    @ Campaign.campaign_portraits
   in
   let have_files = Option.is_some (Assets.portrait "ember") in
   List.iter
     (fun (n : Campaign.node) ->
       match n.fight with
       | None -> ()
-      | Some f ->
+      | Some f -> (
           check_bool (f.portrait_id ^ " known") true
-            (List.mem f.portrait_id known || List.mem f.portrait_id (Table.faces_for_bot f.bot_id)
+            (List.mem f.portrait_id known
+            || List.mem f.portrait_id (Table.faces_for_bot f.bot_id)
             || List.mem f.portrait_id Campaign.npcs);
           if have_files then
             match Assets.portrait f.portrait_id with
             | Some _ -> ()
-            | None -> Alcotest.fail (f.portrait_id ^ " missing portrait file"))
-    Campaign.nodes;
+            | None -> Alcotest.fail (f.portrait_id ^ " missing portrait file")))
+    (Campaign.nodes ());
   List.iter
     (fun (n : Campaign.node) ->
       match n.meeting with
       | None -> ()
-      | Some m ->
+      | Some m -> (
           check_bool (m.portrait_id ^ " npc") true (List.mem m.portrait_id Campaign.npcs);
           if have_files then
             match Assets.portrait m.portrait_id with
             | Some _ -> ()
-            | None -> Alcotest.fail (m.portrait_id ^ " missing npc portrait"))
-    Campaign.nodes
+            | None -> Alcotest.fail (m.portrait_id ^ " missing npc portrait")))
+    (Campaign.nodes ())
 
 let end_lines () =
   let keys = function
@@ -258,12 +254,10 @@ let end_lines () =
     | _ -> false
   in
   Alcotest.(check string)
-    "node win"
-    "campaign.wind.win"
+    "node win" "campaign.wind.win"
     (Campaign.end_message_key ~node_id:"wind" ~bot_id:"lecturer" ~won:true ~has_key:keys);
   Alcotest.(check string)
-    "bot lose"
-    "campaign.end.lecturer.lose"
+    "bot lose" "campaign.end.lecturer.lose"
     (Campaign.end_message_key ~node_id:"wind" ~bot_id:"lecturer" ~won:false ~has_key:keys);
   Alcotest.(check string)
     "generic win" "campaign.end.win"
@@ -275,9 +269,8 @@ let end_lines () =
 let i18n_keys () =
   let langs = [ "en"; "fr"; "es"; "ru"; "vi" ] in
   let bots =
-    Campaign.nodes
-    |> List.filter_map (fun (n : Campaign.node) ->
-        Option.map (fun (f : Campaign.fight) -> f.bot_id) n.fight)
+    (Campaign.nodes ())
+    |> List.filter_map (fun (n : Campaign.node) -> Option.map (fun (f : Campaign.fight) -> f.bot_id) n.fight)
     |> List.sort_uniq compare
   in
   let required =
@@ -293,6 +286,11 @@ let i18n_keys () =
       "campaign.epilogue.menu";
       "campaign.night.rest.title";
       "campaign.night.rest";
+      "campaign.night.visit.title";
+      "campaign.night.visit";
+      "campaign.next";
+      "campaign.night.meal.title";
+      "campaign.night.meal";
       "campaign.antimancer.wake.title";
       "campaign.antimancer.wake";
     ]
@@ -300,20 +298,19 @@ let i18n_keys () =
     @ List.concat_map
         (fun (n : Campaign.node) ->
           if Campaign.is_fight n then [ "campaign." ^ n.id ^ ".win"; "campaign." ^ n.id ^ ".lose" ] else [])
-        Campaign.nodes
+        (Campaign.nodes ())
     @ List.concat_map
         (fun (n : Campaign.node) ->
           match n.meeting with
           | Some _ -> [ "campaign." ^ n.id ^ ".name"; "campaign." ^ n.id ^ ".message" ]
           | None -> [])
-        Campaign.nodes
+        (Campaign.nodes ())
     @ List.concat_map
         (fun (n : Campaign.node) ->
           match n.meeting with
-          | Some m ->
-              List.map (fun (c : Campaign.choice) -> "campaign." ^ n.id ^ ".choice." ^ c.id) m.choices
+          | Some m -> List.map (fun (c : Campaign.choice) -> "campaign." ^ n.id ^ ".choice." ^ c.id) m.choices
           | None -> [])
-        Campaign.nodes
+        (Campaign.nodes ())
   in
   List.iter
     (fun lang ->

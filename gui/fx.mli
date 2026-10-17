@@ -86,5 +86,8 @@ val warp_uniforms : amount:float -> unit
 val set_trap_spots : (int * spot * float) list -> unit
 (** Centres and radii of the Arcane Trap pentagrams to draw this frame, keyed by the trapped player. *)
 
+val set_frost_spots : (int * spot * float) list -> unit
+(** Centres and half-sizes of the portraits to coat in Deep Freeze frost this frame, keyed by player. *)
+
 val trap_center : layout -> player_id -> spot * float
 (** Where a player's lasting pentagram sits: the middle of their slot row. *)

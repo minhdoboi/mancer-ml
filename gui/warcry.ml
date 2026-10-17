@@ -26,7 +26,7 @@ let synth () =
     let u = t /. duration in
     (* pitch punches up into the shout, then settles like a held call *)
     let f0 =
-      if t < 0.14 then 175. +. (130. *. (t /. 0.14) ** 0.7)
+      if t < 0.14 then 175. +. (130. *. ((t /. 0.14) ** 0.7))
       else 305. -. (95. *. clamp01 ((t -. 0.14) /. 0.7))
     in
     let f0 = f0 *. (1. +. (0.01 *. rnd ())) in
@@ -36,12 +36,11 @@ let synth () =
       let fk = f0 *. float k in
       if fk < 8000. then
         let g =
-          (0.22
-          +. formant fk 280. 120.
+          (0.22 +. formant fk 280. 120.
           +. (1.1 *. formant fk 720. 180.)
           +. (0.7 *. formant fk 1180. 220.)
           +. (0.35 *. formant fk 2550. 320.))
-          /. float k ** 0.55
+          /. (float k ** 0.55)
         in
         v := !v +. (g *. sin (float k *. !phase))
     done;
@@ -49,19 +48,23 @@ let synth () =
     let body = Float.min 1. ((duration -. t) /. 0.22) in
     let swell = if t < 0.18 then 0.7 +. (0.3 *. (t /. 0.18)) else 1. -. (0.25 *. ((t -. 0.18) /. duration)) in
     let rough = 1. +. (0.22 *. sin (two_pi *. 48. *. t)) in
-    let breath = rnd () *. (if t < 0.08 then 0.55 else 0.12) in
+    let breath = rnd () *. if t < 0.08 then 0.55 else 0.12 in
     (* sonorous ring: a horn-like partial that outlasts the voice *)
     horn := !horn +. (two_pi *. 415. /. float sample_rate);
     let ring_env = Float.min 1. (t /. 0.08) *. ((1. -. u) ** 1.4) in
     let ring = sin !horn *. 0.28 *. ring_env in
-    let thump =
-      if t < 0.09 then sin (two_pi *. 90. *. t) *. (1. -. (t /. 0.09)) *. 0.35 else 0.
-    in
+    let thump = if t < 0.09 then sin (two_pi *. 90. *. t) *. (1. -. (t /. 0.09)) *. 0.35 else 0. in
     dry.(i) <- ((!v *. rough *. swell) +. breath +. ring +. thump) *. attack *. body
   done;
   let lp = ref 0. in
   let k = 1. -. exp (-.two_pi *. 3800. /. float sample_rate) in
-  let dark = Array.map (fun x -> lp := !lp +. (k *. (x -. !lp)); !lp) dry in
+  let dark =
+    Array.map
+      (fun x ->
+        lp := !lp +. (k *. (x -. !lp));
+        !lp)
+      dry
+  in
   let out = Array.copy dark in
   List.iter
     (fun (delay, gain) ->
@@ -76,8 +79,16 @@ let synth () =
 let write_wav path samples =
   let n = Array.length samples in
   let oc = open_out_bin path in
-  let le32 v = for b = 0 to 3 do output_byte oc ((v lsr (8 * b)) land 255) done in
-  let le16 v = for b = 0 to 1 do output_byte oc ((v lsr (8 * b)) land 255) done in
+  let le32 v =
+    for b = 0 to 3 do
+      output_byte oc ((v lsr (8 * b)) land 255)
+    done
+  in
+  let le16 v =
+    for b = 0 to 1 do
+      output_byte oc ((v lsr (8 * b)) land 255)
+    done
+  in
   output_string oc "RIFF";
   le32 (36 + (n * 2));
   output_string oc "WAVEfmt ";

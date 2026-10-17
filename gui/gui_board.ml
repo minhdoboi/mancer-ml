@@ -14,7 +14,7 @@ type mode = Browse | Target of command list
 type last_played = { player : player_id; card : card option }
 
 type hover =
-  | Hover_card of card * player_id * int option  (* the creature's current max life, if it is on the board *)
+  | Hover_card of card * player_id * int option (* the creature's current max life, if it is on the board *)
   | Hover_house of house
   | Hover_note of { title : string; body : string }
 
@@ -85,6 +85,7 @@ type game_ui = {
   mutable anim_at : float;
   (* Arcane Trap per victim: 0 none, 1 cast but skip not on the board yet, 2 skip showing *)
   trap : int array;
+  mutable freeze : int;  (* Deep Freeze: 0 none, 1 cast, 2 the frozen turns are running *)
   (* The engine resolves a move at once; the board is replayed from the
      snapshot taken at each refresh, on the same timeline as the slides. *)
   mutable frames : (float * game_state) list; (* oldest first, not shown yet *)
@@ -162,6 +163,7 @@ let make_game ?(campaign = None) (setup : Table.setup) portraits table_of =
       late_sounds = [];
       anim_at = 0.;
       trap = [| 0; 0 |];
+      freeze = 0;
       frames = [];
       shown = Session.peek (Table.session table);
       last_frame = Session.peek (Table.session table);
@@ -651,6 +653,7 @@ let queue_slides ui e =
       let start = Float.max (R.get_time ()) ui.anim_at in
       ui.spell_shows <- { ss_card = c.cmd_card; ss_player = c.cmd_player; ss_start = start } :: ui.spell_shows;
       if c.cmd_card.key = "rogue.trap" then ui.trap.(1 - c.cmd_player) <- 1;
+      if c.cmd_card.key = "elementalist.freeze" then ui.freeze <- 1;
       let delay = Fx.sound_delay c.cmd_card.key in
       let fx_start = Option.map (run_fx ui) (Fx.for_spell (fx_layout ui) c) in
       if delay > 0. then
@@ -1008,7 +1011,9 @@ let draw_slot ui pid num =
            let tint, look_a = slot_face_look st in
            let decorated = ref false in
            with_alpha (fade *. look_a) (fun () ->
-               let warp = if Fx.warp_any () then Fx.warp_amount ((fx_layout ui).slot_center pid num) else 0. in
+               let warp =
+                 if Fx.warp_any () then Fx.warp_amount ((fx_layout ui).slot_center pid num) else 0.
+               in
                let face r =
                  draw_card_face (desc ui) r c ~cost:(Some c.cost)
                    ~attack:(Some (string_of_int st.attack))
@@ -1102,7 +1107,11 @@ let draw_board ui =
     && (not (slot_hidden ui pid n))
     && attack_offset ui pid n = 0.
   in
-  let settled_spots pid = List.filter_map (fun n -> if settled pid n then Some ((fx_layout ui).slot_center pid n) else None) base_slot_list in
+  let settled_spots pid =
+    List.filter_map
+      (fun n -> if settled pid n then Some ((fx_layout ui).slot_center pid n) else None)
+      base_slot_list
+  in
   Fx.set_powder_spots
     ~occupied:(settled_spots opponent @ settled_spots owner)
     (List.concat_map
@@ -1133,6 +1142,23 @@ let draw_board ui =
            Some (pid, c, r)
          else None)
        [ opponent; owner ]);
+  (* Deep Freeze: both portraits stay frosted from the cast until the skipped turns and the special-card ban are
+     over. *)
+  let frozen_now =
+    Array.exists
+      (fun p -> turn_skipped p || List.exists (fun m -> m == Common.hide_special_mod) p.ps_desc.desc_mods)
+      (view ui).players
+  in
+  (match (ui.freeze, frozen_now) with
+  | 1, true -> ui.freeze <- 2
+  | 2, false -> ui.freeze <- 0
+  | _ -> ());
+  Fx.set_frost_spots
+    (if ui.freeze = 0 then []
+     else
+       List.map
+         (fun pid -> (pid, (fx_layout ui).life pid, portrait_size /. 2.))
+         [ opponent; owner ]);
   draw_player_bar ui opponent;
   List.iter (fun n -> draw_slot ui opponent n) base_slot_list;
   List.iter (fun n -> draw_slot ui owner n) base_slot_list;

@@ -15,6 +15,7 @@ let hit ?(is_ability = false) ?(is_spell = false) u pid num amount =
 
 let settle u = step u (fun () -> ())
 let ten = [ 10; 10; 10; 10; 10 ]
+
 let run_at u pid num =
   step u (fun () -> Option.iter (fun st -> Player.run_slot (player u pid) num st) (slot u pid num).value)
 
@@ -22,12 +23,7 @@ let custom_attacks_are_multi () =
   init_all_houses ();
   List.iter
     (fun key -> check_bool key true (is_multi_card (card_by_key key)))
-    [
-      "darkpriest.DarkHydra.name";
-      "highpriest.sunpriest";
-      "dreamweaver.sword";
-      "zen.redlight";
-    ];
+    [ "darkpriest.DarkHydra.name"; "highpriest.sunpriest"; "dreamweaver.sword"; "zen.redlight" ];
   check_bool "apep" true (is_multi_card (card_by_key "highpriest.Apep"));
   check_bool "goblin" false (is_multi_card (card_by_key "fire.goblin"))
 

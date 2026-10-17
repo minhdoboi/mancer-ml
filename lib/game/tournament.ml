@@ -378,8 +378,7 @@ let bot_kind = function
   | "lecturer" | "gambler" -> Lecturer
   | "diviner" -> Diviner
   | id ->
-      failwith
-        ("unknown bot '" ^ id ^ "' (want greedy, summoner, strategist, lecturer, oracle or diviner)")
+      failwith ("unknown bot '" ^ id ^ "' (want greedy, summoner, strategist, lecturer, oracle or diviner)")
 
 let bot_ids = [ "greedy"; "summoner"; "strategist"; "lecturer"; "oracle"; "diviner" ]
 

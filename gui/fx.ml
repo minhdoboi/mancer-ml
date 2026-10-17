@@ -42,9 +42,7 @@ let sound_delay = Fx_stage.sound_delay
 let for_ability = Fx_stage.for_ability
 let demo_names = Fx_stage.demo_names
 let spawn_demo = Fx_stage.spawn_demo
-
 let set_vortex_spots spots = Fx_core.vortex_spots := spots
-
 let vortex_badge (layout : layout) pid = Fx_dedicated.vortex_badge_of (layout.life pid)
 
 let set_powder_spots ~occupied spots =
@@ -54,6 +52,7 @@ let set_powder_spots ~occupied spots =
 let warp_amount = Fx_core.warp_amount
 let warp_any = Fx_core.warp_any
 let warp_shader name = Option.map (fun s -> s.Fx_core.sh) (Fx_core.load_named name)
+
 let warp_uniforms ~amount =
   Option.iter
     (fun s ->
@@ -62,5 +61,5 @@ let warp_uniforms ~amount =
     (Fx_core.load_named "warp")
 
 let set_trap_spots spots = Fx_core.trap_spots := spots
-
+let set_frost_spots spots = Fx_core.frost_spots := spots
 let trap_center = Fx_core.trap_center_of

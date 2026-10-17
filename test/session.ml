@@ -173,8 +173,7 @@ let prisoner_death_loud_refresh () =
   place u 0 "disciples.prisoner" 0;
   place u 1 "fire.dragon" 0;
   step u (fun () ->
-      Slot.inflict (slot u 0 0)
-        (mk_damage 2 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
+      Slot.inflict (slot u 0 0) (mk_damage 2 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
   Session.submit s None;
   loud_mana := [];
   Session.submit s None;

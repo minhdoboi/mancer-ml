@@ -30,7 +30,10 @@ let synth () =
     for k = 1 to 16 do
       let fk = f0 *. float k in
       if fk < 9000. then
-        let g = (0.15 +. formant fk 950. 450. +. (0.8 *. formant fk 2900. 700.) +. (0.4 *. formant fk 4200. 900.)) /. float k ** 0.7 in
+        let g =
+          (0.15 +. formant fk 950. 450. +. (0.8 *. formant fk 2900. 700.) +. (0.4 *. formant fk 4200. 900.))
+          /. (float k ** 0.7)
+        in
         v := !v +. (g *. sin (float k *. !phase))
     done;
     (* growl: fast amplitude roughness, plus a little breath *)
@@ -44,7 +47,13 @@ let synth () =
   (* distance: darken with a one-pole low-pass, then add washed-out echoes *)
   let lp = ref 0. in
   let k = 1. -. exp (-.two_pi *. 2200. /. float sample_rate) in
-  let dark = Array.map (fun x -> lp := !lp +. (k *. (x -. !lp)); !lp) dry in
+  let dark =
+    Array.map
+      (fun x ->
+        lp := !lp +. (k *. (x -. !lp));
+        !lp)
+      dry
+  in
   let out = Array.copy dark in
   List.iter
     (fun (delay, gain) ->
@@ -59,8 +68,16 @@ let synth () =
 let write_wav path samples =
   let n = Array.length samples in
   let oc = open_out_bin path in
-  let le32 v = for b = 0 to 3 do output_byte oc ((v lsr (8 * b)) land 255) done in
-  let le16 v = for b = 0 to 1 do output_byte oc ((v lsr (8 * b)) land 255) done in
+  let le32 v =
+    for b = 0 to 3 do
+      output_byte oc ((v lsr (8 * b)) land 255)
+    done
+  in
+  let le16 v =
+    for b = 0 to 1 do
+      output_byte oc ((v lsr (8 * b)) land 255)
+    done
+  in
   output_string oc "RIFF";
   le32 (36 + (n * 2));
   output_string oc "WAVEfmt ";

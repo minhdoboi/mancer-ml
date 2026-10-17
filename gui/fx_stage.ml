@@ -68,7 +68,14 @@ let for_spell layout (c : command) =
         |> Array.of_list
       in
       let look =
-        { Spell_looks.style = Spell_looks.Ring; aim = Spell_looks.Own_slots; r = 0.9; g = 0.9; b = 0.95; power = 1. }
+        {
+          Spell_looks.style = Spell_looks.Ring;
+          aim = Spell_looks.Own_slots;
+          r = 0.9;
+          g = 0.9;
+          b = 0.95;
+          power = 1.;
+        }
       in
       let own_life = layout.life player and foe_life = layout.life other in
       Some
@@ -141,7 +148,8 @@ let for_spell layout (c : command) =
   | "earth.care" ->
       let life = layout.life player in
       let spots = match target with Some t -> [ t; life ] | None -> [ life ] in
-      Some (recipe ~duration:nature_care_duration ~blocking:true (fun ~start -> spawn_nature_care spots ~start))
+      Some
+        (recipe ~duration:nature_care_duration ~blocking:true (fun ~start -> spawn_nature_care spots ~start))
   | "earth.therapy" ->
       let spots = [ layout.life player ] in
       Some (recipe ~duration:pollen_duration ~blocking:true (fun ~start -> spawn_pollen spots ~start))
@@ -258,7 +266,10 @@ let for_spell layout (c : command) =
              spawn_equilibrium ~opp_house ~opp_life ~own_house ~own_life ~start))
   | "fire.apocalypse" ->
       let spots pid = layout.occupied pid |> List.map (layout.slot_center pid) in
-      let everything = slots_of player layout.slot_center |> Array.to_list |> fun l -> l @ Array.to_list (slots_of other layout.slot_center) in
+      let everything =
+        slots_of player layout.slot_center |> Array.to_list |> fun l ->
+        l @ Array.to_list (slots_of other layout.slot_center)
+      in
       let n = float (List.length everything) in
       let sum f = List.fold_left (fun a (p : spot) -> a +. f p) 0. everything in
       let center = { x = sum (fun p -> p.x) /. n; y = sum (fun p -> p.y) /. n } in
@@ -321,7 +332,9 @@ let for_spell layout (c : command) =
         let nums = match layout.occupied other with [] -> base_slot_list | ns -> ns in
         Array.of_list (List.map (fun n -> (n, layout.slot_floor other n)) nums)
       in
-      Some (recipe ~duration:1.75 ~blocking:true (fun ~start -> spawn_scatterbomb ~pid:other ~src:source ~bases ~start))
+      Some
+        (recipe ~duration:1.75 ~blocking:true (fun ~start ->
+             spawn_scatterbomb ~pid:other ~src:source ~bases ~start))
   | "rogue.trap" ->
       let houses = Array.init 5 (layout.house other) in
       let center = fst (Fx_core.trap_center_of layout other) in
@@ -339,20 +352,23 @@ let for_spell layout (c : command) =
         c.cmd_input
   | "seasons.SolarWave.name" ->
       let own = slots_of player layout.slot_center and foe = slots_of other layout.slot_center in
-      Some
-        (recipe ~duration:1.8 ~blocking:true (fun ~start -> spawn_solar_wave ~own ~foe ~foe_life ~start))
+      Some (recipe ~duration:1.8 ~blocking:true (fun ~start -> spawn_solar_wave ~own ~foe ~foe_life ~start))
   | "seasons.EternalSummer.name" ->
       let own = slots_of player layout.slot_center and foe = slots_of other layout.slot_center in
       let hand = source in
-      Some
-        (recipe ~duration:2.2 ~blocking:true (fun ~start -> spawn_eternal_summer ~own ~foe ~hand ~start))
+      Some (recipe ~duration:2.2 ~blocking:true (fun ~start -> spawn_eternal_summer ~own ~foe ~hand ~start))
   | "kinetician.warp" ->
-      Option.map (fun t -> recipe ~duration:1.6 ~blocking:true (fun ~start -> spawn_warp_reality ~target:t ~start)) target
+      Option.map
+        (fun t -> recipe ~duration:1.6 ~blocking:true (fun ~start -> spawn_warp_reality ~target:t ~start))
+        target
   | "kinetician.barrier" ->
-      Option.map (fun t -> recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_force_barrier ~target:t ~start)) target
+      Option.map
+        (fun t -> recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_force_barrier ~target:t ~start))
+        target
   | "conjurer.pain" ->
       Option.map
-        (fun t -> recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_pain_of_essence ~target:t ~foe_life ~start))
+        (fun t ->
+          recipe ~duration:2.0 ~blocking:true (fun ~start -> spawn_pain_of_essence ~target:t ~foe_life ~start))
         target
   | "conjurer.bravery" ->
       let spots = Array.of_list (List.map (layout.slot_center player) (layout.occupied player)) in
@@ -371,7 +387,8 @@ let for_spell layout (c : command) =
       let foe_air = layout.house other 2 and own_air = layout.house player 2 in
       let life = layout.life player in
       Some
-        (recipe ~duration:2.2 ~blocking:true (fun ~start -> spawn_energetic_vortex ~foe_air ~own_air ~life ~start))
+        (recipe ~duration:2.2 ~blocking:true (fun ~start ->
+             spawn_energetic_vortex ~foe_air ~own_air ~life ~start))
   | "wind.EternalStorm.name" ->
       let slots = Array.append (slots_of player layout.slot_center) (slots_of other layout.slot_center) in
       Some (recipe ~duration:1.3 ~blocking:true (fun ~start -> spawn_eternal_storm ~slots ~start))
@@ -380,6 +397,20 @@ let for_spell layout (c : command) =
       Some
         (recipe ~duration:1.25 ~blocking:true (fun ~start ->
              spawn_warcry ~source ~foe ~foe_life ~foe_pid:other ~start))
+  | "elementalist.freeze" ->
+      (* Deep Freeze touches the players, not the slots: icicles fall on both portraits. *)
+      let look = { Spell_looks.style = Spell_looks.Ice; aim = Spell_looks.Own_life; r = 0.7; g = 0.9; b = 1.; power = 1. } in
+      let duration = style_duration look in
+      let lives = [| layout.life player; layout.life other |] in
+      Some
+        (recipe ~duration ~blocking:true (fun ~start ->
+             mk ~start ~duration (fun ~age ->
+                 let fade = Float.min 1. ((duration -. age) /. 0.22) in
+                 if fade > 0.02 then
+                   Array.iter
+                     (fun own_life ->
+                       draw_style look ~own:[||] ~foe:[||] ~own_life ~foe_life:own_life ~target:None ~age fade)
+                     lives)))
   | _ -> Option.map (look_recipe layout c) (Spell_looks.get c.cmd_card.key)
 
 let for_ability layout ~kind ~player ~num ~target =
@@ -569,9 +600,6 @@ let spawn_demo layout name =
       let opp_hi = layout.extreme_house opponent `Highest in
       let own_lo = layout.extreme_house owner `Lowest in
       go
-        (spawn_equilibrium
-           ~opp_house:(layout.house opponent opp_hi)
-           ~opp_life:foe_life
-           ~own_house:(layout.house owner own_lo)
-           ~own_life ~start:now)
+        (spawn_equilibrium ~opp_house:(layout.house opponent opp_hi) ~opp_life:foe_life
+           ~own_house:(layout.house owner own_lo) ~own_life ~start:now)
   | _ -> ()

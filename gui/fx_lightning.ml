@@ -188,8 +188,7 @@ let spawn_ball_lightning ~from_p ~to_p ~start =
       additive (fun () ->
           (* thin strike, brief and bright *)
           let strike_a =
-            if age < ball_strike_time then 1.
-            else Float.max 0. (1. -. ((age -. ball_strike_time) /. 0.15))
+            if age < ball_strike_time then 1. else Float.max 0. (1. -. ((age -. ball_strike_time) /. 0.15))
           in
           if strike_a > 0.02 then (
             stroke !bolt.primary 6. gr gg gb (strike_a *. 0.3) true;
@@ -218,7 +217,7 @@ let spawn_ball_lightning ~from_p ~to_p ~start =
                 (rgb cr cg cb (fade *. 0.9))
             done);
           (* closing burst ring *)
-          if age > 1.0 then (
+          if age > 1.0 then
             let u = clamp01 ((age -. 1.0) /. 0.5) in
             let rr = 28. +. (50. *. u) in
             for k = 0 to 23 do
@@ -228,4 +227,4 @@ let spawn_ball_lightning ~from_p ~to_p ~start =
                 (to_p.y +. (sin ang *. rr))
                 (3.5 *. (1. -. u))
                 (rgb br bg bb ((1. -. u) *. 0.8))
-            done)))
+            done))

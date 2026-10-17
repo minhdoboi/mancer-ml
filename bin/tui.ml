@@ -222,7 +222,10 @@ let change_settings ui delta =
 
 (* ---------------------------------------------------------------- game ui *)
 
-type mode = Browse | Called of { cmds : command array; mutable e : int } | Target of { cmds : command array; mutable i : int }
+type mode =
+  | Browse
+  | Called of { cmds : command array; mutable e : int }
+  | Target of { cmds : command array; mutable i : int }
 
 type game_ui = {
   table : Table.t;
@@ -236,7 +239,6 @@ type game_ui = {
 }
 
 let element_keys = [| "fire"; "water"; "air"; "earth" |]
-
 let element_label i = Assets.text element_keys.(i)
 
 let current_called ui pid =
@@ -466,8 +468,7 @@ let status_line ui =
               I.string accent
                 (Printf.sprintf "%s (now: %s) — 0:%s 1:%s 2:%s 3:%s"
                    (Assets.format (Assets.text "meteomancer.choose") [ cur ])
-                   (element_label e) (element_label 0) (element_label 1) (element_label 2)
-                   (element_label 3))
+                   (element_label e) (element_label 0) (element_label 1) (element_label 2) (element_label 3))
           | Browse ->
               let playable h = Array.exists (fun cd -> Table.playable ui.table cd h) h.phd_cards in
               if not (List.exists playable (Table.hand ui.table pid)) then
@@ -546,11 +547,9 @@ let play ui cmd =
 
 let commit_called ui e =
   match ui.mode with
-  | Called { cmds; _ } ->
-      let filtered =
-        Array.to_list cmds |> List.filter (fun c -> c.cmd_flag = Some (Called_element e))
-      in
-      (match filtered with
+  | Called { cmds; _ } -> (
+      let filtered = Array.to_list cmds |> List.filter (fun c -> c.cmd_flag = Some (Called_element e)) in
+      match filtered with
       | [] -> ui.message <- "no legal target"
       | [ c ] -> play ui (Some c)
       | _ ->
@@ -681,9 +680,7 @@ let on_game_key ui ev =
       let setup = Table.setup ui.table in
       (* A fresh duel deal flips the starter like Scala's new [Local];
          a campaign rematch keeps its scripted starter. *)
-      let starting =
-        match ui.campaign with Some _ -> setup.starting | None -> Table.random_starter ()
-      in
+      let starting = match ui.campaign with Some _ -> setup.starting | None -> Table.random_starter () in
       Game (new_game ~campaign:ui.campaign { setup with seed = None; starting })
   | Called c, `Key (`Arrow (`Left | `Up), _) ->
       c.e <- (c.e + 3) mod 4;
