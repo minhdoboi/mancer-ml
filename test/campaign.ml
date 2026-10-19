@@ -26,7 +26,11 @@ let duckwoman_fork () =
   check_bool "avoid disciples" true (has avoid "disciples");
   check_bool "avoid no dudes" true (has_not avoid "dudes");
   check_bool "seasons no dudes yet" true (has_not [ "meteomancer"; "seasons" ] "dudes");
-  check_bool "otter opens dudes" true (has [ "meteomancer"; "seasons"; "sower"; "otter" ] "dudes");
+  check_bool "otter no dudes" true (has_not [ "meteomancer"; "seasons"; "sower"; "otter" ] "dudes");
+  check_bool "blacksmith after otter" true
+    (has [ "meteomancer"; "seasons"; "sower"; "otter" ] "blacksmith");
+  check_bool "smith opens dudes" true
+    (has [ "meteomancer"; "seasons"; "sower"; "otter"; "blacksmith" ] "dudes");
   check_bool "farmer not a fight" true (not (Campaign.is_fight (Campaign.node "farmer")));
   Alcotest.(check (option string))
     "farmer portrait" (Some "farmer")
@@ -135,7 +139,9 @@ let early_life () =
 
 let night_unlock () =
   check_bool "night after wind" true (Campaign.chapter_of [ "wind" ] = Campaign.Night);
-  Alcotest.check ss "night start" [ "faerie_druid"; "rogue"; "warp" ] (available [ "wind" ]);
+  Alcotest.check ss "night start" [ "rogue"; "faerie_druid"; "warp" ] (available [ "wind" ]);
+  check_bool "no fishman yet" true (has_not [ "wind" ] "fishman");
+  check_bool "rogue after wind" true (has [ "wind" ] "rogue");
   check_bool "no antimancer" true (has_not [ "wind" ] "antimancer")
 
 let rogue_path () =
@@ -176,11 +182,13 @@ let antimancer_path () =
   check_bool "no warp" true (has_not done_ "warp");
   Alcotest.(check string) "next" "zen" (Campaign.next_position "antimancer");
   Alcotest.check ss "after zen" [ "fisherman" ] (available (done_ @ [ "zen" ]));
-  Alcotest.check ss "after fisherman" [ "conjurer" ] (available (done_ @ [ "zen"; "fisherman" ]));
+  Alcotest.check ss "after fisherman" [ "kahjivir" ] (available (done_ @ [ "zen"; "fisherman" ]));
+  Alcotest.check ss "after kahjivir" [ "conjurer" ]
+    (available (done_ @ [ "zen"; "fisherman"; "kahjivir" ]));
   Alcotest.check ss "after conjurer" [ "chronomaster" ]
-    (available (done_ @ [ "zen"; "fisherman"; "conjurer" ]));
+    (available (done_ @ [ "zen"; "fisherman"; "kahjivir"; "conjurer" ]));
   Alcotest.check ss "after chrono" [ "limbo" ]
-    (available (done_ @ [ "zen"; "fisherman"; "conjurer"; "chronomaster" ]));
+    (available (done_ @ [ "zen"; "fisherman"; "kahjivir"; "conjurer"; "chronomaster" ]));
   check_bool "crowd meeting" true (not (Campaign.is_fight (Campaign.node "crowd")))
 
 let faerie_path () =
@@ -224,7 +232,7 @@ let night_restart () =
   let done_ = [ "wind"; "entomologist"; "warp"; "kinetician"; "girl"; "limbo" ] in
   Alcotest.check ss "day progress" [ "entomologist"; "wind" ] (sorted (Campaign.day_progress done_));
   check_bool "still night" true (Campaign.chapter_of (Campaign.day_progress done_) = Campaign.Night);
-  Alcotest.check ss "night opens again" [ "faerie_druid"; "rogue"; "warp" ]
+  Alcotest.check ss "night opens again" [ "rogue"; "faerie_druid"; "warp" ]
     (available (Campaign.day_progress done_))
 
 let houses_resolve () =

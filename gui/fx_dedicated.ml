@@ -342,6 +342,431 @@ let spawn_harvest ~from_ ~to_ ~souls ~start =
               circle to_.x to_.y (18. +. (pulse *. 8.)) (rgb 0.5 0.8 1. (fade *. 0.35 *. pulse));
               circle to_.x to_.y 7. (rgb 0.85 0.95 1. (fade *. 0.55))))))
 
+(* Mithril Bow: the enchanted wielder raises a mithril bow and looses an arrow
+   down the lane at the creature standing opposite.  The shot belongs to the
+   wielder -- it starts at the bow and lands on the foe, not on a portrait. *)
+let mithril_bow_duration = 1.05
+
+let spawn_mithril_bow ~from_p ~to_p ~start =
+  let duration = mithril_bow_duration in
+  let loose = 0.26 (* nocking and drawing *) and fly = 0.34 (* the arrow itself *) in
+  let dx = to_p.x -. from_p.x and dy = to_p.y -. from_p.y in
+  let span = Float.max 1. (hypot dx dy) in
+  let fx = dx /. span and fy = dy /. span in
+  let ax = -.fy and ay = fx in
+  (* the arrow sails on a shallow arc instead of sliding flat *)
+  let lift = 16. +. Float.min 26. (Float.abs dy *. 0.3) in
+  let px u = from_p.x +. (dx *. u) in
+  let py u = from_p.y +. (dy *. u) -. (lift *. 4. *. u *. (1. -. u)) in
+  (* the bow stands across the shot, its belly bulging toward the target *)
+  let tip a =
+    let belly = (1. -. (a *. a)) *. 10. in
+    (from_p.x +. (ax *. (a *. 24.)) +. (fx *. belly), from_p.y +. (ay *. (a *. 24.)) +. (fy *. belly))
+  in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.2) in
+      let draw = ease_out (clamp01 (age /. loose)) in
+      let u = clamp01 ((age -. loose) /. fly) in
+      let shot = age >= loose in
+      let held = fade *. (if shot then Float.max 0. (1. -. ((age -. loose) /. 0.5)) else 1.) in
+      if fade > 0.02 then
+        additive (fun () ->
+            (* the wielder glows while the bow takes shape, and dims once it is loosed *)
+            circle from_p.x from_p.y (26. +. (draw *. 10.))
+              (rgb 0.5 0.7 1. (fade *. 0.12 *. (if shot then Float.max 0.35 (1. -. u) else 1.)));
+            (* the bow itself: pale limb, taut string, a spark where the nock sits *)
+            if held > 0.02 then (
+              let pull = if shot then 2. else 4. +. (draw *. 9.) in
+              let nx = from_p.x -. (fx *. pull) and ny = from_p.y -. (fy *. pull) in
+              for s = 0 to 7 do
+                let a0 = -1. +. (float s *. 0.25) in
+                let x0, y0 = tip a0 and x1, y1 = tip (a0 +. 0.25) in
+                line x0 y0 x1 y1 (2. +. (draw *. 1.2)) (rgb 0.5 0.58 0.74 (held *. 0.5));
+                line x0 y0 x1 y1 1. (rgb 0.85 0.92 1. (held *. 0.9))
+              done;
+              let lx0, ly0 = tip (-1.) and lx1, ly1 = tip 1. in
+              line lx0 ly0 nx ny 1.1 (rgb 0.7 0.8 0.95 (held *. 0.85));
+              line nx ny lx1 ly1 1.1 (rgb 0.7 0.8 0.95 (held *. 0.85));
+              circle nx ny (2. +. (draw *. 1.4)) (rgb 0.9 0.96 1. (held *. (if shot then 0.3 else 0.9))));
+            if shot then
+              if u < 1. then (
+                (* arrowhead, shaft and the motes it drags behind it *)
+                let sx = px u and sy = py u in
+                let vx = px (Float.min 1. (u +. 0.05)) -. sx and vy = py (Float.min 1. (u +. 0.05)) -. sy in
+                let vl = Float.max 0.001 (hypot vx vy) in
+                let tx = vx /. vl and ty = vy /. vl in
+                for k = 1 to 5 do
+                  let tu = Float.max 0. (u -. (float k *. 0.05)) in
+                  circle (px tu) (py tu) (3.4 -. (float k *. 0.5))
+                    (rgb 0.55 0.75 1. (fade *. 0.42 *. (1. -. (float k /. 6.))))
+                done;
+                line (sx -. (tx *. 15.)) (sy -. (ty *. 15.)) sx sy 2.4 (rgb 0.68 0.84 1. (fade *. 0.75));
+                tri
+                  (sx +. (tx *. 5.))
+                  (sy +. (ty *. 5.))
+                  (sx -. (ty *. 3.2))
+                  (sy +. (tx *. 3.2))
+                  (sx +. (ty *. 3.2))
+                  (sy -. (tx *. 3.2))
+                  (rgb 0.9 0.96 1. fade))
+              else (
+                (* impact: the arrow rings the creature it struck *)
+                let k = Float.min 1. ((age -. (loose +. fly)) /. 0.34) in
+                circle to_p.x to_p.y (6. +. (k *. 26.)) (rgb 0.6 0.8 1. ((1. -. k) *. fade *. 0.4));
+                circle to_p.x to_p.y (3. +. (k *. 12.)) (rgb 0.92 0.97 1. ((1. -. k) *. fade *. 0.7));
+                for k = 0 to 5 do
+                  let ang = (float k *. (Float.pi /. 3.)) +. 0.35 in
+                  let r0 = 8. +. (float k *. 12.) in
+                  let r1 = r0 +. (10. *. (1. -. (float k *. 0.12))) in
+                  line
+                    (to_p.x +. (cos ang *. r0))
+                    (to_p.y +. (sin ang *. r0))
+                    (to_p.x +. (cos ang *. r1))
+                    (to_p.y +. (sin ang *. r1))
+                    2.
+                    (rgb 0.85 0.94 1. ((1. -. (float k *. 0.14)) *. fade *. 0.6))
+                done)))
+
+(* Excalibur: the enchanted wielder does not shoot -- the sword goes through
+   them.  It is drawn on the wielder first, held a moment, then hurled down the
+   lane, and it comes out the far side of the wielder into the lane standing
+   opposite, where it stands a while before it is gone.  With nothing in the
+   lane the same blade carries on into the opponent. *)
+let excalibur_duration = 2.05
+let excalibur_lunge = 1.15 (* when the finished sword is let go *)
+
+let spawn_excalibur ~wielder ~through ~start =
+  let duration = excalibur_duration in
+  let forge = 0.85 in (* the sword takes shape on the wielder *)
+  let hold = excalibur_lunge -. forge in (* and hangs there, complete *)
+  let drive = 0.22 and stick = 0.68 in (* the lunge, then the pause in the far card *)
+  let dx = through.x -. wielder.x and dy = through.y -. wielder.y in
+  let span = Float.max 1. (hypot dx dy) in
+  let fx = dx /. span and fy = dy /. span in
+  let ax = -.fy and ay = fx in
+  (* the sword is longer than half the gap, so the hilt is still in the wielder
+     when the point comes out the other side *)
+  let blade_len = 104. and grip_len = 36. and guard_span = 38. in
+  let blade_w = 7. and guard_t = 2.4 and grip_w = 3. and pommel_r = 6.5 in
+  let reach = span +. (blade_len *. 0.55) in
+  let px u = wielder.x +. (fx *. (reach *. u)) in
+  let py u = wielder.y +. (fy *. (reach *. u)) in
+  (* Excalibur: a straight double-edged blade of even width that tapers only to
+     the point, a long straight bar for two hands, a long grip and a wheel
+     pommel.  [u] is where the point is on the axis; every measure below is in
+     board pixels back from it, and [size] grows the whole sword at once. *)
+  let poly p q r c = tri (fst p) (snd p) (fst q) (snd q) (fst r) (snd r) c in
+  let quad p q r s c =
+    poly p q r c;
+    poly p r s c
+  in
+  let sword u size alpha ~glint =
+    let back p off =
+      let v = u -. ((p *. size) /. reach) in
+      (px v +. (ax *. (off *. size)), py v +. (ay *. (off *. size)))
+    in
+    let edge off p q c =
+      let pp = back p off and qq = back q off in
+      line (fst pp) (snd pp) (fst qq) (snd qq) 1.1 c
+    in
+    (* the blade: parallel edges for four fifths of it, a taper for the rest *)
+    let t0 = back 0. 0. and t1 = back 20. blade_w and t2 = back 20. (-.blade_w) in
+    let b1 = back (blade_len -. 18.) blade_w and b2 = back (blade_len -. 18.) (-.blade_w) in
+    let g1 = back blade_len (blade_w *. 0.5) and g2 = back blade_len (-.(blade_w *. 0.5)) in
+    poly t0 t1 t2 (rgb 0.6 0.66 0.8 (alpha *. 0.55));
+    quad t1 b1 b2 t2 (rgb 0.86 0.91 1. (alpha *. 0.72));
+    quad b1 g1 g2 b2 (rgb 0.6 0.66 0.8 (alpha *. 0.55));
+    (* the fuller down the middle, and both edges lit: this is a blade of light *)
+    edge 0. 26. (blade_len -. 14.) (rgb 1. 1. 1. (alpha *. 0.45));
+    edge blade_w 20. (blade_len -. 18.) (rgb 1. 0.98 0.9 (alpha *. 0.9));
+    edge (-.blade_w) 20. (blade_len -. 18.)
+      (rgb 0.85 0.93 1. (alpha *. (if glint >= 0. then 0.5 else 0.75)));
+    (* crossguard: a straight bar for two hands, its ends flared to the point *)
+    let gc = back blade_len 0. and gl = back blade_len guard_span and gr = back blade_len (-.guard_span) in
+    let cx = back (blade_len -. guard_t) 0. in
+    let cw = back (blade_len -. guard_t) guard_span and cw2 = back (blade_len -. guard_t) (-.guard_span) in
+    let gold = rgb (if glint >= 0. then 0.7 else 0.85) 0.7 0.33 (alpha *. 0.95) in
+    quad gc gl cw cx gold;
+    quad gc cx cw2 gr gold;
+    poly (back (blade_len -. 3.) (guard_span +. 4.)) (back (blade_len +. 3.) (guard_span -. 3.))
+      (back (blade_len +. 6.) (guard_span +. 1.))
+      (rgb 0.92 0.79 0.42 (alpha *. 0.9));
+    poly (back (blade_len -. 3.) (-.(guard_span +. 4.))) (back (blade_len -. 3.) (-.(guard_span -. 3.)))
+      (back (blade_len +. 6.) (-.(guard_span +. 1.)))
+      (rgb 0.92 0.79 0.42 (alpha *. 0.9));
+    (* the grip, long enough for both hands and wound in leather *)
+    let h0 = back (blade_len +. guard_t *. 0.5) grip_w
+    and h1 = back (blade_len +. grip_len -. (guard_t *. 0.5)) grip_w in
+    let h2 = back (blade_len +. grip_len -. (guard_t *. 0.5)) (-.grip_w)
+    and h3 = back (blade_len +. (guard_t *. 0.5)) (-.grip_w) in
+    quad h0 h1 h2 h3 (rgb 0.3 0.2 0.13 (alpha *. 0.95));
+    for k = 0 to 3 do
+      let p = blade_len +. (3. +. (float k *. (grip_len /. 4.6))) in
+      let a = back p grip_w and b = back p (-.grip_w) in
+      line (fst a) (snd a) (fst b) (snd b) (0.9 *. size) (rgb 0.62 0.5 0.36 (alpha *. 0.7))
+    done;
+    (* the wheel pommel *)
+    let pcx, pcy = back (blade_len +. grip_len +. 2.) 0. in
+    circle pcx pcy (pommel_r *. size) (rgb 0.88 0.74 0.36 (alpha *. 0.95));
+    circle pcx pcy (pommel_r *. 0.62 *. size) (rgb 0.6 0.48 0.22 (alpha *. 0.9));
+    circle pcx pcy (pommel_r *. 0.3 *. size) (rgb 1. 0.92 0.66 (alpha *. 0.95))
+  in
+  (* the runes the sword is called out of, and the light it drags up the lane *)
+  let rune_ring t alpha =
+    let rad = 34. -. (16. *. t) in
+    for k = 0 to 17 do
+      let ang = (float k *. (Float.pi *. 2. /. 18.)) +. (t *. 2.6) in
+      let r0 = rad *. 0.8 and r1 = rad *. 1.06 in
+      line
+        (wielder.x +. (cos ang *. r0))
+        (wielder.y +. (sin ang *. r0 *. 0.62))
+        (wielder.x +. (cos ang *. r1))
+        (wielder.y +. (sin ang *. r1 *. 0.62))
+        2.
+        (rgb 1. 0.85 0.42 (alpha *. 0.7))
+    done;
+    ellipse wielder.x wielder.y (rad *. 0.9) (rad *. 0.9 *. 0.62) (rgb 1. 0.9 0.55 (alpha *. 0.5))
+  in
+  let shaft u alpha =
+    for k = 0 to 5 do
+      let x0, y0 = (px (u -. (float k *. 0.05)), py (u -. (float k *. 0.05))) in
+      let x1, y1 = (px (u -. (float k *. 0.05) -. 0.45), py (u -. (float k *. 0.05) -. 0.45)) in
+      line x0 y0 x1 y1 2. (rgb 1. 0.88 0.5 ((alpha *. 0.5) *. (1. -. (float k /. 6.))))
+    done
+  in
+  let home = blade_len /. reach in
+  mk ~start ~duration (fun ~age ->
+      let age = Float.max 0. age in
+      let fade = Float.min 1. ((duration -. age) /. 0.3) in
+      let shaped = age < forge in
+      let forge_t = clamp01 (age /. forge) in
+      let size = if shaped then ease_out forge_t else 1. in
+      (* at rest the blade stands on the wielder, point up the lane *)
+      let lunge_t = clamp01 ((age -. excalibur_lunge) /. drive) in
+      let u = if age < excalibur_lunge then home else home +. ((1. -. home) *. (lunge_t *. lunge_t)) in
+      let gone = age -. (excalibur_lunge +. drive) in
+      (* it stands in the far card for a beat before the light lets go of it:
+         the first fifth of the pause is held at full, the rest is the going *)
+      let fade_out = stick *. 0.8 in
+      let a = if gone > 0. then Float.max 0. (1. -. (gone /. fade_out)) else 1. in
+      (* a glint runs the length of the blade while it hangs whole *)
+      let whole = age >= forge && age < excalibur_lunge && a = 1. in
+      let glint = if whole then mod_float (age -. forge) (hold /. 2.) /. (hold /. 2.) else -1. in
+      if fade > 0.02 then
+        additive (fun () ->
+            if shaped then (
+              (* the runes draw in, the wielder burns gold under them *)
+              circle wielder.x wielder.y (26. +. (forge_t *. 16.))
+                (rgb 1. 0.82 0.4 (fade *. 0.12 *. forge_t));
+              rune_ring forge_t (fade *. 0.9);
+              (* motes falling in to feed the blade *)
+              for k = 0 to 11 do
+                let n = noise k 5 21 in
+                let r = 46. *. (1. -. (n *. 0.6 *. size)) +. 16. in
+                let ang = (n *. 6.28) +. (age *. 3.) in
+                circle (wielder.x +. (cos ang *. r)) (wielder.y +. (sin ang *. r *. 0.62)) (1.6 +. n)
+                  (rgb 1. 0.88 0.5 (fade *. 0.5 *. size))
+              done);
+            (* whole: it hangs at the wielder and the light stands off it *)
+            if whole then circle wielder.x wielder.y 30. (rgb 1. 0.85 0.45 (fade *. 0.07));
+            if lunge_t > 0. && lunge_t < 1. then shaft u (fade *. lunge_t);
+            let sword_a = fade *. a *. (if shaped then 0.35 +. (0.65 *. size) else 1.) in
+            if sword_a > 0.02 then (
+              (* a shimmer runs the length of the blade, once or twice, while it
+                 stands whole at the wielder *)
+              if glint >= 0. then (
+                let v = u -. (((14. +. (glint *. (blade_len -. 30.))) *. size) /. reach) in
+                circle (px v) (py v) 2.6 (rgb 1. 1. 0.95 (fade *. 0.9)));
+              sword u size sword_a ~glint));
+      (* where the point came out: the far card is cut open by a cross of light *)
+      if gone > 0. && gone < 0.5 then
+        additive (fun () ->
+            let k = gone /. 0.5 in
+            let g = (1. -. k) *. fade in
+            circle through.x through.y (10. +. (k *. 46.)) (rgb 1. 0.85 0.45 (g *. 0.5));
+            circle through.x through.y (4. +. (k *. 18.))
+              (rgb 1. 1. 0.95 (g *. Float.max 0. (1. -. ((k -. 0.35) /. 0.65))));
+            let arm = 32. +. (k *. 36.) and w = 7. *. (1. -. k) +. 1.5 in
+            line (through.x -. arm) through.y (through.x +. arm) through.y w (rgb 1. 0.95 0.75 (g *. 0.9));
+            line through.x (through.y -. (arm *. 0.8)) through.x (through.y +. (arm *. 0.8)) w
+              (rgb 1. 0.95 0.75 (g *. 0.9));
+            (* the light tears into shards as it dies *)
+            for s = 0 to 7 do
+              let ang = (float s *. (Float.pi /. 4.)) +. 0.4 in
+              let r0 = 10. +. (k *. 16.) in
+              let r1 = r0 +. (26. *. (1. -. k)) +. 6. in
+              line
+                (through.x +. (cos ang *. r0))
+                (through.y +. (sin ang *. r0 *. 0.8))
+                (through.x +. (cos ang *. r1))
+                (through.y +. (sin ang *. r1 *. 0.8))
+                2.4 (rgb 1. 0.88 0.55 (g *. 0.7))
+            done))
+
+(* Bargulian Gauntlet: the wielder's own fist comes up burning, draws back, and
+   punches forward; the shock it throws then runs the whole of the opponent's row
+   from the lane it came out of, and every creature on that row is hit by it. *)
+let gauntlet_duration = 1.65
+
+let spawn_gauntlet ~wielder ~foe ~foe_pid ~start =
+  let duration = gauntlet_duration in
+  let wind = 0.42 in (* the fist forms on the wielder and draws back *)
+  let punch = 0.16 and wave = 0.62 in (* the punch, then the shock crossing the row *)
+  let n = Array.length foe in
+  let mid_x = if n = 0 then wielder.x else Array.fold_left (fun s (p : spot) -> s +. p.x) 0. foe /. float n in
+  let mid_y = if n = 0 then wielder.y -. 140. else Array.fold_left (fun s (p : spot) -> s +. p.y) 0. foe /. float n in
+  (* the fist punches up its own lane, then the shock spreads sideways *)
+  let dl = Float.max 1. (hypot (mid_x -. wielder.x) (mid_y -. wielder.y)) in
+  let ux = (mid_x -. wielder.x) /. dl and uy = (mid_y -. wielder.y) /. dl in
+  let vx = -.uy and vy = ux in
+  let reach = Float.min 120. (dl *. 0.5) in
+  (* the shock runs out to each end of the row in its own time *)
+  let far_l =
+    Array.fold_left (fun m (p : spot) -> Float.max m (Float.max 40. (wielder.x -. p.x))) 40. foe
+  in
+  let far_r =
+    Array.fold_left (fun m (p : spot) -> Float.max m (Float.max 40. (p.x -. wielder.x))) 40. foe
+  in
+  let far_of x = if x <= wielder.x then far_l else far_r in
+  let hit i =
+    let p = foe.(i) in
+    wind +. punch +. (Float.abs (p.x -. wielder.x) /. far_of p.x *. wave)
+  in
+  Array.iteri (fun i _ -> add_shake foe_pid i ~start:(start +. hit i) ~duration:0.45 ~strength:1.05) foe;
+  (* one gauntlet: a fist of dark iron with fire in the seams, knuckles first *)
+  let fist cx cy s alpha =
+    let plate = 27. *. s in
+    let knuck = 11. *. s and step = 13.5 *. s in
+    let at u o = (cx +. (ux *. u) +. (vx *. o), cy +. (uy *. u) +. (vy *. o)) in
+    let poly p q r c = tri (fst p) (snd p) (fst q) (snd q) (fst r) (snd r) c in
+    let ln p q w c = line (fst p) (snd p) (fst q) (snd q) w c in
+    let dot p r c = circle (fst p) (snd p) r c in
+    (* the cuff behind the hand, widening toward the arm *)
+    let c0 = at (-.plate) (plate *. 0.55) and c1 = at (-.plate) (-.(plate *. 0.55)) in
+    let c2 = at (-.(plate *. 2.1)) (plate *. 0.85) and c3 = at (-.(plate *. 2.1)) (-.(plate *. 0.85)) in
+    poly c0 c1 c2 (rgb 0.4 0.11 0.04 (alpha *. 0.8));
+    poly c0 c2 c3 (rgb 0.28 0.07 0.03 (alpha *. 0.8));
+    let band = at (-.(plate *. 1.25)) (plate *. 0.66) in
+    let band2 = at (-.(plate *. 1.25)) (-.(plate *. 0.66)) in
+    let band_e = at (-.(plate *. 1.45)) (plate *. 0.7) in
+    let band_e2 = at (-.(plate *. 1.45)) (-.(plate *. 0.7)) in
+    poly band band2 band_e (rgb 1. 0.5 0.16 (alpha *. 0.7));
+    poly band band_e band_e2 (rgb 1. 0.5 0.16 (alpha *. 0.7));
+    (* the hand *)
+    dot (cx, cy) plate (rgb 0.46 0.14 0.05 (alpha *. 0.85));
+    dot (cx, cy) (plate *. 0.78) (rgb 0.34 0.09 0.04 (alpha *. 0.8));
+    (* the thumb, wrapped round the side of the hand: the one thing that makes
+       the shape read as a fist rather than a block *)
+    let th = at (plate *. 0.15) (plate *. 0.92) in
+    dot th (knuck *. 0.92) (rgb 0.44 0.13 0.05 (alpha *. 0.9));
+    dot th (knuck *. 0.5) (rgb 1. 0.58 0.2 (alpha *. 0.85));
+    (* fire in the seams *)
+    for k = 0 to 4 do
+      let o = ((float k /. 4.) -. 0.5) *. (plate *. 1.5) in
+      let p = at (-.(plate *. 0.75)) o and q = at (plate *. 0.5) (o *. 0.7) in
+      ln p q (1.6 *. s) (rgb 1. 0.42 0.1 (alpha *. 0.75))
+    done;
+    (* the knuckles, arced across the striking face so the hand reads as a fist *)
+    for k = 0 to 3 do
+      let f = (float k /. 3.) -. 0.5 in
+      let o = f *. step *. 3. in
+      let p = at (plate *. 0.62 -. (Float.abs f *. 5. *. s)) o in
+      dot p knuck (rgb 0.5 0.16 0.06 (alpha *. 0.92));
+      dot p (knuck *. 0.52) (rgb 1. 0.62 0.22 (alpha *. 0.92));
+      (* the light along the top of each knuckle *)
+      let a = at (plate *. 0.62 -. (Float.abs f *. 5. *. s)) (o -. (knuck *. 0.55)) in
+      let b = at (plate *. 0.62 -. (Float.abs f *. 5. *. s) +. (knuck *. 0.7)) (o -. (knuck *. 0.3)) in
+      ln a b (1.5 *. s) (rgb 1. 0.85 0.5 (alpha *. 0.9))
+    done
+  in
+  (* the shock front: a bright wall running sideways across the row *)
+  let front ~age fx fy alpha =
+    for s = -4 to 4 do
+      let u = float s /. 4. in
+      let bulge = ((1. -. (u *. u)) *. 13.) +. 4. in
+      let y = fy +. (u *. 48.) in
+      let wob = sin ((age *. 16.) +. (u *. 5.)) *. 3. in
+      line (fx +. (vx *. (bulge *. -1.)) +. (wob *. vx)) (y -. 9.) (fx +. (vx *. bulge)) (y +. 9.)
+        11. (rgb 1. 0.42 0.12 (alpha *. 0.22));
+      line (fx +. (vx *. bulge)) y (fx +. (vx *. (bulge *. 1.25))) (y +. (9. *. u))
+        (2.2) (rgb 1. 0.85 0.55 (alpha *. 0.9))
+    done;
+    circle fx fy 9. (rgb 1. 0.8 0.45 (alpha *. 0.5))
+  in
+  mk ~start ~duration (fun ~age ->
+      let age = Float.max 0. age in
+      let fade = Float.min 1. ((duration -. age) /. 0.3) in
+      let wound = clamp01 (age /. wind) in
+      let struck = age -. (wind +. punch) in
+      (* the fist: back behind the wielder, then driven up the lane *)
+      let punch_t = Float.min 1. ((age -. wind) /. punch) in
+      (* it draws back behind the wielder, then is driven up the lane *)
+      let back = (-26.) +. (26. *. (1. -. (wound *. wound))) in
+      let reach_at = if age < wind +. punch then back +. ((reach -. back) *. (punch_t ** 3.)) else reach in
+      let fist_a = fade *. (if age < wind then 0.35 +. (0.65 *. wound) else Float.max 0. (1. -. ((age -. (wind +. punch)) /. (wave *. 0.5)))) in
+      if fade > 0.02 then
+        additive (fun () ->
+            if age < wind then (
+              (* it gathers on the wielder: embers and a ring closing on the fist *)
+              circle wielder.x wielder.y (58. -. (30. *. wound)) (rgb 1. 0.5 0.15 (fade *. 0.16));
+              for k = 0 to 13 do
+                let n = noise k 3 31 in
+                let r = 62. *. (1. -. (n *. wound)) +. 14. in
+                let ang = (n *. 6.28) +. (age *. 2.4) in
+                circle (wielder.x +. (cos ang *. r *. vx)) (wielder.y +. (sin ang *. r *. vy)) (1.8 +. (n *. 2.))
+                  (rgb 1. 0.62 0.22 (fade *. 0.55 *. wound))
+              done);
+            if fist_a > 0.02 then (
+              circle wielder.x wielder.y (26. *. fist_a) (rgb 1. 0.45 0.12 (fade *. 0.1 *. fist_a));
+              fist
+                (wielder.x +. (ux *. reach_at))
+                (wielder.y +. (uy *. reach_at))
+                (0.55 +. (0.45 *. wound))
+                fist_a);
+            (* the shock leaves the fist and runs the row *)
+            if struck > 0. && struck < wave then (
+              let spread = ease_out (clamp01 (struck /. wave)) in
+              let life = fade *. Float.max 0. (1. -. (struck /. wave)) in
+              front ~age (wielder.x -. (((spread *. far_l) +. 40.) *. vx)) mid_y life;
+              front ~age (wielder.x +. (((spread *. far_r) +. 40.) *. vx)) mid_y life;
+              (* sparks thrown ahead of the front *)
+              for k = 0 to 9 do
+                let n = noise k 7 13 in
+                let dy = ((n -. 0.5) *. 90.) *. vy in
+                let off = ((n -. 0.5) *. 60.) *. vx in
+                line (wielder.x +. (off *. (struck /. wave))) (mid_y +. (dy *. (struck /. wave)))
+                  (wielder.x +. (off *. (struck /. wave)) +. (vx *. 14.))
+                  (mid_y +. (dy *. (struck /. wave)) +. (vy *. 14.))
+                  2. (rgb 1. 0.7 0.3 (life *. 0.6))
+              done);
+            (* and every lane it crosses is struck *)
+            Array.iteri
+              (fun i (p : spot) ->
+                let a = age -. hit i in
+                if a > 0. && a < 0.5 then (
+                  let k = a /. 0.5 in
+                  let g = fade *. (1. -. k) in
+                  circle p.x p.y (9. +. (k *. 40.)) (rgb 1. 0.45 0.12 (g *. 0.45));
+                  circle p.x p.y (4. +. (k *. 14.)) (rgb 1. 0.92 0.7 (g *. (1. -. (k *. 0.5))));
+                  (* the fist leaves its mark: two gashes and a burst of shards *)
+                  line (p.x -. 34.) (p.y -. 26.) (p.x +. 30.) (p.y +. 34.) (6. *. (1. -. k) +. 1.)
+                    (rgb 1. 0.75 0.4 (g *. 0.9));
+                  line (p.x +. 34.) (p.y -. 26.) (p.x -. 30.) (p.y +. 34.) (6. *. (1. -. k) +. 1.)
+                    (rgb 1. 0.75 0.4 (g *. 0.9));
+                  for s = 0 to 7 do
+                    let ang = (float s *. (Float.pi /. 4.)) +. 0.3 +. (noise i s 9 *. 0.4) in
+                    let r0 = 12. +. (k *. 14.) in
+                    let r1 = r0 +. (24. *. (1. -. k)) +. 5. in
+                    line
+                      (p.x +. (cos ang *. r0))
+                      (p.y +. (sin ang *. r0 *. 0.85))
+                      (p.x +. (cos ang *. r1))
+                      (p.y +. (sin ang *. r1 *. 0.85))
+                      2.6 (rgb 1. 0.6 0.22 (g *. 0.7))
+                  done))
+              foe)
+        )
+
 (* Shadowcaster scythe: a big blade sweeps across the foe's row, cutting every
    lane, and ends on the foe's portrait. *)
 let spawn_scythe ~foe ~foe_life ~start =

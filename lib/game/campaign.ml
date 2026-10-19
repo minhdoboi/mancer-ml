@@ -152,7 +152,10 @@ let is_unlocked n completed =
   | After_any ids -> List.exists (mem_id completed) ids
 
 let isolate_path =
-  [ ("antimancer", [ "zen"; "fisherman"; "conjurer"; "chronomaster"; "limbo"; "highpriest" ]) ]
+  [
+    ( "antimancer",
+      [ "zen"; "fisherman"; "kahjivir"; "conjurer"; "chronomaster"; "limbo"; "highpriest" ] );
+  ]
 
 let available completed =
   let chapter = chapter_of completed in
@@ -227,11 +230,13 @@ let campaign_portraits =
     "dreamweaver";
     "antimancer";
     "zen";
+    "kahjivir";
     "conjurer";
     "chronomaster";
     "shaman";
     "warp";
     "kinetician";
+    "blacksmith";
     "rogue";
     "tinker";
     "battlemage";

@@ -29,6 +29,17 @@ let target_spot layout (c : command) =
   | Some n, Some pid -> Some (layout.slot_center pid n)
   | _ -> None
 
+(* The creature standing opposite a lane: that lane on the other side, or the
+   nearest one with a creature in it, so a shot aimed at a lane reads as a shot
+   at something.  An empty board still takes the lane itself. *)
+let opposite_spot layout (c : command) lane =
+  let foe = other (Option.value (Table.target_side c) ~default:c.cmd_player) in
+  if Option.is_some (layout.slot_card foe lane) then layout.slot_center foe lane
+  else
+    match List.sort (fun a b -> compare (abs (a - lane)) (abs (b - lane))) (layout.occupied foe) with
+    | [] -> layout.slot_center foe lane
+    | n :: _ -> layout.slot_center foe n
+
 let look_recipe layout (c : command) look =
   let own, foe0 = own_foe layout c.cmd_player in
   let foe = if c.cmd_card.key = "disciples.wind" then oppress_foe layout c.cmd_player else foe0 in
@@ -492,6 +503,37 @@ let for_spell layout (c : command) =
       Some
         (recipe ~duration:river_of_blood_duration ~blocking:true (fun ~start ->
              spawn_river_of_blood ~own_life:(layout.life player) ~foe ~foe_life ~start))
+  | "blacksmith.mithrilbow" ->
+      (* the wielder looses the arrow itself, and it lands on the creature
+         standing in the opposite lane *)
+      let lane = match c.cmd_input with Some n when in_slot_range n -> n | _ -> 4 in
+      let wielder = Option.value (target_spot layout c) ~default:(layout.slot_center player lane) in
+      Some
+        (recipe ~duration:mithril_bow_duration ~blocking:true (fun ~start ->
+             spawn_mithril_bow ~from_p:wielder ~to_p:(opposite_spot layout c lane) ~start))
+  | "blacksmith.barguliangauntlet" ->
+      (* the wielder's own fist punches, and the shock it throws runs the whole
+         of the opponent's row *)
+      let lane = match c.cmd_input with Some n when in_slot_range n -> n | _ -> 4 in
+      let wielder = Option.value (target_spot layout c) ~default:(layout.slot_center player lane) in
+      let foe = slots_of other layout.slot_center in
+      Some
+        (recipe ~duration:gauntlet_duration ~blocking:true (fun ~start ->
+             spawn_gauntlet ~wielder ~foe ~foe_pid:other ~start))
+  | "blacksmith.excalibur" ->
+      (* the wielder is the wielder's lane: the sword is driven through them and
+         comes out in the lane opposite, or into the opponent if nothing stands
+         there *)
+      let lane = match c.cmd_input with Some n when in_slot_range n -> n | _ -> 4 in
+      let wielder = Option.value (target_spot layout c) ~default:(layout.slot_center player lane) in
+      let foe_pid = Sp.other (Option.value (Table.target_side c) ~default:player) in
+      let through =
+        if layout.slot_card foe_pid lane = None then layout.life foe_pid
+        else layout.slot_center foe_pid lane
+      in
+      Some
+        (recipe ~duration:excalibur_duration ~blocking:true (fun ~start ->
+             spawn_excalibur ~wielder ~through ~start))
   | _ -> Option.map (look_recipe layout c) (Spell_looks.get c.cmd_card.key)
 
 let for_ability layout ~kind ~player ~num ~target =
@@ -596,6 +638,9 @@ let demo_names =
     "terrorize";
     "obliterate";
     "riverofblood";
+    "bow";
+    "excalibur";
+    "gauntlet";
   ]
 
 let spawn_demo layout name =
@@ -732,4 +777,7 @@ let spawn_demo layout name =
       go (spawn_obliterate ~foe ~foe_pid:opponent ~foe_life ~start:now)
   | "riverofblood" ->
       go (spawn_river_of_blood ~own_life ~foe:[| foe.(1); foe.(2); foe.(3) |] ~foe_life ~start:now)
+  | "bow" -> go (spawn_mithril_bow ~from_p:own.(2) ~to_p:foe.(2) ~start:now)
+  | "excalibur" -> go (spawn_excalibur ~wielder:own.(2) ~through:foe.(2) ~start:now)
+  | "gauntlet" -> go (spawn_gauntlet ~wielder:own.(2) ~foe ~foe_pid:opponent ~start:now)
   | _ -> ()

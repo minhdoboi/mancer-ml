@@ -144,3 +144,13 @@
  (name paganist)
  (modules paganist)
  (libraries mancer support alcotest))
+
+(test
+ (name kahjivir)
+ (modules kahjivir)
+ (libraries mancer support alcotest))
+
+(test
+ (name blacksmith)
+ (modules blacksmith)
+ (libraries mancer support alcotest))

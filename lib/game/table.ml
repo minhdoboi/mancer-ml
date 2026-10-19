@@ -117,7 +117,7 @@ let house_groups =
       ("Wavelength", [ "seasons"; "meteomancer"; "dreamweaver"; "quantumancer"; "faerie" ]);
       ("sfault", [ "conjurer" ]);
       ("Redrook", [ "tinker"; "soulbinder"; "entomologist"; "shadowcaster"; "spiritshaman" ]);
-      ("valentine", [ "rogue" ]);
+      ("valentine", [ "rogue"; "kahjivir" ]);
       ("fuzzer", [ "limbo" ]);
       ("Madhatter97", [ "colors" ]);
       ("lordvanmaru", [ "shadowmage" ]);
@@ -129,6 +129,7 @@ let house_groups =
       ("badsleep", [ "junk"; "disciples"; "snowblood"; "warp"; "zen" ]);
       ("Floofy", [ "emotion" ]);
       ("Zannoland", [ "paganist" ]);
+      ("bZanno", [ "blacksmith" ]);
     ]
 
 let group_of_house key =

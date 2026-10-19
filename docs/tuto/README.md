@@ -1,8 +1,8 @@
 # Tutorials
 
-Eight documents about how `mancer-ml` is put together, how its AI
-opponents think, how the spell effects are drawn, and how the lobby ocean is
-synthesised. Read them in order the
+Nine documents about how `mancer-ml` is put together, how its AI
+opponents think, how the spell effects are drawn, and how the lobby ocean and
+the blacksmith sounds are synthesised. Read them in order the
 first time; after that they are reference.
 
 | # | File | What you get out of it |
@@ -15,6 +15,7 @@ first time; after that they are reference.
 | 6 | [06-bot-landscape.md](06-bot-landscape.md) · [fr](06-bot-landscape.fr.md) | All six bots side by side, the tuning knobs, the Elo and sampling arithmetic, and how to measure a change. |
 | 7 | [07-visual-effects.md](07-visual-effects.md) · [fr](07-visual-effects.fr.md) | The effects layer: the timeline, and the maths behind the lightning fractal, the fire sheet, and the madness eye. |
 | 8 | [08-ocean-sound.md](08-ocean-sound.md) · [fr](08-ocean-sound.fr.md) | The lobby ocean: value noise, swell and wind envelopes, the cutoff-following low-pass, and raylib's streaming buffers. |
+| 9 | [09-blacksmith-sounds.md](09-blacksmith-sounds.md) · [fr](09-blacksmith-sounds.fr.md) | The two Blacksmith spell clips synthesised by `scripts/gen_blacksmith_sounds.py`: band-filtered noise layers, soft clipping, and the fx constants the timing is copied from. |
 
 ## Conventions
 
@@ -89,4 +90,14 @@ gui/fx_stage.ml        the table: card key -> effect
 ```
 
 Press **F8** in a duel to cycle through `Fx.demo_names` and watch every effect
-without playing the card that causes it.
+without playing the card that causes it. It spawns the visual only — the spell
+sounds come from the event, so they stay silent.
+
+The two Blacksmith clips are generated, not recorded, by one script:
+
+```text
+scripts/gen_blacksmith_sounds.py    numpy + ffmpeg -> assets/sounds/<english card name>.mp3
+```
+
+Run it by hand after changing a timing constant in `fx_dedicated.ml`; its
+numbers are copied from those, not shared with them.

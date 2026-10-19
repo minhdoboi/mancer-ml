@@ -50,6 +50,8 @@ let all_houses =
     Kinetician.house;
     Emotion.house;
     Paganist.house;
+    Kahjivir.house;
+    Blacksmith.house;
   ]
 
 let init_all_houses () =
@@ -96,7 +98,9 @@ let init_all_houses () =
   Game.init_cards Highpriest.house;
   Game.init_cards Kinetician.house;
   Game.init_cards Emotion.house;
-  Game.init_cards Paganist.house
+  Game.init_cards Paganist.house;
+  Game.init_cards Kahjivir.house;
+  Game.init_cards Blacksmith.house
 
 let card_by_key key =
   all_houses

@@ -59,6 +59,9 @@ and slot_data =
   | Lake_mods of desc_mod list
   (* Warp: the creature under a Cloak, restored when the Cloak dies *)
   | Cloaked of slot_state
+  (* Blacksmith Flying Chariot: the wielder riding the Pegasus, restored when
+     the Pegasus dies *)
+  | Ridden of slot_state
   (* Warp: id of the creature a Schizo silenced, released when the Schizo leaves *)
   | Schizo_target of int
   (* Warp: set on the card of a silenced creature, the creature it stands for *)
@@ -95,7 +98,12 @@ and slot_snap = {
   ss_attack_sources : attack_sources;
   ss_target : int list;
   ss_data : slot_data;
+  ss_marks : blacksmith_mark list;
 }
+
+(* A lasting Blacksmith spell on a creature.  [bm_target] is the slot id of the
+   linked creature for the spawned Astral Cloak/Dagger tokens (0 otherwise). *)
+and blacksmith_mark = { bm_key : string; bm_used : bool; bm_target : int }
 
 and board_snap = { bs_owner : slot_snap list; bs_opp : slot_snap list }
 and wind_state = { winged : bool; vortex : bool }
@@ -184,7 +192,16 @@ and context = { ctx_player : player_id; ctx_card : card option; ctx_selected : i
 
 (* [redirected]: set on a spell hit that a Battlemage field mage has taken in another creature's place, so it
    is not redirected twice (Scala's RedirectedContext) *)
-and damage = { amount : int; context : context; is_ability : bool; is_spell : bool; redirected : bool }
+and damage = {
+  amount : int;
+  context : context;
+  is_ability : bool;
+  is_spell : bool;
+  redirected : bool;
+  (* Bargulian Gauntlet: ignores protection and also lowers max life (so the
+     damage cannot be healed back). *)
+  mortal : bool;
+}
 and run_attack_kind = Single_target | Multi_target | Custom of (int list -> damage -> player_update -> unit)
 and run_attack = { can_attack : bool; apply_ : run_attack_kind; is_multi_target : bool }
 
@@ -215,6 +232,7 @@ and slot_state = {
   slot_id : int;
   reaction : reaction;
   data : slot_data;
+  marks : blacksmith_mark list;
 }
 
 and phase_effects = {
@@ -440,8 +458,8 @@ let effect_at (e : phase_effects) = function
   | On_end_turn -> e.on_end_turn
   | On_start -> e.on_start
 
-let mk_damage ?(is_ability = false) ?(is_spell = false) amount context =
-  { amount; context; is_ability; is_spell; redirected = false }
+let mk_damage ?(is_ability = false) ?(is_spell = false) ?(mortal = false) amount context =
+  { amount; context; is_ability; is_spell; redirected = false; mortal }
 
 (* Scala keeps separate counters for Card.currentId and SlotState.currentId *)
 let card_counter = ref 0

@@ -80,6 +80,12 @@ let looks =
     ("highpriest.Curseofchaos", look Fireburst Target 0.95 0.25 0.1 ());
     ("highpriest.EyeofWajet", look Rays All_slots 1. 0.85 0.4 ());
     ("kinetician.force", look Ring Target 0.4 0.75 1. ());
+    ("kahjivir.hunger", look Rise Own_target 0.95 0.3 0.2 ());
+    ("kahjivir.ambush", look Spikes Own_target 0.9 0.7 0.25 ~power:1.1 ());
+    ("blacksmith.mithrilspear", look Rays Own_target 0.92 0.82 0.5 ());
+    ("blacksmith.mithrilshield", look Ring Own_target 0.5 0.8 1. ());
+    ("blacksmith.wizardshat", look Rise Own_target 0.7 0.6 1. ());
+    ("blacksmith.cloakanddagger", look Shadow Own_target 0.45 0.35 0.55 ());
   ]
 
 let custom =
@@ -118,6 +124,9 @@ let custom =
     "vampires.flock";
     "vampires.ties";
     "warp.quake";
+    "blacksmith.mithrilbow";
+    "blacksmith.excalibur";
+    "blacksmith.barguliangauntlet";
     "elementalist.frost";
     "darkpriest.BlackMass.name";
     "battlemage.warcry";
@@ -134,7 +143,8 @@ let custom =
 (* Spells whose visual is not a cast overlay at all. Eclipse darkens the whole
    board for as long as the shield is up -- see [draw_eclipse] in gui_board.ml,
    which reads the player's own shield value every frame -- so casting it needs
-   nothing here, and a flare on top only fought with that. *)
-let elsewhere = [ "shadowmage.eclipse" ]
+   nothing here, and a flare on top only fought with that. Flying Chariot is
+   carried by its Pegasus summon slide, not by a spell overlay. *)
+let elsewhere = [ "shadowmage.eclipse"; "blacksmith.flyingchariot" ]
 let get key = List.assoc_opt key looks
 let covered key = Option.is_some (get key) || List.mem key custom || List.mem key elsewhere

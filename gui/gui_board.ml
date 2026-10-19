@@ -583,6 +583,17 @@ let run_fx ui recipe =
   Fx.spawn (recipe.make ~start);
   start
 
+(* Tokens and additional cards are not listed in the hand.  Their summon still
+   comes out of the matching house/deck column, so the Pegasus card visibly
+   rides out of the Blacksmith deck instead of appearing from off-screen. *)
+let summon_deck_rect ui player (card : card) =
+  match List.find_index (fun hd -> hd.phd_house.h_index = card.house_index) (Table.hand ui.table player) with
+  | Some col ->
+      let hd = List.nth (Table.hand ui.table player) col in
+      let k = max 0 (min (n_hand_rows - 1) (Array.length hd.phd_cards - 1)) in
+      hand_card_rect ui player col k
+  | None -> rect 0. (vh -. 600.) card_w card_h
+
 let queue_slides ui e =
   lay := make_layout ui.table;
   match e with
@@ -592,7 +603,9 @@ let queue_slides ui e =
       else
         let card = creature.c_card in
         let from_r =
-          Option.value (find_hand_rect ui player card) ~default:(rect 0. (vh -. 600.) card_w card_h)
+          match find_hand_rect ui player card with
+          | Some r -> r
+          | None -> summon_deck_rect ui player card
         in
         let to_r = slot_rect ui player num in
         let cost, attack, life, max_life =
@@ -802,6 +815,56 @@ let draw_status_overlay r st =
           let bl_x, bl_y = if corner then (50., 60.) else (2., 15.) in
           image_at t (box fr (bl_x, nh -. bl_y -. th, tw, th) s);
           true)
+
+(* Blacksmith: a row of small spell marks in the top-left corner of the art,
+   the same size as the attack/life/cost labels.  Astral Cloak/Dagger carry
+   internal marks that are just links, not visible enchantments. *)
+let blacksmith_icon (m : blacksmith_mark) =
+  match m.bm_key with
+  | "spear" -> Some "bs-spear"
+  | "bow" -> Some (if m.bm_used then "bs-bow-used" else "bs-bow")
+  | "shield" -> Some "bs-shield"
+  | "hat" -> Some "bs-hat"
+  | "chariot" -> Some "bs-chariot"
+  | "cloakdagger" -> Some "bs-cloakdagger"
+  | "excalibur" -> Some "bs-excalibur"
+  | "gauntlet" -> Some "bs-gauntlet"
+  | _ -> None
+
+let draw_blacksmith_marks r st =
+  let marks = List.filter (fun (m : blacksmith_mark) -> blacksmith_icon m <> None) st.marks in
+  if marks <> [] then
+    let nw, nh = creature_native in
+    let fr, s = fit_in r nw nh in
+    let side = 19. in
+    List.iteri
+      (fun i (m : blacksmith_mark) ->
+        match blacksmith_icon m with
+        | None -> ()
+        | Some name -> (
+            match texture (Assets.combat name) with
+            | None -> ()
+            | Some t -> image_at t (box fr (3. +. (float i *. (side +. 1.)), 7., side, side) s)))
+      marks
+
+(* Flying Chariot: the hidden wielder rides visibly on the Pegasus.  This is
+   display only; the slot is still the Pegasus, and the card comes back when
+   the Pegasus dies.  Keep just a small piece of art and the attack value:
+   attack is the only live stat of the carried card. *)
+let draw_rider_card r (hidden : slot_state) =
+  let w = r.w *. 0.38 and h = r.h *. 0.38 in
+  let rr = rect (r.x +. (r.w *. 0.035)) (r.y +. (r.h *. 0.025)) w h in
+  fill ~round:0.04 (rect (rr.x -. 1.) (rr.y -. 1.) (rr.w +. 2.) (rr.h +. 2.)) (rgba 0 0 0 165);
+  (match card_texture hidden.card.c_card with
+  | Some t -> image t rr
+  | None -> fill ~round:0.04 rr panel_hi);
+  outline ~round:0.04 ~thick:1. rr (rgba 246 196 82 210);
+  let nw, nh = creature_native in
+  let _, s = fit_in r nw nh in
+  let fs = Float.max 13. (16. *. s) in
+  let tx = rr.x +. (2. *. s) and ty = rr.y +. rr.h -. fs -. (3. *. s) in
+  text ~font:bold ~size:fs ~color:(rgba 0 0 0 210) (tx +. 1.) (ty +. 1.) (string_of_int hidden.attack);
+  text ~font:bold ~size:fs ~color:red tx ty (string_of_int hidden.attack)
 
 let flag_names st =
   let flags =
@@ -1033,7 +1096,12 @@ let draw_slot ui pid num =
                  draw_card_face (desc ui) r c ~cost:(Some c.cost)
                    ~attack:(Some (string_of_int st.attack))
                    ~life:(Some st.life) ~life_color ~tint
-                   ~decor:(fun () -> decorated := draw_status_overlay r st)
+                   ~decor:(fun () ->
+                     decorated := draw_status_overlay r st;
+                     draw_blacksmith_marks r st);
+                 match st.data with
+                 | Ridden hidden -> draw_rider_card r hidden
+                 | _ -> ()
                in
                if warp > 0.02 then with_warp r warp face else face r;
                if not !decorated then
@@ -1191,6 +1259,16 @@ let house_blurb (h : house) =
 let open_house_dlg ui pid (h : house) =
   ui.house_dlg <- Some { house = h; player = pid; scroll = 0.; drag = false; content_h = 0. }
 
+let rider_note ?state ?player (c : card) =
+  match (state, player) with
+  | Some st, Some pid when c.key = "blacksmith.pegasus" ->
+      Array.to_list st.players.(pid).ps_slots
+      |> List.find_map (function Some { data = Ridden hidden; _ } -> Some hidden | _ -> None)
+      |> Option.map (fun (hidden : slot_state) ->
+             Printf.sprintf "Wielder card: %s, %d attack, %d life." (Assets.card_name hidden.card.c_card)
+               hidden.attack hidden.life)
+  | _ -> None
+
 let card_preview_bits ?state ?player ?max_life (c : card) =
   let title = Printf.sprintf "%s (%d)" (Assets.card_name c) c.cost in
   let subtitle =
@@ -1206,8 +1284,11 @@ let card_preview_bits ?state ?player ?max_life (c : card) =
     | None -> "Spell"
   in
   let desc_text =
-    let d = Assets.describe ?state ?player c in
-    if d = "" || d = c.description then "" else d
+    let base = Assets.describe ?state ?player c in
+    let base = if base = c.description then "" else base in
+    match rider_note ?state ?player c with
+    | Some extra -> if base = "" then extra else base ^ "\n" ^ extra
+    | None -> base
   in
   (title, subtitle, desc_text)
 

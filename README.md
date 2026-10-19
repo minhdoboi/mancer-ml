@@ -184,7 +184,8 @@ A rules change shows up as an expect diff: review it, then `dune promote`.
 ## Docs
 
 - [Tutorials](docs/tuto/README.md) — the architecture, how the AI opponents
-  think (Oracle, Diviner, and the rest), and the maths behind the spell effects
+  think (Oracle, Diviner, and the rest), the maths behind the spell effects,
+  and how the lobby ocean and the blacksmith sounds are synthesised
 - [Migration status and Scala map](docs/tech/migration.md)
 - [House port mismatches](docs/tech/house-port-mismatches.md)
 - [Spell-effect port plan](docs/tech/effects-port-plan.md)

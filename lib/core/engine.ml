@@ -203,20 +203,34 @@ module Slot = struct
   let damage_slot s d =
     Option.iter
       (fun st ->
-        (* /!\ self_protect may have a side effect; protect_hook is Scala's
-           SlotUpdate.protect decorator (LostChurch wraps it). *)
-        let d = s.protect_hook (st.reaction.self_protect d) in
-        let st = match s.value with Some x -> x | None -> st in
-        let amount =
-          match state_inflict st d with
-          | None ->
-              s.delayed_destroy_hook d;
-              st.life
-          | Some ns ->
-              s.value <- Some ns;
-              st.life - ns.life
-        in
-        s.on_damage_hook st { d with amount })
+        if d.mortal then (
+          (* Bargulian Gauntlet: no protect/selfProtect, and the damage also
+             cuts max life so healing cannot bring it back. *)
+          let st = match s.value with Some x -> x | None -> st in
+          if has_flag st invincible_flag then ()
+          else
+            let lost = min st.life d.amount in
+            let newlife = st.life - d.amount in
+            if newlife < 1 then s.delayed_destroy_hook d
+            else
+              s.value <-
+                Some { st with life = newlife; max_life = max 1 (st.max_life - lost) };
+            s.on_damage_hook st { d with amount = lost })
+        else (
+          (* /!\ self_protect may have a side effect; protect_hook is Scala's
+             SlotUpdate.protect decorator (LostChurch wraps it). *)
+          let d = s.protect_hook (st.reaction.self_protect d) in
+          let st = match s.value with Some x -> x | None -> st in
+          let amount =
+            match state_inflict st d with
+            | None ->
+                s.delayed_destroy_hook d;
+                st.life
+            | Some ns ->
+                s.value <- Some ns;
+                st.life - ns.life
+          in
+          s.on_damage_hook st { d with amount }))
       s.value
 end
 
@@ -264,6 +278,7 @@ module Slots = struct
       slot_id = fresh_slot_id ();
       reaction;
       data = b.b_data;
+      marks = [];
     }
 
   let summon (su : slots_update) num creature =

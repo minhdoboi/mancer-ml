@@ -251,7 +251,7 @@
       "y": 0.5,
       "after_any": [
         "go_city",
-        "otter"
+        "blacksmith"
       ],
       "fight": {
         "house_key": "Dudes",
@@ -422,12 +422,26 @@
       }
     },
     {
+      "id": "kahjivir",
+      "chapter": "night",
+      "x": 0.4,
+      "y": 0.77,
+      "after": [
+        "fisherman"
+      ],
+      "fight": {
+        "house_key": "kahjivir",
+        "bot_id": "lecturer",
+        "portrait_id": "kahjivir"
+      }
+    },
+    {
       "id": "conjurer",
       "chapter": "night",
       "x": 0.53,
       "y": 0.81,
       "after": [
-        "fisherman"
+        "kahjivir"
       ],
       "fight": {
         "house_key": "conjurer",
@@ -518,6 +532,20 @@
           "to_mountain",
           "to_valley"
         ]
+      }
+    },
+    {
+      "id": "blacksmith",
+      "chapter": "day",
+      "x": 0.56,
+      "y": 0.455,
+      "after": [
+        "otter"
+      ],
+      "fight": {
+        "house_key": "blacksmith",
+        "bot_id": "lecturer",
+        "portrait_id": "blacksmith"
       }
     },
     {
@@ -827,6 +855,10 @@
     },
     {
       "from": "otter",
+      "to": "blacksmith"
+    },
+    {
+      "from": "blacksmith",
       "to": "dudes"
     },
     {
@@ -911,6 +943,10 @@
     },
     {
       "from": "fisherman",
+      "to": "kahjivir"
+    },
+    {
+      "from": "kahjivir",
       "to": "conjurer"
     },
     {

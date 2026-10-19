@@ -23,6 +23,7 @@ let slot_snaps (p : player_update) =
             ss_attack_sources = st.attack_sources;
             ss_target = st.target;
             ss_data = st.data;
+            ss_marks = st.marks;
           })
         s.value)
 
@@ -105,6 +106,7 @@ let write_side p snaps =
             attack_sources = sources;
             target = snap.ss_target;
             data = snap.ss_data;
+            marks = snap.ss_marks;
           }))
     snaps
 
