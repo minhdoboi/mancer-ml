@@ -27,10 +27,14 @@ let load = Fx_core.load
 let unload = Fx_core.unload
 let spawn = Fx_core.spawn
 let draw_underlay = Fx_core.draw_underlay
-let draw_all = Fx_core.draw_all
+let draw_all ~now = Fx_core.draw_all ~now
 let set_scroll = Fx_core.set_scroll
-let clear = Fx_core.clear
+let clear () = Fx_core.clear ()
+
+
 let slot_offset = Fx_core.slot_offset
+let add_portrait_shake = Fx_core.add_portrait_shake
+let portrait_offset = Fx_core.portrait_offset
 let with_grey = Fx_core.with_grey
 let with_night = Fx_core.with_night
 let draw_sel = Fx_core.draw_sel
@@ -53,6 +57,15 @@ let set_powder_spots ~occupied spots =
 let warp_amount = Fx_core.warp_amount
 let warp_any = Fx_core.warp_any
 let warp_shader name = Option.map (fun s -> s.Fx_core.sh) (Fx_core.load_named name)
+let dissolve_state = Fx_core.dissolve_state
+let dissolve_shader () = Option.map (fun s -> s.Fx_core.sh) (Fx_core.dissolve_shader ())
+
+let dissolve_uniforms ~amount ~seed =
+  Option.iter
+    (fun s ->
+      Fx_core.set_float s "u_amount" amount;
+      Fx_core.set_float s "u_seed" seed)
+    (Fx_core.dissolve_shader ())
 
 let warp_uniforms ~amount =
   Option.iter

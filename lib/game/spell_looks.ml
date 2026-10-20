@@ -138,6 +138,9 @@ let custom =
     "paganist.terrorize";
     "paganist.obliterate";
     "paganist.blood";
+    "trappers.rose";
+    "trappers.undergroundpoison";
+    "trappers.roots";
   ]
 
 (* Spells whose visual is not a cast overlay at all. Eclipse darkens the whole

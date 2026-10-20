@@ -64,6 +64,8 @@ and slot_data =
   | Ridden of slot_state
   (* Warp: id of the creature a Schizo silenced, released when the Schizo leaves *)
   | Schizo_target of int
+  (* Trappers Mind Witch: id of the creature the Witch is silencing, released when the Witch leaves *)
+  | Witch_bound of int
   (* Warp: set on the card of a silenced creature, the creature it stands for *)
   | Mortal_of of creature
   (* Shadowmage: Shade Stalker until it takes damage; Dark Warden after blocking once this turn *)

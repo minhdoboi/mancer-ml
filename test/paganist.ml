@@ -203,6 +203,26 @@ let river_of_blood_stops_at_the_caster () =
   check_int "opponent untouched" 60 (player_life u 1);
   check_string "creature untouched" "fire.goblin" (Option.get (occupant u 1 0))
 
+(* the flood is announced for the animation only when the caster is still standing after its cut *)
+let river_of_blood_announces_the_flood_when_the_caster_survives () =
+  let u = new_game ~mana:ten ~special:Paganist.house () in
+  place u 1 "fire.goblin" 0;
+  let events = ref [] in
+  Updater.listen u (fun e -> events := e :: !events);
+  play u 0 "paganist.blood" ~input:None ~cost:8;
+  check_bool "flood sent" true
+    (List.mem (Ev_ability { kind = "paganist.flood"; player = 0; num = 0; target = None }) !events)
+
+let river_of_blood_sends_no_flood_when_the_caster_dies () =
+  let u = new_game ~mana:ten ~special:Paganist.house () in
+  step u (fun () -> (player u 0).pstate.ps_life <- 20);
+  place u 1 "fire.goblin" 0;
+  let events = ref [] in
+  Updater.listen u (fun e -> events := e :: !events);
+  play u 0 "paganist.blood" ~input:None ~cost:8;
+  check_bool "no flood" false
+    (List.exists (function Ev_ability { kind = "paganist.flood"; _ } -> true | _ -> false) !events)
+
 let () =
   let open Alcotest in
   run "paganist"
@@ -220,6 +240,8 @@ let () =
           test_case "moloch attack" `Quick moloch_attack_hits_everyone;
           test_case "obliterate" `Quick obliterate_souls_locks_the_caster;
           test_case "river survives" `Quick river_of_blood_hits_when_the_caster_survives;
+          test_case "river announces flood" `Quick river_of_blood_announces_the_flood_when_the_caster_survives;
+          test_case "river no flood on death" `Quick river_of_blood_sends_no_flood_when_the_caster_dies;
           test_case "river kills" `Quick river_of_blood_stops_at_the_caster;
         ] );
     ]

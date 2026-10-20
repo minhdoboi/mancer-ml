@@ -37,6 +37,7 @@ val draw_all : now:float -> unit
 val set_scroll : float -> unit
 (** The board's current vertical scroll; effects follow it from where they spawned. *)
 val clear : unit -> unit
+
 (** Drops every overlay effect and shake, e.g. when a rematch starts. *)
 val for_spell : layout -> command -> recipe option
 
@@ -48,6 +49,10 @@ val for_ability :
   layout -> kind:string -> player:player_id -> num:int -> target:(player_id * int) option -> recipe option
 
 val slot_offset : player_id -> int -> float * float
+
+val add_portrait_shake : player_id -> start:float -> duration:float -> strength:float -> unit
+val portrait_offset : player_id -> float * float
+(** A portrait's shake, as [slot_offset] gives it for a creature. *)
 val with_grey : bool -> (unit -> unit) -> unit
 
 val with_night : float -> (unit -> unit) -> unit
@@ -80,6 +85,14 @@ val warp_any : unit -> bool
 
 val warp_amount : spot -> float
 (** How strongly Warp reality bends the creature at this slot centre right now (0 when it does not). *)
+
+val dissolve_state : spot -> (float * float) option
+(** Obliterate: how far the creature's card at this slot centre has been eaten away (0..1) and its noise
+    seed, while the effect is eating it; [None] when no effect is. *)
+
+val dissolve_shader : unit -> Raylib.Shader.t option
+val dissolve_uniforms : amount:float -> seed:float -> unit
+(** The dissolve shader and its uniforms, as [warp_shader] and [warp_uniforms]. *)
 
 val warp_shader : string -> Raylib.Shader.t option
 (** The named effect shader, if it loaded. *)

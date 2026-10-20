@@ -203,12 +203,27 @@
       }
     },
     {
+      "id": "trappers",
+      "chapter": "day",
+      "x": 0.81,
+      "y": 0.47,
+      "after": [
+        "otter"
+      ],
+      "fight": {
+        "house_key": "trappers",
+        "bot_id": "summoner",
+        "portrait_id": "trappers",
+        "life": 30
+      }
+    },
+    {
       "id": "fairy_knight",
       "chapter": "day",
       "x": 0.9399999999999999,
       "y": 0.53,
       "after": [
-        "otter"
+        "trappers"
       ],
       "fight": {
         "house_key": "fairy",
@@ -863,6 +878,10 @@
     },
     {
       "from": "otter",
+      "to": "trappers"
+    },
+    {
+      "from": "trappers",
       "to": "fairy_knight"
     },
     {

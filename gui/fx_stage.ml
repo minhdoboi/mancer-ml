@@ -410,6 +410,35 @@ let for_spell layout (c : command) =
           in
           recipe ~duration:1.8 ~blocking:true (fun ~start -> spawn_lavender_nectar ~target:t ~house ~start))
         target
+  | "trappers.rose" ->
+      (* the stems need both ends of the creature: the card they drink from and
+         the ground they come up through *)
+      Option.bind c.cmd_input (fun n ->
+          Option.map
+            (fun tp ->
+              recipe ~duration:underworld_rose_duration ~blocking:true (fun ~start ->
+                  spawn_underworld_rose ~source ~target:(layout.slot_center tp n) ~start))
+            (Table.target_side c))
+  | "trappers.undergroundpoison" ->
+      (* the poison comes up under the creature it kills and runs out along the roots
+         to every other creature on that side, bursting through each lane's ground *)
+      Option.bind c.cmd_input (fun n ->
+          Option.map
+            (fun pid ->
+              let foes =
+                List.filter (fun m -> m <> n) (layout.occupied pid)
+                |> List.map (fun m -> (layout.slot_floor pid m, layout.slot_center pid m))
+                |> Array.of_list
+              in
+              recipe ~duration:underground_poison_duration ~blocking:true (fun ~start ->
+                  spawn_underground_poison ~target:(layout.slot_center pid n) ~floor:(layout.slot_floor pid n)
+                    ~foes ~start))
+            (Table.target_side c))
+  | "trappers.roots" ->
+      (* the creatures on that side are bound, and green smoke puffs up from each one's floor *)
+      let floors = Array.of_list (List.map (layout.slot_floor other) (layout.occupied other)) in
+      if floors = [||] then None
+      else Some (recipe ~duration:roots_smoke_duration ~blocking:true (fun ~start -> spawn_roots_smoke ~floors ~start))
   | "wind.EnergeticVortex.name" ->
       let foe_air = layout.house other 2 and own_air = layout.house player 2 in
       let life = layout.life player in
@@ -489,20 +518,22 @@ let for_spell layout (c : command) =
               spawn_unholy_contract ~at:t ~foe_life ~start))
         target
   | "paganist.terrorize" ->
-      Option.map
-        (fun t -> recipe ~duration:terrorize_duration ~blocking:true (fun ~start -> spawn_terrorize ~at:t ~foe_life ~start))
-        target
+      (match (c.cmd_input, Table.target_side c) with
+      | Some n, Some tp ->
+          Some
+            (recipe ~duration:terrorize_duration ~blocking:true (fun ~start ->
+                 spawn_terrorize ~at:(layout.slot_center tp n) ~pid:tp ~num:n ~start))
+      | _ -> None)
   | "paganist.obliterate" ->
       let foe = slots_of other layout.slot_center in
       Some
         (recipe ~duration:obliterate_duration ~blocking:true (fun ~start ->
-             spawn_obliterate ~foe ~foe_pid:other ~foe_life ~start))
+             spawn_obliterate ~foe ~occupied:(layout.occupied other) ~foe_pid:other ~start))
   | "paganist.blood" ->
-      (* only creatures take the flood, so only creatures get splashed *)
-      let foe = layout.occupied other |> List.map (layout.slot_center other) |> Array.of_list in
+      (* the cut is all the spell shows; the flood follows as its own ability, and only if the caster survives *)
       Some
-        (recipe ~duration:river_of_blood_duration ~blocking:true (fun ~start ->
-             spawn_river_of_blood ~own_life:(layout.life player) ~foe ~foe_life ~start))
+        (recipe ~duration:blood_cut_duration ~blocking:true (fun ~start ->
+             spawn_blood_cut ~own_life:(layout.life player) ~start))
   | "blacksmith.mithrilbow" ->
       (* the wielder looses the arrow itself, and it lands on the creature
          standing in the opposite lane *)
@@ -538,6 +569,13 @@ let for_spell layout (c : command) =
 
 let for_ability layout ~kind ~player ~num ~target =
   match kind with
+  | "paganist.flood" ->
+      (* only creatures take the flood, so only creatures get splashed *)
+      let foe = other player in
+      let foes = layout.occupied foe |> List.map (layout.slot_center foe) |> Array.of_list in
+      Some
+        (recipe ~duration:blood_flood_duration ~blocking:true (fun ~start ->
+             spawn_blood_flood ~own_life:(layout.life player) ~foe:foes ~foe_life:(layout.life foe) ~start))
   | "zen.spark" ->
       Option.map
         (fun (tp, tn) ->
@@ -641,6 +679,8 @@ let demo_names =
     "bow";
     "excalibur";
     "gauntlet";
+    "rose";
+    "underground";
   ]
 
 let spawn_demo layout name =
@@ -772,12 +812,20 @@ let spawn_demo layout name =
   | "offering" ->
       go (spawn_final_offering ~own:[| own.(1); own.(2); own.(3) |] ~foe_life ~start:now)
   | "contract" -> go (spawn_unholy_contract ~at:foe.(2) ~foe_life ~start:now)
-  | "terrorize" -> go (spawn_terrorize ~at:foe.(2) ~foe_life ~start:now)
+  | "terrorize" -> go (spawn_terrorize ~at:foe.(2) ~pid:opponent ~num:2 ~start:now)
   | "obliterate" ->
-      go (spawn_obliterate ~foe ~foe_pid:opponent ~foe_life ~start:now)
+      go (spawn_obliterate ~foe ~occupied:base_slot_list ~foe_pid:opponent ~start:now)
   | "riverofblood" ->
-      go (spawn_river_of_blood ~own_life ~foe:[| foe.(1); foe.(2); foe.(3) |] ~foe_life ~start:now)
+      go (spawn_blood_cut ~own_life ~start:now);
+      go (spawn_blood_flood ~own_life ~foe:[| foe.(1); foe.(2); foe.(3) |] ~foe_life ~start:(now +. blood_cut_duration))
   | "bow" -> go (spawn_mithril_bow ~from_p:own.(2) ~to_p:foe.(2) ~start:now)
   | "excalibur" -> go (spawn_excalibur ~wielder:own.(2) ~through:foe.(2) ~start:now)
   | "gauntlet" -> go (spawn_gauntlet ~wielder:own.(2) ~foe ~foe_pid:opponent ~start:now)
+  | "rose" -> go (spawn_underworld_rose ~source:own.(2) ~target:foe.(2) ~start:now)
+  | "underground" ->
+      let foes =
+        Array.of_list
+          (List.map (fun m -> (layout.slot_floor opponent m, layout.slot_center opponent m)) [ 0; 1; 3; 4; 5 ])
+      in
+      go (spawn_underground_poison ~target:foe.(2) ~floor:(layout.slot_floor opponent 2) ~foes ~start:now)
   | _ -> ()

@@ -217,6 +217,7 @@ let campaign_portraits =
     "disciples";
     "junk";
     "sower";
+    "trappers";
     "colors";
     "elementalist";
     "powermancer";

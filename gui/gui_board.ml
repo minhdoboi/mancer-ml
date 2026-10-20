@@ -1014,38 +1014,48 @@ let draw_empty_slot ui pid num r (p : player_state) =
 (* Warp reality: the card is painted into an off-screen texture, then drawn through the warp shader. *)
 let warp_rt : (int * int * R.RenderTexture.t) option ref = ref None
 
+(* Paints the card into an off-screen texture, then draws that through [shader] once [set] has filled its
+   uniforms. *)
+let with_painted_shader shader ~set r draw =
+  let w = max 1 (int_of_float (Float.ceil (r.w *. !scale)))
+  and h = max 1 (int_of_float (Float.ceil (r.h *. !scale))) in
+  let rt =
+    match !warp_rt with
+    | Some (rw, rh, t) when rw = w && rh = h -> t
+    | old ->
+        Option.iter (fun (_, _, t) -> R.unload_render_texture t) old;
+        let t = R.load_render_texture w h in
+        warp_rt := Some (w, h, t);
+        t
+  in
+  let ox = !off_x and oy = !off_y and a = !draw_alpha in
+  off_x := 0.;
+  off_y := 0.;
+  draw_alpha := 1.;
+  R.begin_texture_mode rt;
+  R.clear_background (R.Color.create 0 0 0 0);
+  draw (rect 0. 0. r.w r.h);
+  R.end_texture_mode ();
+  off_x := ox;
+  off_y := oy;
+  draw_alpha := a;
+  set ();
+  R.begin_shader_mode shader;
+  R.draw_texture_pro (R.RenderTexture.texture rt)
+    (R.Rectangle.create 0. 0. (float w) (-.float h))
+    (screen r) (R.Vector2.create 0. 0.) 0. (alpha_color R.Color.white);
+  R.end_shader_mode ()
+
 let with_warp r amount draw =
   match Fx.warp_shader "warp" with
   | None -> draw r
-  | Some shader ->
-      let w = max 1 (int_of_float (Float.ceil (r.w *. !scale)))
-      and h = max 1 (int_of_float (Float.ceil (r.h *. !scale))) in
-      let rt =
-        match !warp_rt with
-        | Some (rw, rh, t) when rw = w && rh = h -> t
-        | old ->
-            Option.iter (fun (_, _, t) -> R.unload_render_texture t) old;
-            let t = R.load_render_texture w h in
-            warp_rt := Some (w, h, t);
-            t
-      in
-      let ox = !off_x and oy = !off_y and a = !draw_alpha in
-      off_x := 0.;
-      off_y := 0.;
-      draw_alpha := 1.;
-      R.begin_texture_mode rt;
-      R.clear_background (R.Color.create 0 0 0 0);
-      draw (rect 0. 0. r.w r.h);
-      R.end_texture_mode ();
-      off_x := ox;
-      off_y := oy;
-      draw_alpha := a;
-      Fx.warp_uniforms ~amount;
-      R.begin_shader_mode shader;
-      R.draw_texture_pro (R.RenderTexture.texture rt)
-        (R.Rectangle.create 0. 0. (float w) (-.float h))
-        (screen r) (R.Vector2.create 0. 0.) 0. (alpha_color R.Color.white);
-      R.end_shader_mode ()
+  | Some shader -> with_painted_shader shader ~set:(fun () -> Fx.warp_uniforms ~amount) r draw
+
+(* Obliterate: the card is eaten away by the dissolve shader, at the amount the effect reports. *)
+let with_dissolve r ~amount ~seed draw =
+  match Fx.dissolve_shader () with
+  | None -> draw r
+  | Some shader -> with_painted_shader shader ~set:(fun () -> Fx.dissolve_uniforms ~amount ~seed) r draw
 
 let draw_slot ui pid num =
   let r = rect (slot_x num) (oy ui (row_y pid)) slot_w slot_h in
@@ -1071,7 +1081,9 @@ let draw_slot ui pid num =
          let fade = match death_alpha ui pid num st.slot_id with None -> 1. | Some a -> a in
          if fade <= 0.02 then draw_slot_well r
          else (
-           if fade < 0.999 then draw_slot_well r;
+           (* an eaten creature leaves its well behind, as an empty slot does *)
+           let eating = Option.is_some (Fx.dissolve_state ((fx_layout ui).slot_center pid num)) in
+           if fade < 0.999 || eating then draw_slot_well r;
            let c = st.card.c_card in
            if fade >= 0.999 && inside r then ui.hover <- Some (Hover_card (c, pid, Some st.max_life));
            let life_color = if st.life < st.max_life then gold else life_ok in
@@ -1089,9 +1101,10 @@ let draw_slot ui pid num =
            let tint, look_a = slot_face_look st in
            let decorated = ref false in
            with_alpha (fade *. look_a) (fun () ->
-               let warp =
-                 if Fx.warp_any () then Fx.warp_amount ((fx_layout ui).slot_center pid num) else 0.
-               in
+               let spot = (fx_layout ui).slot_center pid num in
+               let eaten = Fx.dissolve_state spot in
+               let gone = match eaten with Some (amount, _) -> amount >= 0.999 | None -> false in
+               let warp = if Fx.warp_any () then Fx.warp_amount spot else 0. in
                let face r =
                  draw_card_face (desc ui) r c ~cost:(Some c.cost)
                    ~attack:(Some (string_of_int st.attack))
@@ -1103,11 +1116,15 @@ let draw_slot ui pid num =
                  | Ridden hidden -> draw_rider_card r hidden
                  | _ -> ()
                in
-               if warp > 0.02 then with_warp r warp face else face r;
-               if not !decorated then
-                 let flags = flag_names st in
-                 if flags <> "" then
-                   text_c ~size:11. ~color:gold r (r.y +. r.h -. 2.) (fit 11. (r.w +. 8.) flags))));
+               (* eaten away: only the empty well is left under it *)
+               if not gone then (
+                 (match eaten with
+                 | Some (amount, seed) -> with_dissolve r ~amount ~seed face
+                 | None -> if warp > 0.02 then with_warp r warp face else face r);
+                 if not !decorated then
+                   let flags = flag_names st in
+                   if flags <> "" then
+                     text_c ~size:11. ~color:gold r (r.y +. r.h -. 2.) (fit 11. (r.w +. 8.) flags)))));
   match targets with
   | [] -> ()
   | c :: _ ->
@@ -1144,8 +1161,11 @@ let draw_player_bar ui pid =
   let y = oy ui (row_y pid) in
   let face_id = (if pid = owner then fst else snd) ui.portraits in
   let face = rect x y portrait_size portrait_size in
-  draw_face ?tint:(portrait_flash ui pid) face_id face;
-  outline ~round:0.02 ~thick:1. face line;
+  (* an effect can shake the picture; the name and life stay where they are *)
+  let dx, dy = Fx.portrait_offset pid in
+  let picture = { face with x = face.x +. dx; y = face.y +. dy } in
+  draw_face ?tint:(portrait_flash ui pid) face_id picture;
+  outline ~round:0.02 ~thick:1. picture line;
   let seat = Table.seat ui.table pid in
   (match seat with
   | Table.Bot id ->

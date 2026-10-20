@@ -124,12 +124,12 @@ let house_groups =
       ("tiapoka", [ "antimancer"; "powermancer" ]);
       ("CyberneticPony", [ "battlemage" ]);
       ("panderson", [ "chronomaster" ]);
-      ("olds", [ "Dudes" ]);
-      ("garcia1000", [ "Troopers" ]);
+      ("garcia1000", [ "Dudes"; "Troopers" ]);
       ("badsleep", [ "junk"; "disciples"; "snowblood"; "warp"; "zen" ]);
       ("Floofy", [ "emotion" ]);
       ("Zannoland", [ "paganist" ]);
       ("bZanno", [ "blacksmith" ]);
+      ("zhupons", [ "trappers" ]);
     ]
 
 let group_of_house key =

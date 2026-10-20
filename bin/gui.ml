@@ -243,7 +243,19 @@ let () =
       | _ -> ())
   | _ -> ());
   let t0 = R.get_time () in
+  (* TEMP-DEBUG: FX_DEMO=rose spawns one demo effect 0.2 s in, so --shot can catch it *)
+  let demo_env = Sys.getenv_opt "FX_DEMO" in
+  let demo_at =
+    match Sys.getenv_opt "FX_DEMO_DELAY" with Some s -> float_of_string_opt s | None -> None
+  in
+  let demo_done = ref false in
   while not (!quit || R.window_should_close ()) do
+    (match (demo_env, !screen) with
+    | Some name, Game ui when (not !demo_done) && R.get_time () -. t0 >= Option.value ~default:0.2 demo_at ->
+        lay := make_layout ui.table;
+        demo_done := true;
+        Fx.spawn_demo (fx_layout ui) name
+    | _ -> ());
     (match !screen with
     | Lobby l -> ambient_on := l.gs.ambient_enabled
     | Game ui -> ( match ui.settings with Some gs -> ambient_on := gs.ambient_enabled | None -> ())

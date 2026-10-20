@@ -152,6 +152,19 @@ let warp_amount p =
   | _ -> 0.
 
 let warp_any () = Hashtbl.length warp_marks > 0
+
+(* Obliterate eats a creature's card away: the effect reports every frame how far each card has gone and
+   its noise seed, and the board paints the card through the dissolve shader. A mark older than a moment is
+   stale; by then the board has already dropped the creature from its state. *)
+let dissolve_marks : (int * int, float * float * float) Hashtbl.t = Hashtbl.create 8
+
+let mark_dissolve p amount seed = Hashtbl.replace dissolve_marks (warp_key p) (amount, seed, R.get_time ())
+
+let dissolve_state p =
+  match Hashtbl.find_opt dissolve_marks (warp_key p) with
+  | Some (a, seed, t) when R.get_time () -. t < 0.3 -> Some (a, seed)
+  | _ -> None
+
 let powder_spots : spot list ref = ref []
 
 let powder_occupied : spot list ref =
@@ -443,6 +456,89 @@ let load_named name =
       Hashtbl.replace shaders name s;
       s
 
+(* Dissolve: the card's pixels vanish where a noise field falls under the eating front, and the rim where
+   the front is still burns ember, white-hot at the very edge, with a violet glow behind it. *)
+let dissolve_vs =
+  {|#version 330
+
+in vec3 vertexPosition;
+in vec2 vertexTexCoord;
+in vec4 vertexColor;
+
+out vec2 fragTexCoord;
+out vec4 fragColor;
+
+uniform mat4 mvp;
+
+void main() {
+  fragTexCoord = vertexTexCoord;
+  fragColor = vertexColor;
+  gl_Position = mvp * vec4(vertexPosition, 1.0);
+}
+|}
+
+let dissolve_fs =
+  {|#version 330
+
+in vec2 fragTexCoord;
+in vec4 fragColor;
+
+uniform sampler2D texture0;
+uniform vec4 colDiffuse;
+uniform float u_amount;
+uniform float u_seed;
+
+out vec4 finalColor;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash(i);
+  float b = hash(i + vec2(1.0, 0.0));
+  float c = hash(i + vec2(0.0, 1.0));
+  float d = hash(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+  return 0.55 * vnoise(p) + 0.3 * vnoise(p * 2.13) + 0.15 * vnoise(p * 4.37);
+}
+
+void main() {
+  vec4 tex = texture(texture0, fragTexCoord);
+  float front = clamp(u_amount, 0.0, 1.0);
+  float n = fbm(fragTexCoord * 6.0 + vec2(u_seed * 13.0, u_seed * 7.0));
+  float e = n - mix(0.1, 0.85, front);
+
+  float alive = smoothstep(-0.004, 0.004, e);
+  float rim = 1.0 - smoothstep(0.0, 0.09, e);
+  float hot = 1.0 - smoothstep(0.0, 0.03, e);
+
+  vec3 col = tex.rgb * (1.0 - 0.35 * front);
+  col = mix(col, vec3(1.0, 0.42, 0.1), rim * 0.85);
+  col = mix(col, vec3(1.0, 0.95, 0.8), hot);
+  col += vec3(0.7, 0.55, 1.0) * rim * 0.25;
+
+  finalColor = vec4(col, tex.a * alive) * fragColor * colDiffuse;
+}
+|}
+
+let dissolve_shader () =
+  match Hashtbl.find_opt shaders "dissolve" with
+  | Some s -> s
+  | None ->
+      let s =
+        let sh = R.load_shader_from_memory dissolve_vs dissolve_fs in
+        if R.is_shader_valid sh then Some { sh; locs = Hashtbl.create 8 } else None
+      in
+      Hashtbl.replace shaders "dissolve" s;
+      s
+
 let white_px : R.Texture.t option ref = ref None
 
 let white_tex () =
@@ -535,6 +631,11 @@ let slot_offset pid num =
       let phase = percent *. s.duration *. freq in
       (sin (phase *. 2.17) *. amp, cos (phase *. 3.41) *. amp *. 0.42)
 
+(* A portrait shakes through the same mechanism, under a slot number no creature has. *)
+let portrait_num = -1
+let add_portrait_shake pid ~start ~duration ~strength = add_shake pid portrait_num ~start ~duration ~strength
+let portrait_offset pid = slot_offset pid portrait_num
+
 (* A rematch starts from a clean board: drop the previous game's overlay
    effects (the victory banner and portrait halo never expire) and shakes. *)
 let clear () =
@@ -545,6 +646,7 @@ let clear () =
   trap_spots := [];
   Hashtbl.reset frost_levels;
   frost_spots := [];
+  Hashtbl.reset dissolve_marks;
   scroll_y := 0.;
   shakes := []
 

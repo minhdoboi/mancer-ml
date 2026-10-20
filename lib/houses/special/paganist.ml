@@ -137,6 +137,8 @@ let river_of_blood : card_effect =
   let d = spell_damage env 25 in
   Player.inflict p d;
   if p.pstate.ps_life > 0 && Option.is_none env.env_updater.ended then (
+    (* the flood is announced only when it happens: a caster that bled out sends none *)
+    emit p.updater (Ev_ability { kind = "paganist.flood"; player = p.pid; num = 0; target = None });
     let op = other_of_env env in
     Player.inflict op d;
     Slots.inflict_creatures op.slots_update d)

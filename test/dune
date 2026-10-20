@@ -154,3 +154,8 @@
  (name blacksmith)
  (modules blacksmith)
  (libraries mancer support alcotest))
+
+ (test
+ (name houses_h)
+ (modules houses_h)
+ (libraries mancer support alcotest))

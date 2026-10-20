@@ -84,7 +84,8 @@ let house_groups () =
   let specials = List.map (fun (h : house) -> h.h_key) (Table.special_houses ()) in
   List.iter (fun h -> check_bool h true (List.mem h grouped)) specials;
   Alcotest.(check (option string)) "Troopers" (Some "garcia1000") (Table.group_of_house "Troopers");
-  Alcotest.(check (option string)) "Dudes" (Some "olds") (Table.group_of_house "Dudes");
+  (* the "olds" and "garcia1000" rows are merged: garcia1000 owns Dudes and Troopers *)
+  Alcotest.(check (option string)) "Dudes" (Some "garcia1000") (Table.group_of_house "Dudes");
   Alcotest.(check (option string)) "zen" (Some "badsleep") (Table.group_of_house "zen");
   Alcotest.(check (option string)) "Wind" (Some "sinist") (Table.group_of_house "Wind");
   Alcotest.(check (option string)) "emotion" (Some "Floofy") (Table.group_of_house "emotion");

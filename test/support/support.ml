@@ -52,6 +52,7 @@ let all_houses =
     Paganist.house;
     Kahjivir.house;
     Blacksmith.house;
+    Trappers.house;
   ]
 
 let init_all_houses () =
@@ -100,7 +101,8 @@ let init_all_houses () =
   Game.init_cards Emotion.house;
   Game.init_cards Paganist.house;
   Game.init_cards Kahjivir.house;
-  Game.init_cards Blacksmith.house
+  Game.init_cards Blacksmith.house;
+  Game.init_cards ~cost_fn:Trappers.cost_fn Trappers.house
 
 let card_by_key key =
   all_houses
