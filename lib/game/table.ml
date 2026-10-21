@@ -117,7 +117,7 @@ let house_groups =
       ("Wavelength", [ "seasons"; "meteomancer"; "dreamweaver"; "quantumancer"; "faerie" ]);
       ("sfault", [ "conjurer" ]);
       ("Redrook", [ "tinker"; "soulbinder"; "entomologist"; "shadowcaster"; "spiritshaman" ]);
-      ("valentine", [ "rogue"; "kahjivir" ]);
+      ("valentyne", [ "rogue"; "kahjivir" ]);
       ("fuzzer", [ "limbo" ]);
       ("Madhatter97", [ "colors" ]);
       ("lordvanmaru", [ "shadowmage" ]);
@@ -161,6 +161,15 @@ let campaign_setup ?(budget_ms = default_setup.budget_ms) ?seed ~player_special 
         starting = Campaign.starter_player n.id;
         life = f.life;
       }
+
+(* The player's campaign class: the special house the map's class selector
+   stores. A stale or unknown name falls back to the default class. *)
+let campaign_class_of name =
+  match (try Some (Catalog.find_special name) with Failure _ -> None) with
+  | Some h -> h.h_key
+  | None -> Prefs.default_campaign_class
+
+let campaign_class () = campaign_class_of (Prefs.campaign_class (Prefs.load ()))
 
 let resolve_special =
   let rng = Random.State.make_self_init () in

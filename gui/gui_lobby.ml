@@ -125,6 +125,7 @@ type lobby_ui = {
   mutable show_campaign : bool;
   mutable want_quit : bool;
   mutable message : string;
+  class_select : select_state;
 }
 
 let valid_specials names =
@@ -165,6 +166,7 @@ let new_lobby () =
     show_campaign = false;
     want_quit = false;
     message = "";
+    class_select = select_state ();
   }
 
 let persist_duel lobby =
@@ -469,7 +471,7 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
   on_click box (fun () -> ());
   text_c ~font:paper_font ~size:26. ~color:ink box (box.y +. 14.) (Assets.text "settings.title");
   ptabs ~x:(box.x +. 24.) ~y:(box.y +. 46.) ~w:(box.w -. 48.) ~selected:gs.tab
-    [ "settings.classes"; "Game"; "settings.sound"; "settings.lang" ] (fun k -> gs.tab <- k);
+    [ "settings.duelclasses"; "Game"; "settings.sound"; "settings.lang" ] (fun k -> gs.tab <- k);
   (match gs.tab with
   | 0 ->
       let side_head x0 which =

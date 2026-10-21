@@ -154,7 +154,16 @@ let is_unlocked n completed =
 let isolate_path =
   [
     ( "antimancer",
-      [ "zen"; "fisherman"; "kahjivir"; "conjurer"; "chronomaster"; "limbo"; "highpriest" ] );
+      [
+        "zen";
+        "fisherman";
+        "kahjivir";
+        "shaman";
+        "conjurer";
+        "chronomaster";
+        "limbo";
+        "highpriest";
+      ] );
   ]
 
 let available completed =

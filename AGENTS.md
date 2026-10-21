@@ -2,6 +2,26 @@
 
 After any code change, run `dune build` and fix compile errors before finishing.
 
+Editing a house or its English strings also means the site is stale: run
+`dune exec ./bin/cardlist.exe` and commit `docs/cards.html` and the card
+lists (`docs/cards.json`, `docs/cards.<lang>.json`). The GitHub Pages workflow
+copies `docs/` plus `assets/cards/` into the artifact, so a card's art must be
+in the submodule for the page to show it (new art: `sync_assets` first,
+`cardlist` after).
+
+The page is a template, not program output: `templates/cards.html` with
+`templates/cards.css` and `templates/cards.js` beside it. `cardlist` fills the
+`{{css}}`, `{{js}}` and `{{langs}}` markers and writes `docs/cards.html`, so a
+change to the page is a change to the template — then run `cardlist` again and
+commit the result.
+
+The list is published in every language the game ships: the English one is
+`docs/cards.json`, the others `docs/cards.<lang>.json`, and the menu in the
+page header picks one. The text of a list comes from the i18n bundle of that
+language in the submodule (`assets/i18n/<lang>.properties`), the page's own
+strings from the `grimoire.*` keys of the same bundle — so a new language
+needs its bundle and nothing else.
+
 Art style is the same as the Scala repo's `AGENTS.md`. **The media lives here**,
 in the [mancer-assets](https://github.com/minhdoboi/mancer-assets) submodule
 (`assets/`), and it is committed **in the shape the game reads it**: a card's

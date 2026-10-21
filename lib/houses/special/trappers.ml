@@ -5,8 +5,8 @@
    next run and is cleared by the owner's end-of-turn toggle_run; Poisonous Roots
    holds the opponent's creatures through their next turn with the same stun,
    released by its own end-of-turn tick. A card that holds creatures off for as
-   long as it lives (Dark Pixie) uses the paused flag instead, which nothing
-   clears by itself. *)
+   long as it lives (Dark Pixie) uses that same stun, put back on every turn of
+   its owner, so the held creature never gets a run. *)
 
 open Sp
 open Engine
@@ -45,13 +45,17 @@ let whip_reaction () =
 let shaman_stun : card_effect = fun env -> Slot.stun (Slot.opposite (own_slot_of_env env))
 
 (* Dark Pixie (5|12): the creature in the slot opposing the Pixie cannot attack
-   for as long as the Pixie is in play. The paused flag is the "cannot attack"
-   mark the engine never wipes by itself, unlike the stun. The reaction holds
-   the creature as it arrives and releases it when the Pixie leaves; the turn
-   effect re-holds the slot, which a creature can move into. *)
-let pixie_hold target = match target.value with Some _ -> Slot.toggle target paused_flag | None -> ()
+   for as long as the Pixie is in play. The stun flag is the "cannot attack"
+   mark; the engine wipes it at the owner's end-of-turn toggle_run, so the Pixie
+   puts it back on every turn of its owner, which is before the opponent's
+   creatures run again. The reaction holds the creature as it arrives and
+   releases it when the Pixie leaves; the turn effect re-holds the slot, which
+   a creature can move into. The flag is set directly, not through the
+   occupant's stun reaction, so a creature with a custom reaction (the
+   Darksider dragon) is held as well. *)
+let pixie_hold target = match target.value with Some _ -> Slot.toggle target stun_flag | None -> ()
 
-let pixie_release target = Slot.toggle_off target paused_flag
+let pixie_release target = Slot.toggle_off target stun_flag
 
 let pixie_lock : card_effect = fun env -> pixie_hold (Slot.opposite (own_slot_of_env env))
 

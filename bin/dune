@@ -27,3 +27,8 @@
  (name sync_assets)
  (modules sync_assets)
  (libraries mancer raylib ctypes unix))
+
+(executable
+ (name cardlist)
+ (modules cardlist)
+ (libraries mancer yojson unix))

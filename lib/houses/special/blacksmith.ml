@@ -164,7 +164,7 @@ let pegasus_tick owner_pid slot_id env =
       match slot.value with
       | Some { data = Ridden hidden; _ } ->
           let op = other_player owner in
-          let amount = hidden.attack + 6 in
+          let amount = hidden.attack + 4 in
           let ctx = { ctx_player = owner_pid; ctx_card = !pegasus_ref; ctx_selected = slot.num } in
           let d = mk_damage ~is_ability:true amount ctx in
           let target = Slot.opposite slot in
@@ -192,7 +192,12 @@ let pegasus_reaction () =
               let reaction = hidden.card.c_body.b_new_reaction () in
               reaction.selected := Some slot;
               let st = { hidden with target = [ slot.num ]; reaction } in
-              Slot.overwrite_add slot { st with attack = Slots.current_attack slot st })
+              (* Putting it back on the slot runs every neighbour's on_add, so an
+                 Orc chieftain next door or a Bull Commander anywhere hands the
+                 bonus over again; fold once more so the wielder's attack reads
+                 right away instead of at the next refresh. *)
+              Slot.overwrite_add slot st;
+              Slot.update slot (fun s -> { s with attack = Slots.current_attack slot s }))
         | _ -> ());
   }
 
@@ -206,6 +211,12 @@ let flying_chariot : card_effect =
       | None -> ()
       | Some pegasus ->
           let hidden = slot.remove_hook None in
+          (* Leaving the slot made every neighbour take its bonus back (an Orc
+             chieftain next door, a Bull Commander anywhere): [Slot.remove]
+             hands back the state with those sources gone, but its cached
+             [attack] still counts them.  Fold once more, or the Pegasus would
+             strike for X+4 with a bonus the creature no longer has. *)
+          let hidden = { hidden with attack = Slots.current_attack slot hidden } in
           let owner = player_of_env env in
           ignore (Slots.summon owner.slots_update env.env_selected (make_creature pegasus));
           if Option.is_some slot.value then (

@@ -600,9 +600,21 @@ let new_campaign () = { i = 0; message = "" }
 
 let campaign_fight node =
   let p = Prefs.load () in
-  let player_special = Table.resolve_special (fst (Prefs.setup_specials p)) in
+  let player_special = Table.campaign_class () in
   let setup = Table.campaign_setup ~budget_ms:(Prefs.setup_budget p) ~player_special node in
   new_game ~campaign:(Some node) setup
+
+(* The campaign class: the house the player keeps all the way through. *)
+let campaign_class_name () =
+  let key = Table.campaign_class () in
+  match List.find_opt (fun (h : house) -> h.h_key = key) (Table.special_houses ()) with
+  | Some h -> cap h.h_name
+  | None -> key
+
+let cycle_campaign_class () =
+  let keys = List.map (fun (h : house) -> h.h_key) (Table.special_houses ()) in
+  let next = cycle keys (Table.campaign_class ()) 1 in
+  Prefs.set_campaign_class (Prefs.load ()) next
 
 let on_lobby_key ui = function
   | `Key (`Arrow `Up, _) ->
@@ -776,13 +788,14 @@ let render_campaign (w, _) ui =
        I.string dim
          (Assets.text (if chapter = Campaign.Night then "campaign.night" else "campaign.day")
          ^ "  @ " ^ Prefs.campaign_position p);
+       I.string dim (Assets.text "campaign.class" ^ ": " ^ campaign_class_name ());
        I.void 1 1;
      ]
     @ (if rows = [] then [ I.string dim "(no open stops)" ] else rows)
     @ [
         I.void 1 1;
         (if ui.message <> "" then I.string bad ui.message else I.empty);
-        text ~attr:dim w "up/down select   enter open   R reset   esc lobby";
+        text ~attr:dim w "up/down select   enter open   c class   R reset   esc lobby";
       ])
   |> I.pad ~l:2 ~t:1
 
@@ -815,6 +828,9 @@ let on_campaign_key ui = function
             Campaign ui))
   | `Key (`ASCII 'R', _) ->
       Prefs.reset_campaign (Prefs.load ());
+      Campaign ui
+  | `Key (`ASCII 'c', _) ->
+      cycle_campaign_class ();
       Campaign ui
   | `Key (`Escape, _) | `Key (`ASCII 'q', _) -> Lobby (new_lobby ())
   | _ -> Campaign ui

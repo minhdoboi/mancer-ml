@@ -477,6 +477,11 @@ let on_click r f =
   if inside r then hovering := true;
   if clicked r then pending := Some f
 
+(* A click outside [keep]: the handler is registered after the widgets under
+   the pointer, so it wins over them, while the rects in [keep] keep theirs. *)
+let on_click_outside ~keep f =
+  if clicked (rect 0. 0. vw vh) && not (List.exists inside keep) then pending := Some f
+
 let on_release r f =
   if inside r then hovering := true;
   if released r then pending := Some f
@@ -599,6 +604,142 @@ let paper_btn_row ?(size = 16.) ?(h = btn_h) ?(gap = 8.) ~cx ~y items =
       pbutton ~size (rect !x y w h) label f;
       x := !x +. w +. gap)
     items widths
+
+(* A parchment select box: the closed box shows the current choice, clicking
+   it drops a scrollable list of the options. Raylib has no combo box, so this
+   is drawn by hand like the rest of the kit. *)
+type select_state = {
+  sel_open : bool ref;
+  sel_scroll : float ref;
+  sel_drag : (float * float) option ref;  (** the grab point and the scroll when the drag started. *)
+  mutable sel_popup : rect option;
+}
+
+let select_state () = { sel_open = ref false; sel_scroll = ref 0.; sel_drag = ref None; sel_popup = None }
+let select_item_h = 22.
+let select_rows = 9
+
+(* The parchment edge the list is inset by. *)
+let select_edge = 32.
+
+(* Close the list and forget a drag in progress. *)
+let select_close st =
+  st.sel_open := false;
+  st.sel_drag := None
+
+(* Scroll an open list with the wheel, when the pointer is over it. *)
+let select_scroll st wheel =
+  if wheel <> 0. && !(st.sel_open) then
+    match st.sel_popup with
+    | Some r when inside r -> st.sel_scroll := !(st.sel_scroll) -. (wheel *. 48.)
+    | _ -> ()
+
+(* Bring the current choice into view when the list opens. *)
+let select_reveal st items selected =
+  let rows = min select_rows (List.length items) in
+  let view_h = float rows *. select_item_h in
+  match List.find_index (fun (v, _) -> v = selected) items with
+  | None -> ()
+  | Some i ->
+      let y = float i *. select_item_h in
+      let scroll = !(st.sel_scroll) in
+      let scroll =
+        if y < scroll then y
+        else if y +. select_item_h > scroll +. view_h then y +. select_item_h -. view_h
+        else scroll
+      in
+      st.sel_scroll := Float.max 0. scroll
+
+(* The bar scrolls the list: drag the thumb, or click the bar to jump there. *)
+let select_bar st ~bar ~view_h ~content_h ~max_scroll =
+  let th = Float.max 20. (view_h *. view_h /. content_h) in
+  let span = Float.max 1. (view_h -. th) in
+  let ty = bar.y +. (!(st.sel_scroll) /. max_scroll *. span) in
+  let thumb = rect bar.x ty bar.w th in
+  fill bar (rgba 140 107 41 90);
+  fill ~round:0.4 thumb (rgba 140 107 41 220);
+  let _, my = mouse () in
+  match !(st.sel_drag) with
+  | Some (grab, scroll0) ->
+      if R.is_mouse_button_released R.MouseButton.Left then st.sel_drag := None
+      else
+        st.sel_scroll := Float.min max_scroll (Float.max 0. (scroll0 +. ((my -. grab) *. max_scroll /. span)))
+  | None ->
+      if R.is_mouse_button_pressed R.MouseButton.Left then
+        if inside thumb then st.sel_drag := Some (my, !(st.sel_scroll))
+        else if inside bar then
+          let y = Float.min (Float.max 0. (my -. bar.y -. (th /. 2.))) span in
+          st.sel_scroll := Float.min max_scroll (Float.max 0. (y *. max_scroll /. span))
+
+(* [items] are (value, label) pairs; picking one hands its value to [on_pick]. *)
+let pselect ~size ~width ~state ~x ~y ~items ~selected ~on_pick =
+  let h = 26. in
+  let box = rect x y width h in
+  let label =
+    match List.find_opt (fun (v, _) -> v = selected) items with Some (_, l) -> l | None -> selected
+  in
+  let hot = inside box in
+  if hot then hovering := true;
+  fill ~round:0.12 box (if hot then rgba 199 143 61 255 else rgba 184 132 55 255);
+  outline ~round:0.12 ~thick:1.2 box (if hot then rgba 92 54 18 255 else rgba 110 70 24 230);
+  text ~font:paper_font ~size ~color:ink (box.x +. 10.)
+    (box.y +. ((box.h -. size) /. 2.))
+    (fit ~font:paper_font size (box.w -. 34.) label);
+  (* the drop arrow, drawn as a chevron: the atlas has no arrow glyph *)
+  let ax = box.x +. box.w -. 20. and ay = box.y +. (box.h /. 2.) -. 3. in
+  let tip = pos (ax +. 5.5) (ay +. 7.) in
+  R.draw_line_ex (pos ax ay) tip (1.6 *. !scale) (alpha_color ink);
+  R.draw_line_ex tip (pos (ax +. 11.) ay) (1.6 *. !scale) (alpha_color ink);
+  on_click box (fun () ->
+      if !(state.sel_open) then select_close state
+      else (
+        state.sel_open := true;
+        select_reveal state items selected));
+  if !(state.sel_open) then (
+    let count = List.length items in
+    let rows = min select_rows (max 1 count) in
+    let view_h = float rows *. select_item_h in
+    let content_h = float count *. select_item_h in
+    let max_scroll = Float.max 0. (content_h -. view_h) in
+    state.sel_scroll := Float.min max_scroll (Float.max 0. !(state.sel_scroll));
+    let panel_w = box.w +. 40. in
+    let panel = rect (box.x +. box.w -. panel_w) (box.y +. h +. 4.) panel_w (view_h +. (2. *. select_edge)) in
+    paper panel;
+    let view =
+      rect (panel.x +. select_edge) (panel.y +. select_edge) (panel.w -. (2. *. select_edge)) view_h
+    in
+    state.sel_popup <- Some view;
+    let bar = rect (view.x +. view.w +. 2.) view.y 8. view_h in
+    (* A click outside the box, the list and its bar closes it. The rows
+       register their own handler after this one, so a row still picks. *)
+    on_click_outside ~keep:[ box; bar ] (fun () -> select_close state);
+    begin_clip view;
+    List.iteri
+      (fun i (value, label) ->
+        let r =
+          rect view.x (view.y +. (float i *. select_item_h) -. !(state.sel_scroll)) view.w select_item_h
+        in
+        let on = value = selected in
+        let hot = inside r in
+        if hot then fill ~round:0.2 r (rgba 199 143 61 90);
+        if on then fill ~round:0.2 r (rgba 108 52 0 130);
+        text ~font:paper_font ~size
+          ~color:(if on then ink_selected else ink)
+          (r.x +. 6.) (r.y +. 3.)
+          (fit ~font:paper_font size (r.w -. 12.) label);
+        (* a scrolled-out row is not clickable *)
+        match overlap r view with
+        | Some hit ->
+            on_click hit (fun () ->
+                select_close state;
+                on_pick value)
+        | None -> ())
+      items;
+    end_clip ();
+    if max_scroll > 0. then select_bar state ~bar ~view_h ~content_h ~max_scroll)
+  else (
+    state.sel_popup <- None;
+    state.sel_drag := None)
 
 let debug_mode () = try Prefs.debug_mode (Prefs.load ()) with _ -> false
 

@@ -164,7 +164,8 @@ Full steps, signing, and DLL notes: [docs/tech/packaging.md](docs/tech/packaging
 | `lib/bots/` | Search bots |
 | `lib/game/` | Session, table, shuffle, campaign, tournament, assets |
 | `gui/` | The raylib front end as a library: spell effects (`fx*`) and the screens (`gui_*`) |
-| `bin/` | `main`, `tui`, `gui` (entry point), `replay`, `compare_engines`, `sync_assets` |
+| `bin/` | `main`, `tui`, `gui` (entry point), `replay`, `compare_engines`, `sync_assets`, `cardlist` |
+| `templates/` | The grimoire page: `cards.html` with `cards.css` and `cards.js` beside it |
 | `test/` | Alcotest suites, `expect/` board snapshots, `support/` fixtures |
 
 `session.mli` drives a live game: `Session.create`, `status`,
@@ -183,6 +184,36 @@ A rules change shows up as an expect diff: review it, then `dune promote`.
 
 ## Docs
 
+- [Grimoire](docs/cards.html) — every house and card with art, cost and
+  rules text. The page reads [cards.json](docs/cards.json) and draws the
+  list: a search box covers every house and card at once, and the list on the
+  left picks the house to show. The list is published in every language the
+  game ships — the English one is `cards.json`, the others
+  `cards.<lang>.json` — and the menu in the header picks one, so the page
+  reads in the reader's own language. Regenerate and commit after touching a
+  house or the strings:
+
+  ```sh
+  dune exec ./bin/cardlist.exe
+  ```
+
+  `.github/workflows/pages.yml` publishes `docs/` and copies `assets/cards/`
+  next to those files, so the art has to be in the submodule; the workflow
+  checks it out for that reason. The page fetches the card list over http,
+  so opening it as a `file://` URL finds nothing — serve the folder to look
+  at it:
+
+  ```sh
+  python3 -m http.server --directory docs
+  ```
+
+  The page itself is a template, not program output: `templates/cards.html`
+  with `templates/cards.css` and `templates/cards.js` beside it. `cardlist`
+  fills the `{{css}}`, `{{js}}` and `{{langs}}` markers and writes
+  `docs/cards.html`, so editing the page means editing the template and
+  running the tool again. The text of a list comes from the i18n bundle of
+  that language (`assets/i18n/<lang>.properties`), so a translation of the
+  card names and rules text is enough to publish the list in it.
 - [Tutorials](docs/tuto/README.md) — the architecture, how the AI opponents
   think (Oracle, Diviner, and the rest), the maths behind the spell effects,
   and how the lobby ocean and the blacksmith sounds are synthesised

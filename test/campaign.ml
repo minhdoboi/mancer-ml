@@ -26,11 +26,12 @@ let duckwoman_fork () =
   check_bool "avoid disciples" true (has avoid "disciples");
   check_bool "avoid no dudes" true (has_not avoid "dudes");
   check_bool "seasons no dudes yet" true (has_not [ "meteomancer"; "seasons" ] "dudes");
-  check_bool "otter no dudes" true (has_not [ "meteomancer"; "seasons"; "sower"; "otter" ] "dudes");
+  check_bool "otter no dudes" true
+    (has_not [ "meteomancer"; "emotion"; "sower"; "otter" ] "dudes");
   check_bool "blacksmith after otter" true
-    (has [ "meteomancer"; "seasons"; "sower"; "otter" ] "blacksmith");
+    (has [ "meteomancer"; "emotion"; "sower"; "otter" ] "blacksmith");
   check_bool "smith opens dudes" true
-    (has [ "meteomancer"; "seasons"; "sower"; "otter"; "blacksmith" ] "dudes");
+    (has [ "meteomancer"; "emotion"; "sower"; "otter"; "blacksmith" ] "dudes");
   check_bool "farmer not a fight" true (not (Campaign.is_fight (Campaign.node "farmer")));
   Alcotest.(check (option string))
     "farmer portrait" (Some "farmer")
@@ -49,7 +50,7 @@ let mountain_approaches () =
     (has [ "entomologist"; "disciples"; "junk"; "spiritshaman"; "paganist"; "quantumancer" ]
        "mountainking");
   check_bool "dreamweaver" true
-    (has [ "meteomancer"; "seasons"; "sower"; "otter"; "fairy_knight"; "dreamweaver" ] "mountainking");
+    (has [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver" ] "mountainking");
   check_bool "powermancer" true
     (has [ "entomologist"; "seasons"; "dudes"; "colors"; "elementalist"; "gardener"; "powermancer" ]
        "mountainking")
@@ -77,24 +78,29 @@ let disciples_path () =
 
 let meteomancer_path () =
   let done_ = [ "meteomancer" ] in
-  check_bool "seasons" true (has done_ "seasons");
-  check_bool "emotion" true (has (done_ @ [ "seasons" ]) "emotion");
-  check_bool "sower" true (has (done_ @ [ "seasons"; "emotion" ]) "sower");
-  check_bool "otter" true (has (done_ @ [ "seasons"; "emotion"; "sower" ]) "otter");
-  check_bool "fairy" true
-    (has (done_ @ [ "seasons"; "emotion"; "sower"; "otter" ]) "fairy_knight");
-  check_bool "ram not dreamweaver" true
-    (has_not (done_ @ [ "seasons"; "emotion"; "sower"; "otter"; "fairy_knight" ]) "dreamweaver");
-  check_bool "ram" true
-    (has (done_ @ [ "seasons"; "emotion"; "sower"; "otter"; "fairy_knight" ]) "ram");
-  check_bool "dreamweaver" true
-    (has
-       (done_ @ [ "seasons"; "emotion"; "sower"; "otter"; "fairy_knight"; "ram" ])
-       "dreamweaver");
-  check_bool "king" true
-    (has
-       (done_ @ [ "seasons"; "emotion"; "sower"; "otter"; "fairy_knight"; "ram"; "dreamweaver" ])
-       "mountainking");
+  check_bool "emotion opens" true (has done_ "emotion");
+  check_bool "seasons opens" true (has done_ "seasons");
+  check_bool "no sower yet" true (has_not done_ "sower");
+  check_bool "no trappers yet" true (has_not done_ "trappers");
+  check_bool "no otter yet" true (has_not done_ "otter");
+  check_bool "sower after emotion" true (has (done_ @ [ "emotion" ]) "sower");
+  check_bool "no sower after seasons" true (has_not (done_ @ [ "seasons" ]) "sower");
+  check_bool "trappers after seasons" true (has (done_ @ [ "seasons" ]) "trappers");
+  check_bool "no trappers after emotion" true (has_not (done_ @ [ "emotion" ]) "trappers");
+  check_bool "otter after sower" true (has (done_ @ [ "emotion"; "sower" ]) "otter");
+  check_bool "no otter after trappers" true (has_not (done_ @ [ "seasons"; "trappers" ]) "otter");
+  check_bool "fairy after otter" true
+    (has (done_ @ [ "emotion"; "sower"; "otter" ]) "fairy_knight");
+  check_bool "fairy after trappers" true
+    (has (done_ @ [ "seasons"; "trappers" ]) "fairy_knight");
+  check_bool "no fairy before otter" true (has_not (done_ @ [ "emotion"; "sower" ]) "fairy_knight");
+  check_bool "no trappers via otter" true
+    (has_not (done_ @ [ "emotion"; "sower"; "otter" ]) "trappers");
+  let faerie = done_ @ [ "emotion"; "sower"; "otter"; "fairy_knight" ] in
+  check_bool "ram not dreamweaver" true (has_not faerie "dreamweaver");
+  check_bool "ram" true (has faerie "ram");
+  check_bool "dreamweaver" true (has (faerie @ [ "ram" ]) "dreamweaver");
+  check_bool "king" true (has (faerie @ [ "ram"; "dreamweaver" ]) "mountainking");
   check_bool "ram meeting" true (not (Campaign.is_fight (Campaign.node "ram")))
 
 let dudes_path () =
@@ -139,7 +145,7 @@ let early_life () =
 
 let night_unlock () =
   check_bool "night after wind" true (Campaign.chapter_of [ "wind" ] = Campaign.Night);
-  Alcotest.check ss "night start" [ "rogue"; "faerie_druid"; "warp" ] (available [ "wind" ]);
+  Alcotest.check ss "night start" [ "faerie_druid"; "rogue"; "warp" ] (available [ "wind" ]);
   check_bool "no fishman yet" true (has_not [ "wind" ] "fishman");
   check_bool "rogue after wind" true (has [ "wind" ] "rogue");
   check_bool "no antimancer" true (has_not [ "wind" ] "antimancer")
@@ -181,14 +187,17 @@ let antimancer_path () =
   Alcotest.check ss "isolated to zen" [ "zen" ] (available done_);
   check_bool "no warp" true (has_not done_ "warp");
   Alcotest.(check string) "next" "zen" (Campaign.next_position "antimancer");
-  Alcotest.check ss "after zen" [ "fisherman" ] (available (done_ @ [ "zen" ]));
-  Alcotest.check ss "after fisherman" [ "kahjivir" ] (available (done_ @ [ "zen"; "fisherman" ]));
-  Alcotest.check ss "after kahjivir" [ "conjurer" ]
-    (available (done_ @ [ "zen"; "fisherman"; "kahjivir" ]));
-  Alcotest.check ss "after conjurer" [ "chronomaster" ]
-    (available (done_ @ [ "zen"; "fisherman"; "kahjivir"; "conjurer" ]));
-  Alcotest.check ss "after chrono" [ "limbo" ]
-    (available (done_ @ [ "zen"; "fisherman"; "kahjivir"; "conjurer"; "chronomaster" ]));
+  Alcotest.check ss "after zen" [ "fisherman"; "kahjivir" ] (available (done_ @ [ "zen" ]));
+  Alcotest.check ss "after fisherman" [ "conjurer"; "kahjivir" ]
+    (available (done_ @ [ "zen"; "fisherman" ]));
+  Alcotest.check ss "after kahjivir" [ "fisherman"; "shaman" ]
+    (available (done_ @ [ "zen"; "kahjivir" ]));
+  Alcotest.check ss "fisherman branch" [ "chronomaster"; "kahjivir" ]
+    (available (done_ @ [ "zen"; "fisherman"; "conjurer" ]));
+  Alcotest.check ss "kahjivir branch" [ "fisherman"; "limbo" ]
+    (available (done_ @ [ "zen"; "kahjivir"; "shaman" ]));
+  Alcotest.check ss "after chrono" [ "kahjivir"; "limbo" ]
+    (available (done_ @ [ "zen"; "fisherman"; "conjurer"; "chronomaster" ]));
   check_bool "crowd meeting" true (not (Campaign.is_fight (Campaign.node "crowd")))
 
 let faerie_path () =
@@ -232,7 +241,7 @@ let night_restart () =
   let done_ = [ "wind"; "entomologist"; "warp"; "kinetician"; "girl"; "limbo" ] in
   Alcotest.check ss "day progress" [ "entomologist"; "wind" ] (sorted (Campaign.day_progress done_));
   check_bool "still night" true (Campaign.chapter_of (Campaign.day_progress done_) = Campaign.Night);
-  Alcotest.check ss "night opens again" [ "rogue"; "faerie_druid"; "warp" ]
+  Alcotest.check ss "night opens again" [ "faerie_druid"; "rogue"; "warp" ]
     (available (Campaign.day_progress done_))
 
 let houses_resolve () =

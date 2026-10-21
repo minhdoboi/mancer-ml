@@ -10,11 +10,11 @@ let check_int = Alcotest.(check int)
 let check_bool = Alcotest.(check bool)
 
 let flagged u pid num = has_flag (Option.get (slot u pid num).value) stun_flag
-let paused u pid num = has_flag (Option.get (slot u pid num).value) paused_flag
 let stunned u pid num = flagged u pid num
 let slot_state_data u pid num = Option.map (fun st -> st.data) (slot u pid num).value
 let mana u pid i = (player u pid).houses_update.hu_value.(i).mana
 let on_end u pid = step u (fun () -> Player.apply_effects (player u pid) On_end_turn)
+let on_turn u pid = step u (fun () -> Player.apply_effects (player u pid) On_turn)
 let run_at u pid num = step u (fun () -> Option.iter (fun st -> Player.run_slot (player u pid) num st) (slot u pid num).value)
 let kill u pid num =
   step u (fun () ->
@@ -83,11 +83,15 @@ let pixie_locks_opposite () =
   let u = new_game ~special:Trappers.house () in
   place u 1 "fire.goblin" 2;
   play u 0 "trappers.darkpixie" ~input:(Some 2) ~cost:4;
-  check_bool "opposite held as soon as the pixie lands" true (paused u 1 2);
+  check_bool "opposite stunned as soon as the pixie lands" true (stunned u 1 2);
   run_at u 1 2;
   check_int "goblin could not attack" 60 (player_life u 0);
-  (* the pause survives the opponent's own end-of-turn toggle_run *)
+  (* the opponent's own end-of-turn toggle_run wipes the stun, but the Pixie
+     puts it back on its owner's turn, before the opponent's creatures run *)
   step u (fun () -> Slots.toggle_run (player u 1).slots_update);
+  check_bool "stun gone after the owner's end of turn" true (not (stunned u 1 2));
+  on_turn u 0;
+  check_bool "stunned again by the pixie" true (stunned u 1 2);
   run_at u 1 2;
   check_int "still held next turn" 60 (player_life u 0)
 
@@ -95,7 +99,7 @@ let pixie_holds_newcomer () =
   let u = new_game ~special:Trappers.house () in
   play u 0 "trappers.darkpixie" ~input:(Some 2) ~cost:4;
   place u 1 "fire.goblin" 2;
-  check_bool "newcomer in the opposing slot is held" true (paused u 1 2);
+  check_bool "newcomer in the opposing slot is held" true (stunned u 1 2);
   run_at u 1 2;
   check_int "newcomer could not attack" 60 (player_life u 0)
 
@@ -104,10 +108,29 @@ let pixie_lock_ends_with_death () =
   place u 1 "fire.goblin" 2;
   play u 0 "trappers.darkpixie" ~input:(Some 2) ~cost:4;
   kill u 0 2;
-  check_bool "the hold is gone once the pixie is gone" true (not (paused u 1 2));
+  check_bool "the hold is gone once the pixie is gone" true (not (stunned u 1 2));
   step u (fun () -> Slots.toggle_run (player u 1).slots_update);
   run_at u 1 2;
   check_int "goblin attacks again" 56 (player_life u 0)
+
+(* The whole round: the hold is the same as the pause it replaces, the
+   creature in the opposing slot never gets a run. *)
+let pixie_holds_through_a_round () =
+  let u = new_game ~special:Trappers.house () in
+  place u 1 "fire.goblin" 2;
+  play u 0 "trappers.darkpixie" ~input:(Some 2) ~cost:4;
+  (* the chain of a turn's end, as Session.drain runs it *)
+  let turn pid =
+    step u (fun () -> Player.run_slots (player u pid));
+    step u (fun () -> Player.apply_effects (player u pid) On_end_turn);
+    step u (fun () -> Slots.toggle_run (player u pid).slots_update);
+    step u (fun () -> Player.apply_effects (player u (1 - pid)) On_turn)
+  in
+  turn 1;
+  check_int "no attack on the opponent's turn" 60 (player_life u 0);
+  turn 0;
+  turn 1;
+  check_int "no attack on the next opponent turn either" 60 (player_life u 0)
 
 (* ---------------------------------------------------- underground poison *)
 
@@ -211,6 +234,7 @@ let () =
           Alcotest.test_case "pixie locks" `Quick pixie_locks_opposite;
           Alcotest.test_case "pixie holds newcomer" `Quick pixie_holds_newcomer;
           Alcotest.test_case "pixie dies" `Quick pixie_lock_ends_with_death;
+          Alcotest.test_case "pixie holds a round" `Quick pixie_holds_through_a_round;
           Alcotest.test_case "poison refund" `Quick poison_destroys_and_refunds;
           Alcotest.test_case "poison min refund" `Quick poison_refund_is_never_negative;
           Alcotest.test_case "roots" `Quick roots_hold_one_turn_and_reduce_powers;

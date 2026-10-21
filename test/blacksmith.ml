@@ -128,7 +128,7 @@ let chariot_hides_and_returns () =
     | Some { data = Ridden hidden; _ } -> hidden.card.c_card.key
     | _ -> "");
   on_end u 0;
-  check_int "X+6" 4 (life_at u 1 2);
+  check_int "X+4" 6 (life_at u 1 2);
   kill u 0 2;
   check_string "wielder returns" "earth.troll" (Option.get (occupant u 0 2))
 
@@ -160,7 +160,9 @@ let chariot_survives_the_turn () =
   let st = state.players.(0).ps_slots.(2) in
   check_bool "pegasus stays after the turn" true
     (match st with Some st -> st.card.c_card.key = "blacksmith.pegasus" | None -> false);
-  check_int "hidden goblin does not attack" 50 state.players.(1).ps_life
+  (* the goblin is carried, so it does not attack; the pegasus hits the
+     opponent for X+4 = 8 instead of the goblin's 4 *)
+  check_int "pegasus hits the opponent for X+4" 52 state.players.(1).ps_life
 
 
 let chariot_keeps_wielder_buffs () =
@@ -171,6 +173,30 @@ let chariot_keeps_wielder_buffs () =
   kill u 0 2;
   check_string "same wielder" "earth.troll" (Option.get (occupant u 0 2));
   check_int "spear bonus kept" 8 (attack_at u 0 2)
+
+(* A neighbour bonus (Orc chieftain beside, Bull Commander anywhere) is a
+   source on the wielder's attack while it stands in the slot.  Leaving the
+   slot hands the source back, so the Pegasus strikes for the plain X+4 and the
+   wielder gets its bonus again when it comes back. *)
+let chariot_drops_neighbour_bonus giver giver_num =
+  let u = new_game ~mana:ten ~special:Blacksmith.house () in
+  place u 0 giver giver_num;
+  place u 0 "earth.troll" 2;
+  place u 1 "fire.goblin" 2;
+  (* refresh the cached attacks, as every real step does *)
+  step u (fun () -> ());
+  let buffed = attack_at u 0 2 in
+  play u 0 "blacksmith.flyingchariot" ~input:(Some 2) ~cost:5;
+  on_end u 0;
+  (* 6+4 damage: 16 - 10 *)
+  check_int "X+4 without the neighbour bonus" 6 (life_at u 1 2);
+  check_bool "buffed while riding" true (buffed > 6);
+  kill u 0 2;
+  check_string "wielder returns" "earth.troll" (Option.get (occupant u 0 2));
+  check_int "bonus back with the wielder" buffed (attack_at u 0 2)
+
+let chariot_vs_orc () = chariot_drops_neighbour_bonus "fire.orc" 1
+let chariot_vs_bull () = chariot_drops_neighbour_bonus "fire.bull" 0
 
 let cloak_and_dagger_aura () =
   let u = new_game ~mana:ten ~special:Blacksmith.house () in
@@ -251,6 +277,8 @@ let () =
           Alcotest.test_case "rides and returns" `Quick chariot_hides_and_returns;
           Alcotest.test_case "survives turn" `Quick chariot_survives_the_turn;
           Alcotest.test_case "keeps buffs" `Quick chariot_keeps_wielder_buffs;
+          Alcotest.test_case "drops orc bonus" `Quick chariot_vs_orc;
+          Alcotest.test_case "drops bull bonus" `Quick chariot_vs_bull;
         ] );
       ( "cloak and dagger",
         [

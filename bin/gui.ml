@@ -216,7 +216,8 @@ let () =
   let campaign_fight node =
     drop_dialog ();
     let p = Prefs.load () in
-    let player_special = Table.resolve_special (fst (Prefs.setup_specials p)) in
+    (* The player keeps the campaign class all the way through. *)
+    let player_special = Table.campaign_class () in
     let setup = Table.campaign_setup ~budget_ms:(Prefs.setup_budget p) ~player_special node in
     let you = Prefs.player_portrait p in
     let opp = match node.Campaign.fight with Some f -> f.portrait_id | None -> "summoner" in
@@ -282,9 +283,12 @@ let () =
           screen := Campaign (new_campaign ()));
         if lobby.want_quit then quit := true;
         if lobby.show_settings then settings_seed_keys lobby.gs;
+        (* The campaign intro's class list lives only while the dialog is up. *)
+        if not lobby.show_campaign_intro then lobby.class_select.sel_open := false;
         let wheel = R.get_mouse_wheel_move () in
         if wheel <> 0. && lobby.show_settings && lobby.gs.tab = 0 && inside class_wheel then
           class_scroll_by lobby.gs wheel;
+        select_scroll lobby.class_select wheel;
         if R.is_key_pressed R.Key.Escape then
           if lobby.show_campaign_intro then
             close_dialog "campaign-intro" (fun () -> lobby.show_campaign_intro <- false)
@@ -298,6 +302,8 @@ let () =
         else if (not lobby.show_duel) && (not lobby.show_settings) && not lobby.show_campaign_intro then
           lobby_keys lobby
     | Campaign camp ->
+        let wheel = R.get_mouse_wheel_move () in
+        select_scroll camp.class_select wheel;
         (match camp.pending_lobby with
         | true ->
             camp.pending_lobby <- false;
@@ -395,7 +401,7 @@ let () =
           let l0, l1 = chosen_specials () in
           let you, opp =
             match ui.campaign with
-            | Some _ -> (Table.resolve_special l0, snd base.specials)
+            | Some _ -> (Table.campaign_class (), snd base.specials)
             | None -> (Table.resolve_special l0, Table.resolve_special l1)
           in
           { base with specials = (you, opp) }
@@ -462,22 +468,24 @@ let () =
                 let pause = if won then 3. else 1.6 in
                 (match ui.ended_at with
                 | Some t when R.get_time () -. t >= pause && ui.settings = None && ui.campaign_end = None ->
-                    if won && node.id = Campaign.night_last then (
-                      settle ui;
-                      Prefs.reset_campaign (Prefs.load ());
-                      screen := Epilogue)
-                    else ui.campaign_end <- Some won
+                    ui.campaign_end <- Some won
                 | _ -> ());
                 match ui.campaign_end with
                 | None -> ()
                 | Some won ->
-                    draw_campaign_end ~node ~won
+                    (* The last duel gets its message like any other; the
+                       epilogue waits until the player dismisses it. *)
+                    let final = won && node.id = Campaign.night_last in
+                    draw_campaign_end ~node ~won ~final
                       ~replay:(fun () ->
                         settle ui;
                         campaign_fight node)
-                      ~map:(fun () ->
+                      ~next:(fun () ->
                         settle ui;
-                        screen := Campaign (new_campaign ~from_game:true ()))))
+                        if final then (
+                          Prefs.reset_campaign (Prefs.load ());
+                          screen := Epilogue)
+                        else screen := Campaign (new_campaign ~from_game:true ()))))
         | To_move _ ->
             ui.ended_at <- None;
             ui.campaign_end <- None);

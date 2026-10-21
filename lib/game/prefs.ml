@@ -25,6 +25,7 @@ let key_campaign_completed = "campaign.completed"
 let key_campaign_position = "campaign.position"
 let key_campaign_night_rest = "campaign.night.rest"
 let key_campaign_wake_far = "campaign.wake.far"
+let key_campaign_class = "campaign.class"
 let key_debug_mode = "debug.mode"
 let key_ambient_sound = "sound.ambient"
 let key_language = "language"
@@ -45,6 +46,8 @@ let default_sound_level = 1.0
 let default_ocean_sound = true
 let default_ambient_sound = default_ocean_sound
 let default_campaign_position = "day_start"
+(* The house the player plays with all through a campaign. *)
+let default_campaign_class = "shaman"
 let default_language = "en"
 let default_budget_ms = 1000
 let default_seats = ("human", "oracle")
@@ -189,6 +192,12 @@ let reset_night_campaign t =
 
 let mark_night_rested t = persist t [ (key_campaign_night_rest, "true") ]
 let mark_wake_far t = persist t [ (key_campaign_wake_far, "true") ]
+
+(* The campaign class: the special house the player plays with from the first
+   node to the last. The map's class selector writes it, and it outlives a
+   campaign restart. *)
+let campaign_class t = Option.value (get_nonempty t key_campaign_class) ~default:default_campaign_class
+let set_campaign_class t v = persist t [ (key_campaign_class, v) ]
 
 (* --- OCaml setup screens ---------------------------------------------- *)
 

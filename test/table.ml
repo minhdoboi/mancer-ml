@@ -138,6 +138,13 @@ let restart_keeps_deal () =
   check_bool "same owner cards" true (card_keys t owner = card_keys t2 owner);
   check_bool "same opponent cards" true (card_keys t opponent = card_keys t2 opponent)
 
+(* The campaign class is the house the player keeps all through a campaign. *)
+let campaign_class () =
+  Alcotest.(check string) "default" "shaman" (Table.campaign_class_of "shaman");
+  Alcotest.(check string) "by name" "shaman" (Table.campaign_class_of "Shaman");
+  Alcotest.(check string) "upper case" "Troopers" (Table.campaign_class_of "troopers");
+  Alcotest.(check string) "unknown" Prefs.default_campaign_class (Table.campaign_class_of "nope")
+
 let () =
   Alcotest.run "table"
     [
@@ -148,6 +155,7 @@ let () =
           Alcotest.test_case "duel roster" `Quick duel_roster;
           Alcotest.test_case "house groups" `Quick house_groups;
           Alcotest.test_case "resolve special" `Quick resolve_special;
+          Alcotest.test_case "campaign class" `Quick campaign_class;
           Alcotest.test_case "switch swaps houses and cards" `Quick switch_swaps_houses_and_cards;
           Alcotest.test_case "restart keeps deal" `Quick restart_keeps_deal;
         ] );

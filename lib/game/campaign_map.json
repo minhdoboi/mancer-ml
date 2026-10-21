@@ -92,7 +92,7 @@
       "id": "spiritshaman",
       "chapter": "day",
       "x": 0.5,
-      "y": 0.75,
+      "y": 0.77,
       "after": [
         "beaver"
       ],
@@ -106,10 +106,10 @@
     {
       "id": "paganist",
       "chapter": "day",
-      "x": 0.57,
-      "y": 0.78,
+      "x": 0.48,
+      "y": 0.69,
       "after": [
-        "spiritshaman"
+        "beaver"
       ],
       "fight": {
         "house_key": "paganist",
@@ -124,7 +124,7 @@
       "x": 0.64,
       "y": 0.76,
       "after": [
-        "paganist"
+        "spiritshaman"
       ],
       "fight": {
         "house_key": "quantumancer",
@@ -148,7 +148,7 @@
     {
       "id": "seasons",
       "chapter": "day",
-      "x": 0.48,
+      "x": 0.78,
       "y": 0.22,
       "after": [
         "meteomancer"
@@ -163,10 +163,10 @@
     {
       "id": "emotion",
       "chapter": "day",
-      "x": 0.565,
-      "y": 0.285,
+      "x": 0.50,
+      "y": 0.25,
       "after": [
-        "seasons"
+        "meteomancer"
       ],
       "fight": {
         "house_key": "emotion",
@@ -193,8 +193,8 @@
     {
       "id": "otter",
       "chapter": "day",
-      "x": 0.68,
-      "y": 0.42,
+      "x": 0.75,
+      "y": 0.40,
       "after": [
         "sower"
       ],
@@ -205,10 +205,10 @@
     {
       "id": "trappers",
       "chapter": "day",
-      "x": 0.81,
-      "y": 0.47,
+      "x": 0.90,
+      "y": 0.32,
       "after": [
-        "otter"
+        "seasons"
       ],
       "fight": {
         "house_key": "trappers",
@@ -220,9 +220,10 @@
     {
       "id": "fairy_knight",
       "chapter": "day",
-      "x": 0.9399999999999999,
+      "x": 0.93,
       "y": 0.53,
-      "after": [
+      "after_any": [
+        "otter",
         "trappers"
       ],
       "fight": {
@@ -322,7 +323,8 @@
       "chapter": "day",
       "x": 0.62,
       "y": 0.64,
-      "after": [
+      "after_any": [
+        "paganist",
         "elementalist"
       ],
       "meeting": {
@@ -439,10 +441,10 @@
     {
       "id": "kahjivir",
       "chapter": "night",
-      "x": 0.4,
-      "y": 0.77,
+      "x": 0.3,
+      "y": 0.72,
       "after": [
-        "fisherman"
+        "zen"
       ],
       "fight": {
         "house_key": "kahjivir",
@@ -456,7 +458,7 @@
       "x": 0.53,
       "y": 0.81,
       "after": [
-        "kahjivir"
+        "fisherman"
       ],
       "fight": {
         "house_key": "conjurer",
@@ -483,7 +485,8 @@
       "chapter": "night",
       "x": 0.67,
       "y": 0.74,
-      "after": [
+      "after_any": [
+        "kahjivir",
         "to_mountain"
       ],
       "fight": {
@@ -552,8 +555,8 @@
     {
       "id": "blacksmith",
       "chapter": "day",
-      "x": 0.56,
-      "y": 0.455,
+      "x": 0.55,
+      "y": 0.46,
       "after": [
         "otter"
       ],
@@ -857,8 +860,12 @@
       "to": "seasons"
     },
     {
-      "from": "seasons",
+      "from": "meteomancer",
       "to": "emotion"
+    },
+    {
+      "from": "seasons",
+      "to": "trappers"
     },
     {
       "from": "emotion",
@@ -878,7 +885,7 @@
     },
     {
       "from": "otter",
-      "to": "trappers"
+      "to": "fairy_knight"
     },
     {
       "from": "trappers",
@@ -913,6 +920,10 @@
       "to": "gardener"
     },
     {
+      "from": "paganist",
+      "to": "gardener"
+    },
+    {
       "from": "gardener",
       "to": "powermancer"
     },
@@ -937,11 +948,11 @@
       "to": "spiritshaman"
     },
     {
-      "from": "spiritshaman",
+      "from": "beaver",
       "to": "paganist"
     },
     {
-      "from": "paganist",
+      "from": "spiritshaman",
       "to": "quantumancer"
     },
     {
@@ -961,11 +972,11 @@
       "to": "fisherman"
     },
     {
-      "from": "fisherman",
+      "from": "zen",
       "to": "kahjivir"
     },
     {
-      "from": "kahjivir",
+      "from": "fisherman",
       "to": "conjurer"
     },
     {
@@ -975,6 +986,10 @@
     {
       "from": "chronomaster",
       "to": "limbo"
+    },
+    {
+      "from": "kahjivir",
+      "to": "shaman"
     },
     {
       "from": "shaman",

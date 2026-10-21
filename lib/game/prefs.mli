@@ -23,6 +23,7 @@ val key_campaign_completed : string
 val key_campaign_position : string
 val key_campaign_night_rest : string
 val key_campaign_wake_far : string
+val key_campaign_class : string
 val key_debug_mode : string
 val key_ambient_sound : string
 val key_language : string
@@ -90,6 +91,15 @@ val reset_campaign : t -> unit
 val reset_night_campaign : t -> unit
 val mark_night_rested : t -> unit
 val mark_wake_far : t -> unit
+
+val default_campaign_class : string
+(** The house key the player starts a campaign with when nothing was chosen yet. *)
+
+val campaign_class : t -> string
+(** The stored campaign class: the special house the player plays with all through the campaign. *)
+
+val set_campaign_class : t -> string -> unit
+(** Stores the campaign class. It outlives a campaign restart. *)
 
 val setup_seats : t -> string * string
 (** [setup.seats] as [(p1, p2)] seat names, else [("human", "oracle")]. *)

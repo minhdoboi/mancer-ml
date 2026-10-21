@@ -6,8 +6,8 @@
 <title>Mancers</title>
 <meta name="description" content="Mancers: a duel card game of 42 houses, a campaign and AI opponents, written in OCaml.">
 <style>
-:root{--bg:#14110f;--fg:#e8dfd0;--muted:#a89c88;--accent:#d9a441;--card:#1f1a16;--line:#3a3028}
-@media (prefers-color-scheme:light){:root{--bg:#f6f0e4;--fg:#2a211a;--muted:#6b5d4d;--accent:#9a5b0f;--card:#fffaf0;--line:#d8ccb6}}
+:root{--bg:#14110f;--fg:#e8dfd0;--muted:#a89c88;--accent:#d9a441;--card:#1f1a16;--line:#3a3028;--note:#f0e8d8;--note-text:#8b7f75;}
+@media (prefers-color-scheme:light){:root{--bg:#f6f0e4;--fg:#2a211a;--muted:#6b5d4d;--accent:#9a5b0f;--card:#fffaf0;--line:#d8ccb6;--note:#f0e8d8;--note-text:#8b7f75;}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 Georgia,serif}
 main{max-width:860px;margin:0 auto;padding:48px 16px}
@@ -24,6 +24,12 @@ h2{margin:0 0 .3em;font-size:1.1rem;color:var(--accent)}
 pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;overflow-x:auto;font-size:.9rem}
 footer{color:var(--muted);font-size:.9rem;margin-top:40px}
 footer a{color:var(--accent)}
+.grimoire{display:flex;align-items:center;gap:16px;border:1px solid var(--line);border-radius:10px;background:var(--card);text-decoration:none;color:var(--fg)}
+.grimoire:hover{border-color:var(--accent)}
+.grimoire svg{flex:none;width:34px;height:34px;stroke:var(--accent);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.grimoire strong{color:var(--accent);font-size:1.2rem}
+.grimoire span{color:var(--muted);font-size:.95rem}
+.notes{padding:8px 16px;border:1px solid var(--line);border-radius:8px;background:var(--note);color:var(--note-text)}
 </style>
 </head>
 <body>
@@ -34,13 +40,16 @@ footer a{color:var(--accent)}
   <p>
   <div>The game is an AI port of a personal project with some improvements (fixes, enhancements) and generic AI generated art in dark fantasy MTG style.
   </div>
-  <p>The campaign is supposed to happen a long time after the epoch of the original game. You would better play the original game first to understand the game mechanics. The classes that are easier to play: Shaman, Sower, Troopers (a rebranding of the original mecha by a starcraft fan I think).
-    You can adapt the difficulty by giving the AI more or less time to think.
+  <p>The campaign is supposed to happen a long time after the epoch of the original game. You would better play the original game first to understand the game mechanics.
   </p>
   </p>
   <div class="btns">
     <a class="btn primary" href="https://github.com/minhdoboi/mancer-ml/releases">Download</a>
     <a class="btn" href="https://github.com/minhdoboi/mancer-ml">Source on GitHub</a>
+    <a class="btn grimoire" href="cards.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      Grimoire
+    </a>
   </div>
   <div class="grid">
     <div><h2>Houses from community suggestions</h2><p>Vampires, Shadowmage, Entomologist and more, each with its own creatures and spells.</p></div>
@@ -48,16 +57,34 @@ footer a{color:var(--accent)}
     <div><h2>Internationalization</h2><p>Contains AI translations in multiple languages (English, French, Spanish, Russian, Vietnamese).</p></div>
   </div>
   <p>
-    <div>
-<strong>Limitations:</strong> not all rules of the original game are implemented (the 1% rule, some deck rules). There are some bugs (stealth cards may not be stealth for some bots for example).
-  </div>
-  </p>
-  <p>
-    <div>
+    <p>
+      <h2>Credits</h2>
 You can support the original game by buying it on <a href="https://www.spectromancer.com/">Spectromancer.com</a>.
 The art is great (music and graphics). There are tutorials, a beginner friendly campaign, multiplayer mode, and the classes are well balanced and archetypal.
-  </div>
+    </p>
+  <p>Thanks to the Spectromancer community for sharing their class suggestions destinated to the original game,
+    and to the AI tools that make this project possible. I excuse in advance if I misused any of their ideas.</p>
   </p>
+  <div class="notes">
+    <div>
+      <p>
+        <strong>Limitations:</strong> Not all rules of the original game are implemented (the 1% rule, some deck rules). There are some bugs (stealth cards may not be stealth for some bots for example).
+      </p>
+      <p>
+        <strong>Tips:</strong> The classes that are easier to play: Shaman, Sower, Troopers (a rebranding of the original mecha by a starcraft fan I think).
+        You can adapt the difficulty by giving the AI more or less time to think.
+      </p>
+    </div>
+    <div>
+      <strong>Class updates:</strong>
+      <ul>
+        <li><strong>Blacksmith</strong> — <em>Pegasus</em>: the end-of-turn hit drops from X+6 to X+4.</li>
+      </ul>
+      <ul>
+        <li><strong>Zen</strong>, <strong>Junk</strong>, <strong>Snowblood</strong>, <strong>Warp</strong> — reworked the classes.</li>
+      </ul>
+    </div>
+  </div>
 </main>
 </body>
 </html>

@@ -63,6 +63,13 @@ type t
 val campaign_setup : ?budget_ms:int -> ?seed:int -> player_special:string -> Campaign.node -> setup
 (** Human vs the node's bot, player's special vs the fight house, with the node's starter and life. *)
 
+val campaign_class : unit -> string
+(** The house key of the player's campaign class: the special house the map's class selector stores, or the
+    default class when the stored name is not a ported house. *)
+
+val campaign_class_of : string -> string
+(** The house key of a campaign class name, or the default class when the name is not a ported house. *)
+
 val start : ?on_event:(game_event -> unit) -> setup -> t
 (** Deals both decks and opens the session. [on_event] is as in {!Session.create}. Raises [Failure] for an
     unknown special or bot id. *)
