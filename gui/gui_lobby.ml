@@ -126,6 +126,9 @@ type lobby_ui = {
   mutable want_quit : bool;
   mutable message : string;
   class_select : select_state;
+  mutable update : Update.outcome option;
+  mutable update_job : Update.job option;
+  mutable show_update : bool;
 }
 
 let valid_specials names =
@@ -167,6 +170,9 @@ let new_lobby () =
     want_quit = false;
     message = "";
     class_select = select_state ();
+    update = None;
+    update_job = None;
+    show_update = false;
   }
 
 let persist_duel lobby =
@@ -227,6 +233,30 @@ let draw_lobby lobby =
             lobby.show_settings <- true;
             lobby.gs.tab <- 0)))
     lobby_menu;
+  (* The update check sits above Quit, in the same plain style. Its answer
+     comes back in a dialog. *)
+  (match lobby.update_job with
+  | Some job -> (
+      match Update.poll job with
+      | Some outcome ->
+          lobby.update <- Some outcome;
+          lobby.update_job <- None;
+          lobby.show_update <- true
+      | None -> ())
+  | None -> ());
+  let shadowed ~size ~color x y s =
+    text ~size ~color:(rgba 0 0 0 200) (x +. 2.) (y +. 2.) s;
+    text ~size ~color x y s
+  in
+  let checking = lobby.update_job <> None in
+  let label = if checking then Assets.text "update.checking" else Assets.text "update.check" in
+  let tw = text_w 24. label in
+  let r = rect (vw -. tw -. 40.) (vh -. 128.) (tw +. 10.) 36. in
+  let hot = (not checking) && inside r in
+  if hot then hovering := true;
+  let color = if checking then muted else if hot then rgba 255 214 89 255 else R.Color.white in
+  shadowed ~size:24. ~color r.x (r.y +. 8.) label;
+  if not checking then on_click r (fun () -> lobby.update_job <- Some (Update.start ()));
   (* Quit sits alone at the bottom right, no backdrop. *)
   (let label = Assets.text "button.quit" in
    let tw = text_w 24. label in
@@ -240,7 +270,43 @@ let draw_lobby lobby =
    text ~size:24. ~color (r.x +. 32.) (r.y +. 8.) label;
    on_click r (fun () -> lobby.want_quit <- true));
   if lobby.message <> "" then text ~size:13. ~color:red 48. (vh -. 60.) lobby.message;
-  text_c ~size:14. ~color:faint (rect 0. 0. vw 0.) (vh -. 28.) "↑↓ choose · Enter opens · Esc quits"
+  text_c ~size:14. ~color:faint (rect 0. 0. vw 0.) (vh -. 28.) "↑↓ choose · Enter opens · Esc quits";
+  (* The version of this build, top right. *)
+  let ver = Version.current () in
+  if ver <> "dev" then (
+    let x = vw -. 40. -. (text_w 15. ver) in
+    text ~size:15. ~color:(rgba 0 0 0 200) (x +. 1.) 47. ver;
+    text ~size:15. ~color:muted x 46. ver)
+
+(* What the update check found: a parchment note, like the other lobby
+   dialogs. *)
+let draw_update lobby =
+  click_full (fun () -> close_dialog "update" (fun () -> lobby.show_update <- false));
+  let message, note =
+    match lobby.update with
+    | Some (Update.Up_to_date tag) -> (Assets.format (Assets.text "update.uptodate") [ tag ], "")
+    | Some (Update.Newer tag) -> (Assets.format (Assets.text "update.available") [ tag ], Update.page_url)
+    | Some (Update.Unknown tag) -> (Assets.format (Assets.text "update.unknown") [ tag ], "")
+    | Some (Update.Failed e) -> (Assets.text "update.failed", e)
+    | None -> (Assets.text "update.failed", "")
+  in
+  let box_w = 380. in
+  let lines = wrap ~font:paper_font 17. (box_w -. 80.) message in
+  let note_h = if note = "" then 0. else 24. in
+  let box_h = 62. +. (float (List.length lines) *. 24.) +. note_h +. 44. in
+  let box = rect ((vw -. box_w) /. 2.) ((vh -. box_h) /. 2.) box_w box_h in
+  paper box;
+  on_click box (fun () -> ());
+  text_c ~font:paper_font ~size:22. ~color:ink box (box.y +. 18.) (Assets.text "update.check");
+  let y = ref (box.y +. 58.) in
+  List.iteri
+    (fun i l ->
+      text_c ~font:paper_font ~size:17. ~color:ink (rect box.x !y box.w 0.) (!y +. (float i *. 24.)) l)
+    lines;
+  y := !y +. (float (List.length lines) *. 24.) +. 2.;
+  if note <> "" then text_c ~font:paper_font ~size:14. ~color:ink_soft (rect box.x !y box.w 0.) !y note;
+  paper_btn_row ~size:16. ~cx:(box.x +. (box.w /. 2.)) ~y:(box.y +. box.h -. 42.)
+    [ (Assets.text "button.ok", fun () -> close_dialog "update" (fun () -> lobby.show_update <- false)) ]
 
 let lobby_keys lobby =
   if R.is_key_pressed R.Key.Up then lobby.menu <- (if lobby.menu <= 0 then 2 else lobby.menu - 1);

@@ -159,3 +159,8 @@
  (name houses_h)
  (modules houses_h)
  (libraries mancer support alcotest))
+
+(test
+ (name update)
+ (modules update)
+ (libraries mancer alcotest))

@@ -59,6 +59,9 @@ copy_assets() {
     [ -d "assets/$d" ] || continue
     cp -R "assets/$d" "$dest/"
   done
+  # The game asks this file which version it is, so the update check can
+  # compare it with the latest release.
+  printf '%s' "$version" > "$dest/version.txt"
 }
 
 write_readme() {

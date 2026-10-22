@@ -297,6 +297,7 @@ let () =
                 lobby.show_settings <- false;
                 lobby.gs.seed_focus <- false)
           else if lobby.show_duel then close_dialog "duel" (fun () -> lobby.show_duel <- false)
+          else if lobby.show_update then close_dialog "update" (fun () -> lobby.show_update <- false)
           else quit := true
         else if lobby.show_duel && R.is_key_pressed R.Key.Enter then fight lobby
         else if (not lobby.show_duel) && (not lobby.show_settings) && not lobby.show_campaign_intro then
@@ -368,7 +369,8 @@ let () =
             draw_campaign_intro lobby ~start:(fun () ->
                 drop_dialog ();
                 lobby.show_campaign_intro <- false;
-                screen := Campaign (new_campaign ())))
+                screen := Campaign (new_campaign ())));
+        run_dialog "update" lobby.show_update (fun () -> draw_update lobby)
     | Campaign camp -> draw_campaign camp
     | Epilogue -> draw_epilogue ~menu:(fun () -> screen := Lobby (new_lobby ()))
     | Game ui ->
