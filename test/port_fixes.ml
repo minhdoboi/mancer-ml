@@ -23,7 +23,7 @@ let custom_attacks_are_multi () =
   init_all_houses ();
   List.iter
     (fun key -> check_bool key true (is_multi_card (card_by_key key)))
-    [ "darkpriest.DarkHydra.name"; "highpriest.sunpriest"; "dreamweaver.sword"; "zen.redlight" ];
+    [ "darkpriest.DarkHydra.name"; "highpriest.sunpriest"; "dreamweaver.sword" ];
   check_bool "apep" true (is_multi_card (card_by_key "highpriest.Apep"));
   check_bool "goblin" false (is_multi_card (card_by_key "fire.goblin"))
 

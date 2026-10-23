@@ -35,29 +35,69 @@ let elem_attack target d player =
           Slots.foreach op.slots_update (fun s ->
               if (Slot.get s).card.c_card.house_index = h then Slot.inflict s d))
 
-let redlight_attack target d player =
-  match target with
-  | [] -> ()
-  | num :: _ ->
-      let op = Player.other player in
-      List.iter
-        (fun n ->
-          match op.slots_update.slot_updates.(n).value with
-          | None -> if n = num then Player.inflict op d
-          | Some _ -> Slot.inflict op.slots_update.slot_updates.(n) d)
-        (slot_interval (num - 1) (num + 1))
+(* Redlight: it and its neighbours get +1 attack while the creature in the
+   opposite slot has a higher attack.  The bonus is a lazy attack source, so the
+   condition is checked every time the attack is folded: an enemy that dies or
+   weakens takes the bonus away, and a neighbour that outgrows its opposite
+   loses it. *)
+let redlight_source (id : int) =
+  Attack_slot_state_func
+    (fun a slot ->
+      let owner = slot.slots.player in
+      (* is the redlight that gave this bonus still next to the slot? *)
+      let giver =
+        Slots.foldl owner.slots_update false (fun found s ->
+            found
+            || match s.value with Some g -> g.slot_id = id && abs (s.num - slot.num) <= 1 | None -> false)
+      in
+      if not giver then a
+      else match (Slot.opposite slot).value with Some foe when foe.attack > a -> a + 1 | _ -> a)
 
+let redlight_reaction () =
+  let r = Reaction.default () in
+  let src = ref None in
+  let me () = Reaction.bound_slot r in
+  let bonus () =
+    match !src with
+    | Some s -> s
+    | None ->
+        let s = redlight_source (match (me ()).value with Some st -> st.slot_id | None -> 0) in
+        src := Some s;
+        s
+  in
+  let affected () =
+    let m = me () in
+    m :: Slot.adjacent m
+  in
+  let grant s =
+    let b = bonus () in
+    if Option.is_some s.value && not (has_source s (fun x -> x == b)) then add_attack s b
+  in
+  let revoke s = remove_first_attack s (bonus ()) in
+  {
+    r with
+    on_add =
+      (fun slot ->
+        let m = me () in
+        (* the redlight itself, or a creature that joined next to it *)
+        if abs (m.num - slot.num) <= 1 then List.iter grant (affected ()));
+    on_remove =
+      (fun slot ->
+        let m = me () in
+        if slot.num = m.num then List.iter revoke (affected ())
+        else if abs (m.num - slot.num) <= 1 then revoke slot);
+  }
+
+(* Focus: for every creature on the opponent's board, 1 mana of its house and 1 life. *)
 let focus_spell : card_effect =
  fun env ->
   let p = player_of_env env in
-  List.iter
-    (fun num ->
-      match p.slots_update.slot_updates.(num).value with
+  Slots.foreach (other_of_env env).slots_update (fun s ->
+      match s.value with
       | None -> ()
       | Some st ->
-          let amount = if num = env.env_selected then 2 else 1 in
-          Houses.incr_mana p.houses_update amount [ st.card.c_card.house_index ])
-    (slot_interval (env.env_selected - 1) (env.env_selected + 1))
+          Houses.incr_mana p.houses_update 1 [ st.card.c_card.house_index ];
+          Player.heal p 1)
 
 let spawn_matter : card_effect =
  fun env ->
@@ -121,12 +161,14 @@ let zen_effect : card_effect =
         opp.value
   | _ -> ()
 
+(* Dreamer: 4 damage to the weakest enemy creature, paid with 2 of its own life. *)
 let dreamer_shock : card_effect =
  fun env ->
   Option.iter
     (fun s ->
       spark env s;
-      Slot.inflict s (ability_damage env 4))
+      Slot.inflict s (ability_damage env 4);
+      drain (own_slot_of_env env) (ability_damage env 2))
     (reduce_filled (other_of_env env).slots_update lowest_life)
 
 let place_cocoon : card_effect =
@@ -194,7 +236,10 @@ let fighter_reaction () =
         if Option.is_none e.de_target && e.de_damage.amount > 0 then (
           let me = Reaction.bound_slot r in
           Updater.focus me.slots.player.updater me.num me.slots.player.pid false;
-          r.heal me 1);
+          (* +1 attack until the end of the owner's turn *)
+          let bonus = Attack_func (fun a -> a + 1) in
+          add_attack me bonus;
+          Player.add_effect me.slots.player (On_end_turn, one_time_player_effect (remove_attack bonus)));
         e.de_damage);
   }
 
@@ -238,13 +283,12 @@ let cards =
     creature ~key:"zen.elementesist" ~attack:(attack 3) ~life:14 ~description:"zen.elementesist.description"
       ~run_attack:(custom_run_attack elem_attack) ();
     creature ~key:"zen.redlight" ~attack:(attack 2) ~life:14 ~description:"zen.redlight.description"
-      ~run_attack:(custom_run_attack ~multi:true redlight_attack)
-      ();
-    spell ~key:"zen.focus" ~description:"zen.focus.description" ~input_spec:Select_owner_creature
+      ~new_reaction:redlight_reaction ();
+    spell ~key:"zen.focus" ~description:"zen.focus.description"
       ~effects:(effects [ (Direct, focus_spell) ])
       ();
     eguard;
-    creature ~key:"zen.dreamer" ~attack:(attack 5) ~life:24 ~description:"zen.dreamer.description"
+    creature ~key:"zen.dreamer" ~attack:(attack 4) ~life:27 ~description:"zen.dreamer.description"
       ~effects:(effects [ (On_turn, dreamer_shock) ])
       ();
     mimic;

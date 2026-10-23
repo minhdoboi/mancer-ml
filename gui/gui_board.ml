@@ -56,6 +56,12 @@ type focus = { f_pid : player_id; f_num : int; f_start : float }
 (* Scala SlotComponent.fade: the dying card fades out instead of popping off. *)
 type death = { d_pid : player_id; d_num : int; d_id : int; d_start : float }
 
+(* Obliterate: a card the dissolve shader has eaten away. The effect reports how far it has gone while
+   it runs; the board keeps the last report, because the state holds the creature a little longer than
+   the effect does (the death fades run one after another). A card that is leaving must not come back
+   for a moment. *)
+type eaten = { e_pid : player_id; e_num : int; e_id : int; e_amount : float; e_seed : float }
+
 (* Scala DamagableInt: a value that changed between two refreshes *)
 type pop_at = Slot_life of player_id * int | Player_life of player_id | Mana of player_id * int
 type pop = { at : pop_at; amount : int; p_start : float; mutable p_sounded : bool }
@@ -95,6 +101,7 @@ type game_ui = {
   mutable attacks : attack list;
   mutable focuses : focus list;
   mutable deaths : death list;
+  mutable eaten : eaten list;
   mutable pops : pop list;
   mutable spell_shows : spell_show list;
   mutable campaign : Campaign.node option;
@@ -171,6 +178,7 @@ let make_game ?(campaign = None) (setup : Table.setup) portraits table_of =
       attacks = [];
       focuses = [];
       deaths = [];
+      eaten = [];
       pops = [];
       spell_shows = [];
       campaign;
@@ -746,6 +754,14 @@ let tick_slides ui =
         | Some st -> st.slot_id = d.d_id
         | None -> false)
       ui.deaths;
+  (* An eaten card is remembered only while its creature is still on the board. *)
+  ui.eaten <-
+    List.filter
+      (fun e ->
+        match ui.shown.players.(e.e_pid).ps_slots.(e.e_num) with
+        | Some st -> st.slot_id = e.e_id
+        | None -> false)
+      ui.eaten;
   List.iter
     (fun p ->
       if (not p.p_sounded) && now >= p.p_start then (
@@ -922,6 +938,23 @@ let death_alpha ui pid num slot_id =
       if now < d.d_start then Some 1.
       else Some (Float.max 0. (1. -. fade_smooth (Float.min 1. ((now -. d.d_start) /. death_duration))))
 
+(* Obliterate: how far the card in this slot has been eaten away, and its noise seed. The effect
+   reports the amount while it eats the card; the board keeps the last report, because the state
+   holds the creature a little longer than the effect lasts: the death fades run one after another,
+   and a card that is leaving must not come back for a moment. A creature that is not dying is left
+   alone, so a demo of the effect (which destroys nothing) still gives the cards back. *)
+let eaten_state ui pid num (st : slot_state) spot =
+  match Fx.dissolve_state spot with
+  | Some (amount, seed) ->
+      ui.eaten <-
+        { e_pid = pid; e_num = num; e_id = st.slot_id; e_amount = amount; e_seed = seed }
+        :: List.filter (fun e -> e.e_pid <> pid || e.e_num <> num) ui.eaten;
+      Some (amount, seed)
+  | None ->
+      (match List.find_opt (fun e -> e.e_pid = pid && e.e_num = num && e.e_id = st.slot_id) ui.eaten with
+      | Some e when death_alpha ui pid num st.slot_id <> None -> Some (e.e_amount, e.e_seed)
+      | _ -> None)
+
 let soul_slot_tint = rgba 158 178 235 255
 let cocoon_slot_tint = rgba 224 204 140 255
 
@@ -1081,8 +1114,10 @@ let draw_slot ui pid num =
          let fade = match death_alpha ui pid num st.slot_id with None -> 1. | Some a -> a in
          if fade <= 0.02 then draw_slot_well r
          else (
+           let spot = (fx_layout ui).slot_center pid num in
+           let eaten = eaten_state ui pid num st spot in
            (* an eaten creature leaves its well behind, as an empty slot does *)
-           let eating = Option.is_some (Fx.dissolve_state ((fx_layout ui).slot_center pid num)) in
+           let eating = Option.is_some eaten in
            if fade < 0.999 || eating then draw_slot_well r;
            let c = st.card.c_card in
            if fade >= 0.999 && inside r then ui.hover <- Some (Hover_card (c, pid, Some st.max_life));
@@ -1101,8 +1136,6 @@ let draw_slot ui pid num =
            let tint, look_a = slot_face_look st in
            let decorated = ref false in
            with_alpha (fade *. look_a) (fun () ->
-               let spot = (fx_layout ui).slot_center pid num in
-               let eaten = Fx.dissolve_state spot in
                let gone = match eaten with Some (amount, _) -> amount >= 0.999 | None -> false in
                let warp = if Fx.warp_any () then Fx.warp_amount spot else 0. in
                let face r =

@@ -265,10 +265,16 @@ let kojiro_burns_the_run () =
 
 let kojiro_rushes () =
   let u = new_game ~mana:all_mana ~special:Snowblood.house () in
+  place u 1 "fire.goblin" 0;
   play u 0 "snowblood.kojiro" ~input:(Some 0) ~cost:5;
   check_int "+4 on the turn it lands" 9 (attack_at u 0 0);
   step u (fun () -> Player.apply_effects (player u 0) On_end_turn);
   check_int "gone after the turn" 5 (attack_at u 0 0)
+
+let kojiro_rushes_only_when_opposed () =
+  let u = new_game ~mana:all_mana ~special:Snowblood.house () in
+  play u 0 "snowblood.kojiro" ~input:(Some 0) ~cost:5;
+  check_int "no bonus without an opposite creature" 5 (attack_at u 0 0)
 
 let kojiro_lands_on_occupied () =
   let u = new_game ~mana:all_mana ~special:Snowblood.house () in
@@ -276,22 +282,32 @@ let kojiro_lands_on_occupied () =
   play u 0 "snowblood.kojiro" ~input:(Some 3) ~cost:5;
   check_string "replaced" "snowblood.kojiro" (Option.get (occupant u 0 3))
 
-let janus_arrives () =
+let janus_strikes_on_summon () =
   let u = new_game ~mana:all_mana ~special:Snowblood.house () in
   place u 0 "fire.goblin" 1;
+  place u 0 "fire.dragon" 4;
+  hit u 0 1 4;
+  let neighbour = life_at u 0 1 and other = life_at u 0 4 in
+  let life = player_life u 0 and fire = mana u 0 0 in
   play u 0 "snowblood.janus" ~input:(Some 0) ~cost:7;
-  check_int "fire +1" 7 (mana u 0 0);
-  check_int "heals 2" 62 (player_life u 0)
+  check_int "neighbour healed" (neighbour + 2) (life_at u 0 1);
+  check_int "other slot hit" (other - 1) (life_at u 0 4);
+  check_int "owner heals" (life + 1) (player_life u 0);
+  check_int "owner gains fire mana" (fire + 1) (mana u 0 0)
 
-let janus_burns_other_side () =
+let janus_feeds_on_its_own_board () =
   let u = new_game ~special:Snowblood.house () in
   place u 0 "snowblood.janus" 0;
+  place u 0 "fire.goblin" 1;
   place u 0 "fire.dragon" 4;
-  place u 0 "fire.dragon" 1;
-  let a = life_at u 0 4 and b = life_at u 0 1 in
+  hit u 0 1 4;
+  let neighbour = life_at u 0 1 and other = life_at u 0 4 in
+  let life = player_life u 0 and fire = mana u 0 0 in
   step u (fun () -> Player.apply_effects (player u 0) On_turn);
-  check_int "other side" (a - 2) (life_at u 0 4);
-  check_int "same side" b (life_at u 0 1)
+  check_int "neighbour healed" (neighbour + 2) (life_at u 0 1);
+  check_int "other slot hit" (other - 1) (life_at u 0 4);
+  check_int "owner heals" (life + 1) (player_life u 0);
+  check_int "owner gains fire mana" (fire + 1) (mana u 0 0)
 
 let echo_replays_and_attacks () =
   let u = new_game ~mana:all_mana ~special:Snowblood.house () in
@@ -307,15 +323,15 @@ let amaterasu_fire () =
   place u 1 "earth.troll" 3;
   let before = life_at u 1 3 in
   play u 0 "fire.goblin" ~input:(Some 3) ~cost:1;
-  check_int "4 to the opposite" (before - 4) (life_at u 1 3)
+  check_int "5 to the opposite" (before - 5) (life_at u 1 3)
 
 let amaterasu_air_and_earth () =
   let u = new_game ~mana:all_mana ~special:Snowblood.house () in
   place u 0 "snowblood.amaterasu" 0;
   play u 0 "air.fairy" ~input:(Some 3) ~cost:1;
-  check_int "air: 2 to the opponent" 58 (player_life u 1);
+  check_int "air: 3 to the opponent" 57 (player_life u 1);
   play u 0 "earth.sprite" ~input:(Some 4) ~cost:1;
-  check_int "earth: heal 2" 62 (player_life u 0)
+  check_int "earth: heal 3" 63 (player_life u 0)
 
 let amaterasu_water () =
   let u = new_game ~mana:[ 6; 4; 5; 5; 10 ] ~special:Snowblood.house () in
@@ -330,7 +346,7 @@ let amaterasu_arrival () =
   place u 0 "earth.troll" 1;
   step u (fun () -> Slot.update (slot u 0 0) (fun st -> { st with life = 1 }));
   play u 0 "snowblood.amaterasu" ~input:(Some 2) ~cost:7;
-  check_int "heals 2 per earth creature" 44 (player_life u 0)
+  check_int "heals 3 per earth creature" 46 (player_life u 0)
 
 let guide_hits_with_the_next_summon () =
   let u = new_game ~special:Snowblood.house () in
@@ -633,9 +649,10 @@ let () =
           test_case "letter attacked" `Quick attacks_reach_a_letter;
           test_case "kojiro run" `Quick kojiro_burns_the_run;
           test_case "kojiro rush" `Quick kojiro_rushes;
+          test_case "kojiro needs an opponent" `Quick kojiro_rushes_only_when_opposed;
           test_case "kojiro occupied" `Quick kojiro_lands_on_occupied;
-          test_case "janus summon" `Quick janus_arrives;
-          test_case "janus turn" `Quick janus_burns_other_side;
+          test_case "janus turn" `Quick janus_feeds_on_its_own_board;
+          test_case "janus on summon" `Quick janus_strikes_on_summon;
           test_case "echo" `Quick echo_replays_and_attacks;
           test_case "amaterasu fire" `Quick amaterasu_fire;
           test_case "amaterasu air earth" `Quick amaterasu_air_and_earth;

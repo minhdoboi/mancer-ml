@@ -34,7 +34,7 @@ let looks =
     ("wind.EternalStorm.name", look Swirl Foe_slots 0.65 0.8 1. ~power:1.35 ());
     ("disciples.wind", look Swirl Foe_slots 0.55 0.5 0.45 ());
     ("faerie.cloud", look Rise Own_slots 0.7 0.85 1. ());
-    ("zen.focus", look Rise Target 0.35 0.9 0.55 ());
+    ("zen.focus", look Rise Foe_slots 0.35 0.9 0.55 ());
     ("chronomaster.aging", look Shadow Target 0.28 0.26 0.24 ~power:1.15 ());
     ("chronomaster.freeze", look Ice Target 0.7 0.9 1. ~power:1.1 ());
     ("chronomaster.accelerate", look Rays Own_target 1. 0.78 0.28 ~power:1.15 ());

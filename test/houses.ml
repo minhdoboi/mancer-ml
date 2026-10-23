@@ -276,7 +276,7 @@ let inertia_matter_partner () =
   check_int "sprite untouched" 22 (life_at u 1 1);
   check_int "weakest ally healed" 9 (life_at u 0 4)
 
-let fighter_heals_owner_hits () =
+let fighter_grows_when_the_owner_is_hit () =
   let u = new_game ~special:Zen.house () in
   (player u 0).pstate.ps_life <- 40;
   place u 0 "zen.fighter" 2;
@@ -288,8 +288,10 @@ let fighter_heals_owner_hits () =
       Player.inflict (player u 0) (mk_damage 4 { ctx_player = 1; ctx_card = None; ctx_selected = 0 });
       Player.inflict (player u 0)
         (mk_damage ~is_spell:true 3 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
-  check_int "healed twice" 19 (life_at u 0 2);
-  check_int "player life" 33 (player_life u 0)
+  check_int "fighter attack up" 7 (attack_at u 0 2);
+  check_int "player life" 33 (player_life u 0);
+  step u (fun () -> Player.apply_effects (player u 0) On_end_turn);
+  check_int "bonus over" 5 (attack_at u 0 2)
 
 let inertia_ignores_spells () =
   let u = new_game ~special:Zen.house () in
@@ -302,6 +304,70 @@ let inertia_ignores_spells () =
       Slot.inflict (slot u 0 2)
         (mk_damage ~is_ability:true 6 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
   check_int "ability hits" 16 (life_at u 0 2)
+
+let redlight_boosts_the_weaker_neighbour () =
+  let u = new_game ~special:Zen.house () in
+  place u 1 "fire.blargl" 1;
+  place u 1 "fire.bull" 2;
+  place u 0 "zen.redlight" 2;
+  place u 0 "fire.goblin" 1;
+  step u (fun () -> ());
+  check_int "goblin boosted" 5 (attack_at u 0 1);
+  check_int "redlight boosted" 3 (attack_at u 0 2)
+
+let redlight_leaves_the_stronger_neighbour () =
+  let u = new_game ~special:Zen.house () in
+  place u 1 "fire.goblin" 1;
+  place u 0 "zen.redlight" 2;
+  place u 0 "fire.blargl" 1;
+  step u (fun () -> ());
+  check_int "blargl untouched" 8 (attack_at u 0 1)
+
+let redlight_bonus_follows_the_board () =
+  let u = new_game ~special:Zen.house () in
+  place u 1 "fire.blargl" 1;
+  place u 0 "zen.redlight" 2;
+  place u 0 "fire.goblin" 1;
+  step u (fun () -> ());
+  check_int "goblin boosted" 5 (attack_at u 0 1);
+  step u (fun () ->
+      Slot.inflict (slot u 1 1) (mk_damage 30 { ctx_player = 0; ctx_card = None; ctx_selected = 0 }));
+  step u (fun () -> ());
+  check_int "goblin back to base" 4 (attack_at u 0 1)
+
+let redlight_bonus_leaves_a_moved_neighbour () =
+  let u = new_game ~special:Zen.house () in
+  place u 1 "fire.blargl" 1;
+  place u 0 "zen.redlight" 2;
+  place u 0 "fire.goblin" 1;
+  step u (fun () -> ());
+  check_int "goblin boosted" 5 (attack_at u 0 1);
+  step u (fun () -> Slots.move (player u 0).slots_update 1 4);
+  step u (fun () -> ());
+  check_int "goblin moved away" 4 (attack_at u 0 4)
+
+let focus_reads_the_opponent_board () =
+  let u = new_game ~special:Zen.house () in
+  place u 1 "fire.goblin" 1;
+  place u 1 "air.medic" 2;
+  place u 1 "fire.goblin" 3;
+  let mana i = (player u 0).houses_update.hu_value.(i).mana in
+  let fire = mana 0 and air = mana 2 in
+  let life = player_life u 0 in
+  play u 0 "zen.focus" ~input:None ~cost:3;
+  check_int "fire mana" (fire + 2) (mana 0);
+  check_int "air mana" (air + 1) (mana 2);
+  check_int "healed" (life + 3) (player_life u 0)
+
+let dreamer_pays_for_the_shock () =
+  let u = new_game ~special:Zen.house () in
+  place u 0 "zen.dreamer" 0;
+  place u 1 "fire.goblin" 2;
+  step u (fun () -> Player.apply_effects (player u 0) On_turn);
+  check_int "goblin hit" 12 (life_at u 1 2);
+  check_int "dreamer pays" 25 (life_at u 0 0);
+  step u (fun () -> Player.apply_effects (player u 0) On_turn);
+  check_int "dreamer pays twice" 23 (life_at u 0 0)
 
 (* ------------------------------------------------------------------- wind *)
 
@@ -525,8 +591,14 @@ let () =
           test_case "inertia spawns matter" `Quick inertia_spawns_matter;
           test_case "inertia no matter" `Quick inertia_no_matter_when_right_full;
           test_case "partner heal strike" `Quick inertia_matter_partner;
-          test_case "fighter owner hits" `Quick fighter_heals_owner_hits;
+          test_case "fighter owner hits" `Quick fighter_grows_when_the_owner_is_hit;
           test_case "inertia ignores spells" `Quick inertia_ignores_spells;
+          test_case "redlight boosts neighbour" `Quick redlight_boosts_the_weaker_neighbour;
+          test_case "redlight spares stronger" `Quick redlight_leaves_the_stronger_neighbour;
+          test_case "redlight follows the board" `Quick redlight_bonus_follows_the_board;
+          test_case "redlight loses a moved neighbour" `Quick redlight_bonus_leaves_a_moved_neighbour;
+          test_case "focus reads the opponent board" `Quick focus_reads_the_opponent_board;
+          test_case "dreamer pays for the shock" `Quick dreamer_pays_for_the_shock;
         ] );
       ( "wind",
         [

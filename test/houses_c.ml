@@ -344,12 +344,20 @@ let thief_drains_opposite_house () =
   check_int "earth -1" 3 (mana u 1 3);
   check_int "fire untouched" 6 (mana u 1 0)
 
+(* Shadow Dancer is a 3-attack creature that attacks twice when opposed: two
+   hits of 3, not one hit of 6. *)
 let dancer_strikes_twice () =
   let u = new_game ~special:Rogue.house () in
   place u 0 "rogue.dancer" 2;
   place u 1 "fire.goblin" 2;
+  check_int "attack is 3" 3 (attack_at u 0 2);
   step u (fun () -> Player.run_slots (player u 0));
-  check_int "two hits" 10 (life_at u 1 2)
+  check_int "two hits" 10 (life_at u 1 2);
+  (* unopposed: a single attack, 3 to the opponent *)
+  let v = new_game ~special:Rogue.house () in
+  place v 0 "rogue.dancer" 2;
+  step v (fun () -> Player.run_slots (player v 0));
+  check_int "one hit on an open lane" 57 (player_life v 1)
 
 let fighter_grows_from_opposite () =
   let goblin = card_by_key "fire.goblin" in

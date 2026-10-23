@@ -165,12 +165,17 @@ let echo : card_effect =
 
 (* ----------------------------------------------------------------- kojiro *)
 
-(* +4 attack on the turn Kojiro is summoned (5 in all), removed once that turn's attacks are done. *)
+(* +4 attack on the turn Kojiro is summoned (5 in all), removed once that turn's
+   attacks are done - but only when a creature stands in the opposite slot. *)
 let kojiro_rush : card_effect =
  fun env ->
-  let bonus = Attack_func (fun a -> a + 4) in
-  add_attack (own_slot_of_env env) bonus;
-  Player.add_effect (player_of_env env) (On_end_turn, one_time_player_effect (remove_attack bonus))
+  let me = own_slot_of_env env in
+  match (Slot.opposite me).value with
+  | None -> ()
+  | Some _ ->
+      let bonus = Attack_func (fun a -> a + 4) in
+      add_attack me bonus;
+      Player.add_effect (player_of_env env) (On_end_turn, one_time_player_effect (remove_attack bonus))
 
 let kojiro_turn : card_effect =
  fun env ->
@@ -205,35 +210,26 @@ let guide_summoned (me : slot_update) (slot : slot_update) =
 
 (* ------------------------------------------------------------------ janus *)
 
-(* Slots 0-2 and 3-5 are the two sides of the board. *)
-let janus_other_side num = if num > 2 then [ 0; 1; 2 ] else [ 3; 4; 5 ]
-let janus_same_side_others num = List.filter (( <> ) num) (if num > 2 then [ 3; 4; 5 ] else [ 0; 1; 2 ])
-
-let janus_on_summon : card_effect =
- fun env ->
-  let p = player_of_env env in
-  List.iter
-    (fun n ->
-      Option.iter
-        (fun st -> Houses.incr_mana p.houses_update 1 [ st.card.c_card.house_index ])
-        p.slots_update.slot_updates.(n).value)
-    (janus_same_side_others env.env_selected);
-  Player.heal p 2;
-  focus_slot (own_slot_of_env env)
-
+(* Each turn Janus heals itself and its neighbours, and takes 1 life from the
+   rest of the owner's board: every creature it wounds feeds its owner 1 life
+   and 1 mana of its house. *)
 let janus_turn : card_effect =
  fun env ->
   let p = player_of_env env in
-  let d = ability_damage env 2 in
+  let me = own_slot_of_env env in
+  let d = ability_damage env 1 in
+  List.iter (fun s -> Slot.heal s 2) (me :: Slot.adjacent me);
   let hit = ref false in
-  List.iter
-    (fun n ->
-      let s = p.slots_update.slot_updates.(n) in
-      if Option.is_some s.value then (
-        Slot.inflict s d;
-        hit := true))
-    (janus_other_side env.env_selected);
-  if !hit then focus_slot (own_slot_of_env env)
+  Slots.foreach p.slots_update (fun s ->
+      if s.num <> me.num && not (List.mem s.num (adjacents me.num)) then
+        match s.value with
+        | None -> ()
+        | Some st ->
+            Slot.inflict s d;
+            hit := true;
+            Player.heal p 1;
+            Houses.incr_mana p.houses_update 1 [ st.card.c_card.house_index ]);
+  if !hit then focus_slot me
 
 (* -------------------------------------------------------------- amaterasu *)
 
@@ -244,15 +240,15 @@ let apply_amaterasu (me : slot_update) (slot : slot_update) house_index =
     { ctx_player = p.pid; ctx_card = Option.map (fun st -> st.card.c_card) me.value; ctx_selected = me.num }
   in
   match house_index with
-  | 0 -> Slot.inflict (Slot.opposite slot) (mk_damage ~is_ability:true 4 ctx)
+  | 0 -> Slot.inflict (Slot.opposite slot) (mk_damage ~is_ability:true 5 ctx)
   | 1 ->
       (* the lowest power, the first one on ties *)
       let houses = p.houses_update.hu_value in
       let lowest = ref 0 in
       Array.iteri (fun i h -> if h.mana < houses.(!lowest).mana then lowest := i) houses;
       Houses.incr_mana p.houses_update 1 [ !lowest ]
-  | 2 -> Player.inflict (other_player p) (mk_damage ~is_ability:true 2 ctx)
-  | 3 -> Player.heal p 2
+  | 2 -> Player.inflict (other_player p) (mk_damage ~is_ability:true 3 ctx)
+  | 3 -> Player.heal p 3
   | _ -> ()
 
 let apply_amaterasu_slot me (slot : slot_update) =
@@ -348,7 +344,7 @@ let cards =
       ();
     guide;
     creature ~key:"snowblood.janus" ~attack:(attack 6) ~life:25 ~description:"snowblood.janus.description"
-      ~effects:(effects [ (Direct, janus_on_summon); (On_turn, janus_turn) ])
+      ~effects:(effects [ (Direct, janus_turn); (On_turn, janus_turn) ])
       ();
     amat;
   ]
