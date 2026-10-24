@@ -26,7 +26,7 @@ type house_dlg = {
   mutable content_h : float;
 }
 
-type called_dlg = { cd : card_desc; hd : player_house_desc; current : int option }
+type called_dlg = { cd : card_desc; hd : player_house_desc; current : int option; pid : player_id }
 
 type slide = {
   card : card;
@@ -270,19 +270,13 @@ let play ui cmd =
         ui.last_move <- R.get_time ())
 
 (* Scala CalledElementDialog: element picker shown when a Meteomancer card
-   is clicked. Fire 0 .. Earth 3, index-aligned with the basic house index. *)
-let element_keys = [| "fire"; "water"; "air"; "earth" |]
+   is clicked. The four basic houses, index-aligned with the basic house
+   index; their names follow the mode (fire in classic mode, anger in
+   standard mode), so the picker shows the houses the player actually has. *)
+let basic_names ui pid = Assets.basic_house_names (view ui) pid
 
 let current_called ui pid =
   match (state ui).players.(pid).ps_data with Meteo_data d -> d.mt_called | _ -> None
-
-let called_title ui pid =
-  let cur =
-    match current_called ui pid with
-    | Some i when i >= 0 && i < Array.length element_keys -> Assets.text element_keys.(i)
-    | _ -> Assets.text "meteomancer.noelement"
-  in
-  Assets.format (Assets.text "meteomancer.choose") [ cur ]
 
 let close_called_dlg ui = ui.called_dlg <- None
 
@@ -315,7 +309,7 @@ let pick_card ui cd hd =
         let pid = Option.value (human_to_move ui) ~default:owner in
         ui.message <- "";
         ui.mode <- Browse;
-        ui.called_dlg <- Some { cd; hd; current = current_called ui pid })
+        ui.called_dlg <- Some { cd; hd; current = current_called ui pid; pid })
   else
     match Table.pick_card ui.table cd hd with
     | Not_enough_mana -> ui.message <- "not enough mana"
@@ -554,6 +548,8 @@ let fx_layout ui : Fx.layout =
         | None -> None);
     slot_life =
       (fun pid n -> Option.map (fun (st : slot_state) -> st.life) (view ui).players.(pid).ps_slots.(n));
+    slot_attack =
+      (fun pid n -> Option.map (fun (st : slot_state) -> st.attack) (view ui).players.(pid).ps_slots.(n));
     slot_card =
       (fun pid n ->
         Option.map (fun (st : slot_state) -> st.card.c_card.key) (view ui).players.(pid).ps_slots.(n));
@@ -1702,9 +1698,10 @@ let draw_called_dlg ui dlg =
   let box = called_dlg_box in
   paper box;
   on_click box (fun () -> ());
+  let names = basic_names ui dlg.pid in
   let cur_label =
     match dlg.current with
-    | Some i when i >= 0 && i < Array.length element_keys -> Assets.text element_keys.(i)
+    | Some i when i >= 0 && i < Array.length names -> names.(i)
     | _ -> Assets.text "meteomancer.noelement"
   in
   let title = Assets.format (Assets.text "meteomancer.choose") [ cur_label ] in
@@ -1717,11 +1714,11 @@ let draw_called_dlg ui dlg =
   let bw, bh, gap = (170., 36., 12.) in
   let gx = box.x +. ((box.w -. ((2. *. bw) +. gap)) /. 2.) in
   Array.iteri
-    (fun i key ->
+    (fun i name ->
       let col = i mod 2 and row = i / 2 in
       let r = rect (gx +. (float col *. (bw +. gap))) (grid_y +. (float row *. (bh +. gap))) bw bh in
-      pbutton ~size:20. r (Assets.text key) (fun () -> commit_called ui i))
-    element_keys;
+      pbutton ~size:20. r name (fun () -> commit_called ui i))
+    names;
   paper_btn_row ~size:20.
     ~cx:(box.x +. (box.w /. 2.))
     ~y:(box.y +. box.h -. 48.)

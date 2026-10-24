@@ -31,9 +31,10 @@ open Yojson.Safe
 let out = ref "docs"
 let template = ref "templates"
 
-(* The four basic houses and Troopers are the closest to the classes of the
-   original game, which this project is a tribute to; they stay out of the
-   published list. *)
+(* The four classic basics (the elements of the original game, which this
+   project is a tribute to) and Troopers stay out of the published list. The
+   standard-mode basics — Anger, Sadness, Fear and Joy — are in it, on the
+   page and in the game alike. *)
 let hidden_houses = [ "air"; "fire"; "water"; "earth"; "troopers"; "Troopers" ]
 
 (* ------------------------------------------------------------ languages *)
@@ -118,7 +119,17 @@ let drop_board_args s some =
 
 let body_text b (c : card) =
   let t = text b c.description in
-  if c.desc_args = None then t else drop_board_args t (text b "grimoire.some")
+  let t = if c.desc_args = None then t else drop_board_args t (text b "grimoire.some") in
+  (* The card text marks the basic houses it names with [@0] … [@3] and their
+     power with [#0] … [#3]. The site publishes the standard-mode houses, so
+     those are the names it uses. *)
+  let power key = if has_key b (key ^ ".mana") then text b (key ^ ".mana") else text b key in
+  let houses =
+    [ "anger"; "sadness"; "fear"; "joy" ]
+    |> List.map (fun key -> (text b key, power key))
+    |> Array.of_list
+  in
+  Assets.fill_basic_houses t houses
 
 (* a file name with a space or an accent in it still has to make a valid URL:
    "Bill Bull.jpg" and "DwarvenСrossbowman" are both in assets/cards *)

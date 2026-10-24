@@ -12,4 +12,19 @@ let format () =
   check "empty braces stay" "{}" (Assets.format "{}" [ "1" ]);
   check "arguments are not re-substituted" "{1} B" (Assets.format "{0} {1}" [ "{1}"; "B" ])
 
-let () = Alcotest.run "assets" [ ("format", [ Alcotest.test_case "placeholders" `Quick format ]) ]
+(* The card text marks a basic house with [@0] … [@3] (its name) and its
+   power with [#0] … [#3] (the noun the power takes); the front end fills
+   them in. *)
+let fill () =
+  let houses = [| ("Anger", "anger"); ("Sadness", "sadness"); ("Fear", "fear"); ("Joy", "joy") |] in
+  check "name marker" "Anger and Joy" (Assets.fill_basic_houses "[@0] and [@3]" houses);
+  check "power marker" "anger and joy" (Assets.fill_basic_houses "[#0] and [#3]" houses);
+  check "no marker" "plain text" (Assets.fill_basic_houses "plain text" houses);
+  check "unknown marker" "[@4]" (Assets.fill_basic_houses "[@4]" houses)
+
+let () =
+  Alcotest.run "assets"
+    [
+      ("format", [ Alcotest.test_case "placeholders" `Quick format ]);
+      ("basic names", [ Alcotest.test_case "fill" `Quick fill ]);
+    ]

@@ -16,7 +16,22 @@ let token s =
     s;
   Buffer.contents b
 
-let basics = [ Fire.house; Water.house; Air.house; Earth.house ]
+(* Classic keeps the original four basic houses; standard replaces fire with
+   its Anger variant (same basic slot, index 0). *)
+type mode = Standard | Classic
+
+let classic_basics = [ Fire.house; Water.house; Air.house; Earth.house ]
+let standard_basics = [ Anger.house; Sadness.house; Fear.house; Joy.house ]
+
+(* [basics] stays the classic set: recorded games and replays were dealt with
+   it, and {!Replay} still reads them by card key. *)
+let basics = classic_basics
+let basics_of = function Standard -> standard_basics | Classic -> classic_basics
+
+let string_of_mode = function Standard -> "standard" | Classic -> "classic"
+
+let mode_of_string s =
+  match String.lowercase_ascii (String.trim s) with "classic" -> Classic | _ -> Standard
 
 let specials =
   [
@@ -65,10 +80,14 @@ let specials =
     Trappers.house;
   ]
 
-let all = basics @ specials
+let all = standard_basics @ [ Fire.house; Water.house; Air.house; Earth.house ] @ specials
 
 let init () =
-  List.iter Game.init_cards basics;
+  List.iter Game.init_cards classic_basics;
+  Game.init_cards Anger.house;
+  Game.init_cards Sadness.house;
+  Game.init_cards Fear.house;
+  Game.init_cards Joy.house;
   Game.init_cards ~cost_fn:Troopers.conscription_cost Troopers.house;
   List.iter Game.init_cards
     [

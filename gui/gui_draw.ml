@@ -257,9 +257,27 @@ let play_sound ?(volume = 0.7) name =
       R.play_sound s)
     (sound name)
 
-(* Scala SpellCast.playSound: English name, spaces stripped, looked up in sounds{}. *)
+(* Scala SpellCast.playSound: English name, spaces stripped, looked up in sounds{}.
+   A card with no clip of its own borrows its base house's: anger is fire's variant
+   and fear is air's, so their spells sound like the fire/air cards they mirror,
+   and the other variant houses' spells take the clip of the card they mirror
+   (Retirement's calm chime is Meditate's, Rain of Tears is Acidic shower's, Care
+   is Natures care's, Sexual Bond is Plant therapy's). *)
 let card_sound_name (c : card) =
-  Assets.english_card_name c |> String.lowercase_ascii |> String.split_on_char ' ' |> String.concat ""
+  match c.key with
+  | "sadness.retirement" -> "meditate"
+  | "sadness.tears" -> "acidicshower"
+  | "joy.care" -> "naturescare"
+  | "joy.bond" -> "planttherapy"
+  | "joy.burst" -> "solarwave"
+  | "anger.wave" -> "flamewave"
+  | "anger.inferno" -> "inferno"
+  | "anger.apocalypse" -> "apocalypse"
+  | "fear.strike" -> "calltothunder"
+  | "fear.spirit" -> "lightnin"
+  | "fear.invasion" -> "onslaughtofsouls"
+  | "fear.fear" -> "twister"
+  | _ -> Assets.english_card_name c |> String.lowercase_ascii |> String.split_on_char ' ' |> String.concat ""
 
 let play_card_sound (c : card) = play_sound ~volume:0.9 (card_sound_name c)
 

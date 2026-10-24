@@ -39,6 +39,18 @@ val describe : ?state:game_state -> ?player:player_id -> card -> string
 (** Card text. When [state] and [player] are given, [{0}] placeholders (Lightning damage, …) are filled from
     the board, as in Scala [card.description]. *)
 
+val basic_houses : game_state -> player_id -> (string * string) array
+(** The four basic houses of this player's deck, as (name, power noun): the classic four in classic mode,
+    the standard four in standard mode. The power noun is the [<house>.mana] string of the language, or
+    the house name when the language does not need another form. *)
+
+val basic_house_names : game_state -> player_id -> string array
+(** The names of the four basic houses, as this player's deck names them. *)
+
+val fill_basic_houses : string -> (string * string) array -> string
+(** Replaces the [@0] … [@3] markers in a card text with the basic house names, and the [#0] … [#3]
+    markers with the nouns their power takes, in slot order. *)
+
 val card_art : card -> string option
 (** [cards/<key>.jpg|png], else the English card name; creatures are 80x80, spells 95x103. *)
 

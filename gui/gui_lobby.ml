@@ -100,6 +100,7 @@ let set_ai_side (sd : duel_side) id =
    meaning every ported special. *)
 type game_settings = {
   mutable specials : string list * string list;
+  mutable mode : Catalog.mode;
   mutable budget_ms : int;
   mutable seed_text : string;
   mutable seed_focus : bool;
@@ -126,6 +127,7 @@ type lobby_ui = {
   mutable want_quit : bool;
   mutable message : string;
   class_select : select_state;
+  mode_select : select_state;
   mutable update : Update.outcome option;
   mutable update_job : Update.job option;
   mutable show_update : bool;
@@ -139,6 +141,7 @@ let game_settings_from_prefs () =
   let sp0, sp1 = Prefs.setup_specials prefs in
   {
     specials = (valid_specials sp0, valid_specials sp1);
+    mode = Catalog.mode_of_string (Prefs.setup_mode prefs);
     budget_ms = Prefs.setup_budget prefs;
     seed_text = "";
     seed_focus = false;
@@ -170,6 +173,7 @@ let new_lobby () =
     want_quit = false;
     message = "";
     class_select = select_state ();
+    mode_select = select_state ();
     update = None;
     update_job = None;
     show_update = false;
@@ -386,7 +390,7 @@ let draw_duel lobby ~fight =
    dialog). The game tab holds the bot budget and seed from the old setup
    screen. House choices are parchment checkboxes, like Scala. *)
 let settings_box = rect 76. 104. 680. 560.
-let gs_seed_field = rect 200. 294. 200. 34.
+let gs_seed_field = rect 200. 372. 200. 34.
 
 (* Toggle one house in a side's checked set, like the Scala checkboxes. *)
 let set_side gs which set =
@@ -521,6 +525,10 @@ let set_budget gs ms on_budget =
   (try Prefs.set_setup_budget (Prefs.load ()) ms with _ -> ());
   on_budget ms
 
+let set_mode gs m =
+  gs.mode <- m;
+  try Prefs.set_setup_mode (Prefs.load ()) (Catalog.string_of_mode m) with _ -> ()
+
 let set_sound gs v =
   let v = Float.max 0. (Float.min 1. v) in
   gs.sound <- v;
@@ -582,20 +590,31 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
         gs.class_drag <- false;
         class_clamp gs)
   | 1 ->
-      text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 96.) "Bot time per move";
+      text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 96.) "Mode";
+      let mx = ref (box.x +. 24.) in
+      List.iter
+        (fun (m, label) ->
+          let w = paper_btn_w ~size:16. label in
+          pbutton ~selected:(m = gs.mode) ~size:16.
+            (rect !mx (box.y +. 122.) w 28.)
+            label
+            (fun () -> set_mode gs m);
+          mx := !mx +. w +. 6.)
+        [ (Catalog.Standard, "Standard"); (Catalog.Classic, "Classic") ];
+      text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 174.) "Bot time per move";
       let bx = ref (box.x +. 24.) in
       List.iter
         (fun ms ->
           let label = if ms < 1000 then Printf.sprintf "%d ms" ms else Printf.sprintf "%d s" (ms / 1000) in
           let w = paper_btn_w ~size:16. label in
           pbutton ~selected:(ms = gs.budget_ms) ~size:16.
-            (rect !bx (box.y +. 122.) w 28.)
+            (rect !bx (box.y +. 200.) w 28.)
             label
             (fun () -> set_budget gs ms on_budget);
           bx := !bx +. w +. 6.)
         budget_options;
       if show_seed then (
-        text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 170.) "Seed";
+        text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 248.) "Seed";
         fill gs_seed_field (if gs.seed_focus then rgba 255 252 242 255 else rgba 235 209 140 255);
         outline gs_seed_field (if gs.seed_focus then accent else paper_line);
         let caret = if gs.seed_focus && Float.rem (R.get_time ()) 1. < 0.5 then "|" else "" in
@@ -610,7 +629,7 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
           (fun () ->
             gs.seed_text <- "";
             gs.seed_focus <- false));
-      let debug_y = if show_seed then box.y +. 248. else box.y +. 170. in
+      let debug_y = if show_seed then box.y +. 326. else box.y +. 248. in
       checkbox ~checked:gs.debug ~x:(box.x +. 24.) ~y:debug_y ~max_w:(box.w -. 48.)
         (Assets.text "settings.debug") (fun () ->
           gs.debug <- not gs.debug;

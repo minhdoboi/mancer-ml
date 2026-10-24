@@ -18,6 +18,13 @@ let electric = { glow = (0.48, 0.22, 1.); body = (0.35, 0.78, 1.); core = (0.95,
 let frost = { glow = (0.25, 0.55, 1.); body = (0.7, 0.95, 1.); core = (0.92, 1., 1.); orb = false }
 let ball = { glow = (0.55, 0.3, 1.); body = (0.45, 0.8, 1.); core = (1., 0.97, 0.85); orb = true }
 let spark = { glow = (1., 0.82, 0.12); body = (1., 0.92, 0.28); core = (1., 0.98, 0.82); orb = false }
+
+(* Terror Strike: air's electric bolt, sunk into violet and dark. The glow is a
+   near-black purple and the body a deep violet, so it reads as the same strike
+   colour-drained rather than another bright blue flash. *)
+let fear_bolt =
+  { glow = (0.28, 0.03, 0.5); body = (0.45, 0.12, 0.72); core = (0.82, 0.62, 1.); orb = false }
+
 let drain = { glow = (0.82, 0.88, 1.); body = (0.95, 0.97, 1.); core = (1., 1., 1.); orb = false }
 let hop_delay = 0.07
 let lightning_hold = 0.7

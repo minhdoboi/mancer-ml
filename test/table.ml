@@ -5,6 +5,7 @@ open Sp
 
 let check_int = Alcotest.(check int)
 let check_bool = Alcotest.(check bool)
+let check_string = Alcotest.(check string)
 let greedy = Table.Bot "greedy"
 
 let rec play_out t =
@@ -145,6 +146,43 @@ let campaign_class () =
   Alcotest.(check string) "upper case" "Troopers" (Table.campaign_class_of "troopers");
   Alcotest.(check string) "unknown" Prefs.default_campaign_class (Table.campaign_class_of "nope")
 
+(* Mode picks the basic houses: standard swaps fire for anger. *)
+let mode_picks_basics () =
+  let desc t = Session.desc (Table.session t) in
+  let basic t pid = (desc t).gd_players.(pid).pd_houses.(0).phd_house.h_key in
+  let base = { Table.default_setup with seats = (greedy, greedy); seed = Some 5 } in
+  let standard = Table.start { base with mode = Catalog.Standard } in
+  check_bool "standard anger" true (basic standard owner = "anger");
+  let classic = Table.start { base with mode = Catalog.Classic } in
+  check_bool "classic fire" true (basic classic owner = "fire")
+
+(* The names of the basic houses follow the mode: a card that reads a basic
+   house's power names it, so the text has to name the house the deck has. *)
+let mode_names_basics () =
+  let names mode =
+    let base = { Table.default_setup with seats = (greedy, greedy); seed = Some 5 } in
+    let t = Table.start { base with mode } in
+    Assets.basic_house_names (Session.state (Table.session t)) owner
+  in
+  let standard = names Catalog.Standard in
+  check_string "standard anger" (Assets.text "anger") standard.(0);
+  check_string "standard sadness" (Assets.text "sadness") standard.(1);
+  check_string "standard fear" (Assets.text "fear") standard.(2);
+  check_string "standard joy" (Assets.text "joy") standard.(3);
+  let classic = names Catalog.Classic in
+  check_string "classic fire" (Assets.text "fire") classic.(0);
+  check_string "classic water" (Assets.text "water") classic.(1);
+  check_string "classic air" (Assets.text "air") classic.(2);
+  check_string "classic earth" (Assets.text "earth") classic.(3)
+
+(* A campaign setup takes the campaign mode; the duel mode is not involved. *)
+let campaign_mode () =
+  let n = Campaign.node "entomologist" in
+  let standard = Table.campaign_setup ~mode:Catalog.Standard ~player_special:"zen" n in
+  check_bool "explicit standard" true (standard.mode = Catalog.Standard);
+  let classic = Table.campaign_setup ~mode:Catalog.Classic ~player_special:"zen" n in
+  check_bool "explicit classic" true (classic.mode = Catalog.Classic)
+
 let () =
   Alcotest.run "table"
     [
@@ -158,5 +196,8 @@ let () =
           Alcotest.test_case "campaign class" `Quick campaign_class;
           Alcotest.test_case "switch swaps houses and cards" `Quick switch_swaps_houses_and_cards;
           Alcotest.test_case "restart keeps deal" `Quick restart_keeps_deal;
+          Alcotest.test_case "mode picks basics" `Quick mode_picks_basics;
+          Alcotest.test_case "mode names basics" `Quick mode_names_basics;
+          Alcotest.test_case "campaign mode" `Quick campaign_mode;
         ] );
     ]

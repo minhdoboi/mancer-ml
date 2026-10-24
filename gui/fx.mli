@@ -18,6 +18,7 @@ type layout = {
   source_of : command -> spot option;
   slot_house : Mancer.Sp.player_id -> int -> int option;
   slot_life : Mancer.Sp.player_id -> int -> int option;
+  slot_attack : Mancer.Sp.player_id -> int -> int option;
   slot_card : Mancer.Sp.player_id -> int -> string option;
   house_cards : Mancer.Sp.player_id -> int -> spot list;
   extreme_house : Mancer.Sp.player_id -> [ `Highest | `Lowest ] -> int;

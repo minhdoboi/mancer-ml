@@ -204,6 +204,7 @@ let () =
         d with
         seats = (s0.seat, s1.seat);
         specials = (Table.resolve_special l0, Table.resolve_special l1);
+        mode = lobby.gs.mode;
         budget_ms = lobby.gs.budget_ms;
         seed;
         starting = Table.random_starter ();
@@ -283,12 +284,15 @@ let () =
           screen := Campaign (new_campaign ()));
         if lobby.want_quit then quit := true;
         if lobby.show_settings then settings_seed_keys lobby.gs;
-        (* The campaign intro's class list lives only while the dialog is up. *)
-        if not lobby.show_campaign_intro then lobby.class_select.sel_open := false;
+        (* The campaign intro's class and mode lists live only while the dialog is up. *)
+        if not lobby.show_campaign_intro then (
+          lobby.class_select.sel_open := false;
+          lobby.mode_select.sel_open := false);
         let wheel = R.get_mouse_wheel_move () in
         if wheel <> 0. && lobby.show_settings && lobby.gs.tab = 0 && inside class_wheel then
           class_scroll_by lobby.gs wheel;
         select_scroll lobby.class_select wheel;
+        select_scroll lobby.mode_select wheel;
         if R.is_key_pressed R.Key.Escape then
           if lobby.show_campaign_intro then
             close_dialog "campaign-intro" (fun () -> lobby.show_campaign_intro <- false)
@@ -305,6 +309,7 @@ let () =
     | Campaign camp ->
         let wheel = R.get_mouse_wheel_move () in
         select_scroll camp.class_select wheel;
+        select_scroll camp.mode_select wheel;
         (match camp.pending_lobby with
         | true ->
             camp.pending_lobby <- false;

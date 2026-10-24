@@ -122,6 +122,34 @@ let for_spell layout (c : command) =
            ~duration:(lightning_duration (List.length pts))
            ~blocking:true
            (fun ~start -> spawn_lightning pts ~start))
+  | "fear.strike" ->
+      Option.map
+        (fun t ->
+          let pts = [ source; t; foe_life ] in
+          recipe ~duration:(lightning_duration 3) ~blocking:true (fun ~start ->
+              spawn_lightning ~style:fear_bolt pts ~start))
+        target
+  | "fear.spirit" ->
+      Some
+        (recipe ~duration:(lightning_duration 2) ~blocking:true (fun ~start ->
+             spawn_lightning [ source; foe_life ] ~start))
+  | "fear.fear" ->
+      Option.bind c.cmd_input (fun n ->
+          Option.map
+            (fun pid ->
+              let floor = layout.slot_floor pid n in
+              recipe ~duration:1.7 ~blocking:true (fun ~start -> spawn_twister ~floor ~start))
+            (Table.target_side c))
+  | "fear.invasion" ->
+      (* ghosts pour in from the right and sweep left onto every creature the
+         opponent owns, and onto the opponent itself *)
+      let row = slots_of other layout.slot_center in
+      let targets =
+        Array.of_list (List.map (layout.slot_center other) (layout.occupied other) @ [ foe_life ])
+      in
+      Some
+        (recipe ~duration:ghost_invasion_duration ~blocking:true (fun ~start ->
+             spawn_ghost_invasion ~row ~targets ~start))
   | "wind.BallLightning.name" ->
       Some
         (recipe ~duration:ball_duration ~blocking:true (fun ~start ->
@@ -130,10 +158,21 @@ let for_spell layout (c : command) =
       Some
         (recipe ~duration:1.5 ~blocking:true (fun ~start ->
              spawn_flame_wave (slots_of other layout.slot_floor) ~start))
+  | "anger.wave" ->
+      Some
+        (recipe ~duration:1.5 ~blocking:true (fun ~start ->
+             spawn_flame_wave (slots_of other layout.slot_floor) ~start))
   | "NuclearMissile" ->
       let bases = slots_of other layout.slot_floor in
       Some (recipe ~duration:1.7 ~blocking:true (fun ~start -> spawn_missiles ~pid:other ~bases ~start))
   | "fire.inferno" ->
+      Option.map
+        (fun n ->
+          let bases = slots_of other layout.slot_floor in
+          let others = Array.init (nb_slots - 1) (fun i -> bases.(if i < n then i else i + 1)) in
+          recipe ~duration:1.7 ~blocking:true (fun ~start -> spawn_inferno ~target:bases.(n) ~others ~start))
+        c.cmd_input
+  | "anger.inferno" ->
       Option.map
         (fun n ->
           let bases = slots_of other layout.slot_floor in
@@ -164,12 +203,47 @@ let for_spell layout (c : command) =
   | "earth.therapy" ->
       let spots = [ layout.life player ] in
       Some (recipe ~duration:pollen_duration ~blocking:true (fun ~start -> spawn_pollen spots ~start))
+  | "joy.care" ->
+      let life = layout.life player in
+      let spots = match target with Some t -> [ t; life ] | None -> [ life ] in
+      Some
+        (recipe ~duration:nature_care_duration ~blocking:true (fun ~start -> spawn_nature_care spots ~start))
+  | "joy.bond" ->
+      let spots = [ layout.life player ] in
+      (* Sexual Bond: the same therapy motes, blushed pink *)
+      Some (recipe ~duration:pollen_duration ~blocking:true (fun ~start -> spawn_pollen ~pink:true spots ~start))
+  | "joy.burst" ->
+      (* Solar Burst: a sun flares over the board and its rings flare every slot *)
+      let spots = Array.append (slots_of player layout.slot_center) (slots_of other layout.slot_center) in
+      Some (recipe ~duration:solar_burst_duration ~blocking:true (fun ~start -> spawn_solar_burst ~spots ~start))
+  | "joy.eruption" ->
+      (* Eruption: the caster's two strongest creatures hurl their joy at the
+         opponent -- an arc of pink, yellow and red from each of them. *)
+      let strongest =
+        layout.occupied player
+        |> List.filter_map (fun n ->
+               match layout.slot_attack player n with
+               | Some a -> Some (a, layout.slot_center player n)
+               | None -> None)
+        |> List.sort (fun (a, _) (b, _) -> compare b a)
+        |> List.map snd
+      in
+      let froms = Array.of_list (List.filteri (fun i _ -> i < 2) strongest) in
+      if Array.length froms = 0 then None
+      else
+        Some
+          (recipe ~duration:eruption_duration ~blocking:true (fun ~start ->
+               spawn_eruption ~froms ~to_:foe_life ~start))
   | "faerie.fire" ->
       let floors = slots_of other layout.slot_floor in
       Some (recipe ~duration:1.9 ~blocking:true (fun ~start -> spawn_faerie_fire ~floors ~start))
   | "water.shower" ->
       let floors = Array.append (slots_of player layout.slot_floor) (slots_of other layout.slot_floor) in
       Some (recipe ~duration:2.4 ~blocking:true (fun ~start -> spawn_acid_rain floors ~start))
+  | "sadness.tears" ->
+      let floors = Array.append (slots_of player layout.slot_floor) (slots_of other layout.slot_floor) in
+      (* the same acidic downpour, but clean water-blue instead of toxic green *)
+      Some (recipe ~duration:2.4 ~blocking:true (fun ~start -> spawn_acid_rain ~blue:true floors ~start))
   | "elementalist.frost" ->
       let mid = match target_spot layout c with Some t -> t | None -> layout.slot_center other 2 in
       Some
@@ -276,6 +350,17 @@ let for_spell layout (c : command) =
         (recipe ~duration:1.4 ~blocking:true (fun ~start ->
              spawn_equilibrium ~opp_house ~opp_life ~own_house ~own_life ~start))
   | "fire.apocalypse" ->
+      let spots pid = layout.occupied pid |> List.map (layout.slot_center pid) in
+      let everything =
+        slots_of player layout.slot_center |> Array.to_list |> fun l ->
+        l @ Array.to_list (slots_of other layout.slot_center)
+      in
+      let n = float (List.length everything) in
+      let sum f = List.fold_left (fun a (p : spot) -> a +. f p) 0. everything in
+      let center = { x = sum (fun p -> p.x) /. n; y = sum (fun p -> p.y) /. n } in
+      let targets = Array.of_list (spots player @ spots other @ [ layout.life other ]) in
+      Some (recipe ~duration:2.6 ~blocking:true (fun ~start -> spawn_apocalypse ~center ~targets ~start))
+  | "anger.apocalypse" ->
       let spots pid = layout.occupied pid |> List.map (layout.slot_center pid) in
       let everything =
         slots_of player layout.slot_center |> Array.to_list |> fun l ->
@@ -681,6 +766,8 @@ let demo_names =
     "gauntlet";
     "rose";
     "underground";
+    "eruption";
+    "ghosts";
   ]
 
 let spawn_demo layout name =
@@ -828,4 +915,12 @@ let spawn_demo layout name =
           (List.map (fun m -> (layout.slot_floor opponent m, layout.slot_center opponent m)) [ 0; 1; 3; 4; 5 ])
       in
       go (spawn_underground_poison ~target:foe.(2) ~floor:(layout.slot_floor opponent 2) ~foes ~start:now)
+  | "eruption" ->
+      go (spawn_eruption ~froms:[| own.(1); own.(3) |] ~to_:foe_life ~start:now)
+  | "ghosts" ->
+      let targets =
+        Array.of_list
+          (List.map (layout.slot_center opponent) (layout.occupied opponent) @ [ foe_life ])
+      in
+      go (spawn_ghost_invasion ~row:foe ~targets ~start:now)
   | _ -> ()

@@ -70,6 +70,7 @@ type duel_ui = {
 type settings_ui = {
   mutable sp0 : string;
   mutable sp1 : string;
+  mutable mode : Catalog.mode;
   mutable budget : int;
   mutable seed_text : string;
   mutable lang : string;
@@ -94,6 +95,7 @@ let settings_from_prefs () =
   {
     sp0 = head ds0 l0;
     sp1 = head ds1 l1;
+    mode = Catalog.mode_of_string (Prefs.setup_mode prefs);
     budget = Prefs.setup_budget prefs;
     seed_text = "";
     lang = Prefs.language prefs;
@@ -179,22 +181,24 @@ let change_duel ui delta =
   | 3 -> d.port1 <- cycle (faces_for d.seat1) d.port1 delta
   | _ -> ()
 
-let settings_rows = 6
+let settings_rows = 7
 let special_label sp = match Table.group_of_house sp with Some g -> cap sp ^ " (" ^ g ^ ")" | None -> cap sp
 
 let render_settings (w, _) ui =
   let gs = ui.gs in
   let seed = if gs.seed_text = "" then "random" else gs.seed_text in
+  let mode = match gs.mode with Catalog.Standard -> "Standard" | Catalog.Classic -> "Classic" in
   I.vcat
     [
       I.string A.(st bold ++ fg lightcyan) (clean (Assets.text "settings.title"));
       I.void 1 1;
       duel_row gs.srow 0 "P1 special" (special_label gs.sp0);
       duel_row gs.srow 1 "P2 special" (special_label gs.sp1);
-      duel_row gs.srow 2 "Bot budget" (Printf.sprintf "%d ms" gs.budget);
-      duel_row gs.srow 3 "Seed" (seed ^ if gs.srow = 3 then "_" else "");
-      duel_row gs.srow 4 "Language" gs.lang;
-      duel_row gs.srow 5 "Back" "";
+      duel_row gs.srow 2 "Mode" mode;
+      duel_row gs.srow 3 "Bot budget" (Printf.sprintf "%d ms" gs.budget);
+      duel_row gs.srow 4 "Seed" (seed ^ if gs.srow = 4 then "_" else "");
+      duel_row gs.srow 5 "Language" gs.lang;
+      duel_row gs.srow 6 "Back" "";
       I.void 1 1;
       text ~attr:dim w (Assets.text "settings.lang.restart");
       I.void 1 1;
@@ -206,6 +210,7 @@ let persist_settings gs =
   try
     let p = Prefs.load () in
     Prefs.set_setup_specials p ([ gs.sp0 ], [ gs.sp1 ]);
+    Prefs.set_setup_mode p (Catalog.string_of_mode gs.mode);
     Prefs.set_setup_budget p gs.budget;
     Prefs.set_language p gs.lang
   with _ -> ()
@@ -215,8 +220,9 @@ let change_settings ui delta =
   (match gs.srow with
   | 0 -> gs.sp0 <- cycle (special_names ()) (cap gs.sp0) delta
   | 1 -> gs.sp1 <- cycle (special_names ()) (cap gs.sp1) delta
-  | 2 -> gs.budget <- cycle budget_options gs.budget delta
-  | 4 -> gs.lang <- cycle languages gs.lang delta
+  | 2 -> gs.mode <- cycle [ Catalog.Standard; Catalog.Classic ] gs.mode delta
+  | 3 -> gs.budget <- cycle budget_options gs.budget delta
+  | 5 -> gs.lang <- cycle languages gs.lang delta
   | _ -> ());
   persist_settings gs
 
@@ -238,8 +244,9 @@ type game_ui = {
   campaign : Campaign.node option;
 }
 
-let element_keys = [| "fire"; "water"; "air"; "earth" |]
-let element_label i = Assets.text element_keys.(i)
+(* The Called Element is one of the player's four basic houses; their names
+   follow the mode (fire in classic mode, anger in standard mode). *)
+let element_names ui pid = Assets.basic_house_names (Session.state (Table.session ui.table)) pid
 
 let current_called ui pid =
   match (Session.state (Table.session ui.table)).players.(pid).ps_data with
@@ -282,6 +289,7 @@ let fight lobby =
       dflt with
       seats = (d.seat0, d.seat1);
       specials = (gs.sp0, gs.sp1);
+      mode = gs.mode;
       budget_ms = gs.budget;
       seed;
       starting = Table.random_starter ();
@@ -460,15 +468,17 @@ let status_line ui =
           match ui.mode with
           | Target _ -> I.string accent "choose a target"
           | Called { e; _ } ->
+              let names = element_names ui pid in
+              let label i = if i >= 0 && i < Array.length names then names.(i) else "" in
               let cur =
                 match current_called ui pid with
-                | Some i -> element_label i
+                | Some i -> label i
                 | None -> Assets.text "meteomancer.noelement"
               in
               I.string accent
                 (Printf.sprintf "%s (now: %s) — 0:%s 1:%s 2:%s 3:%s"
                    (Assets.format (Assets.text "meteomancer.choose") [ cur ])
-                   (element_label e) (element_label 0) (element_label 1) (element_label 2) (element_label 3))
+                   (label e) (label 0) (label 1) (label 2) (label 3))
           | Browse ->
               let playable h = Array.exists (fun cd -> Table.playable ui.table cd h) h.phd_cards in
               if not (List.exists playable (Table.hand ui.table pid)) then
@@ -664,14 +674,14 @@ let on_settings_key ui = function
   | `Key (`Arrow `Right, _) ->
       change_settings ui 1;
       Settings ui
-  | `Key (`ASCII ('0' .. '9' as c), _) when ui.gs.srow = 3 ->
+  | `Key (`ASCII ('0' .. '9' as c), _) when ui.gs.srow = 4 ->
       if String.length ui.gs.seed_text < 9 then ui.gs.seed_text <- ui.gs.seed_text ^ String.make 1 c;
       Settings ui
-  | `Key (`Backspace, _) when ui.gs.srow = 3 ->
+  | `Key (`Backspace, _) when ui.gs.srow = 4 ->
       let n = String.length ui.gs.seed_text in
       if n > 0 then ui.gs.seed_text <- String.sub ui.gs.seed_text 0 (n - 1);
       Settings ui
-  | `Key (`Enter, _) -> if ui.gs.srow = 5 then Lobby ui else Settings ui
+  | `Key (`Enter, _) -> if ui.gs.srow = 6 then Lobby ui else Settings ui
   | `Key (`Escape, _) -> Lobby ui
   | _ -> Settings ui
 

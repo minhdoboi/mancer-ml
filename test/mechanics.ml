@@ -137,6 +137,23 @@ let wall_ability_mass () =
   check_int "goblin 16 -> 11" 11 (life_at u 1 0);
   check_int "drake 18 -> 13" 13 (life_at u 1 3)
 
+(* The elemental hits the opponent's board and the opponent itself. *)
+let elemental_summon_damage () =
+  let u = new_game () in
+  place u 1 "fire.drake" 0;
+  place u 0 "fire.elemental" 0;
+  step u (fun () -> Player.apply_effects (player u 0) Direct);
+  check_int "drake 18 -> 15" 15 (life_at u 1 0);
+  check_int "opponent 60 -> 57" 57 (player_life u 1)
+
+let elemental_mana_each_turn () =
+  let u = new_game ~mana0:6 () in
+  place u 0 "fire.elemental" 0;
+  let mana () = (player u 0).houses_update.hu_value.(0).mana in
+  let before = mana () in
+  step u (fun () -> Player.apply_effects (player u 0) On_turn);
+  check_int "fire mana +1" (before + 1) (mana ())
+
 let goblin_berserker () =
   let u = new_game () in
   place u 0 "fire.goblin" 1;
@@ -227,6 +244,8 @@ let () =
       ( "abilities and spells",
         [
           test_case "wall ability" `Quick wall_ability_mass;
+          test_case "elemental summon damage" `Quick elemental_summon_damage;
+          test_case "elemental mana each turn" `Quick elemental_mana_each_turn;
           test_case "goblin berserker" `Quick goblin_berserker;
           test_case "inferno" `Quick inferno_targeting;
           test_case "blargl" `Quick blargl_mass_damage;

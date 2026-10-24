@@ -58,9 +58,61 @@ let card_name (c : card) = text c.name
 let english_card_name (c : card) =
   clean (Option.value (Hashtbl.find_opt (Lazy.force english) c.name) ~default:c.name)
 
+(* The basic houses of this player's deck: the classic four in classic mode,
+   the standard four in standard mode. A card that reads a basic house's power
+   names it in its text, so the text has to follow the mode the game is
+   played in. Each house comes with the noun its power takes in this language
+   ("anger" in English, "гнева" in Russian); a language that does not need a
+   different form leaves the [.mana] key out and the house name is used. *)
+let basic_houses (state : game_state) (pid : player_id) =
+  let houses = state.players.(pid).ps_desc.init_desc.pd_houses in
+  Array.init 4 (fun i ->
+      if i < Array.length houses then
+        let key = houses.(i).phd_house.h_key in
+        let power = if has_key (key ^ ".mana") then text (key ^ ".mana") else text key in
+        (text key, power)
+      else ("", ""))
+
+(* The names of the four basic houses, as this player's deck names them. *)
+let basic_house_names state pid = Array.map fst (basic_houses state pid)
+
+(* The card text marks a basic house with [@0] … [@3] (the house's name) or
+   with [#0] … [#3] (the noun its power takes). The house files cannot ask for
+   the text themselves — Assets sits above the houses in the build — so the
+   front end fills the names in. *)
+let fill_basic_houses tmpl houses =
+  let n = String.length tmpl in
+  let b = Buffer.create (n + 16) in
+  let rec go i =
+    if i < n then
+      if tmpl.[i] = '[' && i + 1 < n && (tmpl.[i + 1] = '@' || tmpl.[i + 1] = '#') then
+        let pick k = if tmpl.[i + 1] = '@' then fst houses.(k) else snd houses.(k) in
+        match String.index_from_opt tmpl (i + 2) ']' with
+        | Some j ->
+            let digits = String.sub tmpl (i + 2) (j - i - 2) in
+            (match int_of_string_opt digits with
+            | Some k when k >= 0 && k < Array.length houses && String.for_all (fun c -> c >= '0' && c <= '9') digits ->
+                Buffer.add_string b (pick k);
+                go (j + 1)
+            | _ ->
+                Buffer.add_char b tmpl.[i];
+                go (i + 1))
+        | None ->
+            Buffer.add_char b tmpl.[i];
+            go (i + 1)
+      else (
+        Buffer.add_char b tmpl.[i];
+        go (i + 1))
+  in
+  go 0;
+  Buffer.contents b
+
 let describe ?state ?player (c : card) =
   let tmpl = text c.description in
-  match (c.desc_args, state, player) with Some f, Some st, Some pid -> format tmpl (f st pid) | _ -> tmpl
+  let tmpl = match (c.desc_args, state, player) with Some f, Some st, Some pid -> format tmpl (f st pid) | _ -> tmpl in
+  match (state, player) with
+  | Some st, Some pid -> fill_basic_houses tmpl (basic_houses st pid)
+  | _ -> tmpl
 
 let images = [ ".jpg"; ".png" ]
 

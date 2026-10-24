@@ -30,6 +30,7 @@ type campaign_ui = {
   mutable pending_epilogue : bool;
   mutable pending_lobby : bool;
   class_select : select_state;
+  mode_select : select_state;
 }
 
 let map_x x = x *. vw
@@ -79,6 +80,14 @@ let campaign_classes () =
   Catalog.specials
   |> List.map (fun (h : house) -> (h.h_key, class_label h))
   |> List.sort (fun (_, a) (_, b) -> String.compare a b)
+
+(* The campaign deal: the same two modes as the duel settings. The labels stay
+   untranslated, like the duel mode buttons. *)
+let campaign_modes () =
+  [
+    (Catalog.string_of_mode Catalog.Standard, "Standard");
+    (Catalog.string_of_mode Catalog.Classic, "Classic");
+  ]
 
 let mage_line (n : Campaign.node) =
   match n.fight with
@@ -234,6 +243,7 @@ let new_campaign ?(from_game = false) () =
       pending_epilogue = false;
       pending_lobby = false;
       class_select = select_state ();
+      mode_select = select_state ();
     }
   in
   maybe_notes camp;
@@ -249,16 +259,20 @@ let draw_campaign_intro lobby ~start =
   let id = Prefs.player_portrait p in
   draw_portrait_chooser ~x:box.x ~y:(box.y +. 56.) ~size:96. ~col_w:box.w id Table.player_portraits (fun v ->
       Prefs.set_player_portrait (Prefs.load ()) v);
-  (* The class, under the portrait: the house the player keeps from the first
-     node to the last. The map has the same selector. *)
+  (* The class and mode, under the portrait: the house and deal the player
+     keeps from the first node to the last. The map has the same selectors. *)
   let sel_y = box.y +. 192. in
   let sel_w = 176. in
-  let tag = Assets.text "campaign.class" in
-  let tag_w = text_w 14. tag in
-  let gx = box.x +. ((box.w -. (tag_w +. 10. +. sel_w)) /. 2.) in
+  (* Tag and box, centered as a pair. Two rows, class then mode. *)
+  let sel_row y tag state items selected on_pick =
+    let tag_w = text_w 14. tag in
+    let gx = box.x +. ((box.w -. (tag_w +. 10. +. sel_w)) /. 2.) in
+    text ~size:14. ~color:ink_soft gx (y +. 6.) tag;
+    pselect ~size:16. ~width:sel_w ~state ~x:(gx +. tag_w +. 10.) ~y ~items ~selected ~on_pick
+  in
   let lines = wrap ~font:paper_font 20. 440. (Assets.text "campaign.intro") in
   List.iteri
-    (fun i l -> text_c ~font:paper_font ~size:20. ~color:ink box (box.y +. 252. +. (float i *. 26.)) l)
+    (fun i l -> text_c ~font:paper_font ~size:20. ~color:ink box (box.y +. 258. +. (float i *. 26.)) l)
     lines;
   paper_btn_row ~size:16.
     ~cx:(box.x +. (box.w /. 2.))
@@ -272,17 +286,20 @@ let draw_campaign_intro lobby ~start =
       ( Assets.text "button.cancel",
         fun () -> close_dialog "campaign-intro" (fun () -> lobby.show_campaign_intro <- false) );
     ];
-  (* The selector is drawn last: its list opens over the dialog. *)
-  text ~size:14. ~color:ink_soft gx (sel_y +. 6.) tag;
-  pselect ~size:16. ~width:sel_w ~state:lobby.class_select ~x:(gx +. tag_w +. 10.) ~y:sel_y
-    ~items:(campaign_classes ()) ~selected:(Table.campaign_class_of (Prefs.campaign_class p))
-    ~on_pick:(fun key -> Prefs.set_campaign_class (Prefs.load ()) key)
+  (* The selectors are drawn last: their lists open over the dialog. *)
+  sel_row sel_y (Assets.text "campaign.class") lobby.class_select (campaign_classes ())
+    (Table.campaign_class_of (Prefs.campaign_class p))
+    (fun key -> Prefs.set_campaign_class (Prefs.load ()) key);
+  sel_row (sel_y +. 30.) "Mode" lobby.mode_select (campaign_modes ()) (Prefs.campaign_mode p)
+    (fun m -> Prefs.set_campaign_mode (Prefs.load ()) m)
 
 let draw_campaign (camp : campaign_ui) =
   camp.night <- camp.night +. ((camp.night_target -. camp.night) *. Float.min 1. (R.get_frame_time () *. 1.6));
   if abs_float (camp.night -. camp.night_target) < 0.002 then camp.night <- camp.night_target;
-  (* A dialog swallows the map's clicks, so the class list closes with it. *)
-  if camp.dlg <> Camp_none then camp.class_select.sel_open := false;
+  (* A dialog swallows the map's clicks, so the selectors close with it. *)
+  if camp.dlg <> Camp_none then (
+    camp.class_select.sel_open := false;
+    camp.mode_select.sel_open := false);
   let completed, here = campaign_progress () in
   let prefs = Prefs.load () in
   let chapter = Campaign.chapter_of completed in
@@ -337,8 +354,8 @@ let draw_campaign (camp : campaign_ui) =
   let restart = Assets.text "campaign.restart" in
   let rw = paper_btn_w ~size:16. restart in
   pbutton ~size:16. (rect (vw -. 16. -. rw) 12. rw 26.) restart (fun () -> camp.dlg <- Camp_restart);
-  (* The campaign class: the house the player plays with all the way through.
-     It sits at the top right, just left of the restart. *)
+  (* The campaign class and mode: the house and deal the player plays with all
+     the way through. They sit at the top right, just left of the restart. *)
   let sel_w = 176. in
   let sel_x = vw -. 16. -. rw -. 10. -. sel_w in
   let tag = Assets.text "campaign.class" in
@@ -346,6 +363,12 @@ let draw_campaign (camp : campaign_ui) =
   pselect ~size:16. ~width:sel_w ~state:camp.class_select ~x:sel_x ~y:12. ~items:(campaign_classes ())
     ~selected:(Table.campaign_class_of (Prefs.campaign_class prefs))
     ~on_pick:(fun key -> Prefs.set_campaign_class (Prefs.load ()) key);
+  (* The mode, under the class: which basic houses this campaign deals. *)
+  let mode_tag = "Mode" in
+  text ~size:14. ~color:muted (sel_x -. (text_w 14. mode_tag) -. 10.) 47. mode_tag;
+  pselect ~size:16. ~width:sel_w ~state:camp.mode_select ~x:sel_x ~y:42. ~items:(campaign_modes ())
+    ~selected:(Prefs.campaign_mode prefs)
+    ~on_pick:(fun m -> Prefs.set_campaign_mode (Prefs.load ()) m);
   (if debug_mode () then
      let label = "Reload map" in
      let w = paper_btn_w ~size:16. label in
