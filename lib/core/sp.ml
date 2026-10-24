@@ -25,6 +25,11 @@ let base_slot_list = List.init nb_slots Fun.id
 let in_slot_range n = n >= 0 && n < nb_slots
 let adjacents n = List.filter in_slot_range [ n - 1; n + 1 ]
 
+(* How many blows a custom attack may land in a row (the Shadow Dancer
+   strikes twice).  The count is a safety net: a card that keeps asking for
+   another blow cannot hang the game. *)
+let max_strikes = 8
+
 (* status flags *)
 let run_flag = 1
 let stun_flag = 2
@@ -204,7 +209,15 @@ and damage = {
      damage cannot be healed back). *)
   mortal : bool;
 }
-and run_attack_kind = Single_target | Multi_target | Custom of (int list -> damage -> player_update -> unit)
+and run_attack_kind =
+  | Single_target
+  | Multi_target
+  | Custom of (int list -> damage -> player_update -> unit)
+  (* An attack that strikes more than once.  The function lands one blow and
+     returns true when another blow follows it; [blows] is the number of
+     blows that already landed, so the first call gets 0.  The engine gives
+     every blow its own animation and its own damage. *)
+  | Custom_strikes of (int -> int list -> damage -> player_update -> bool)
 and run_attack = { can_attack : bool; apply_ : run_attack_kind; is_multi_target : bool }
 
 (* A card is the shared descriptor; a creature additionally carries the

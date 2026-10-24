@@ -10,7 +10,7 @@ let young_nymph =
 
 let () = young_nymph.cost <- 1
 
-let fury_attack (p : player_state) =
+let fusion_attack (p : player_state) =
   let attacks =
     Array.to_list p.ps_slots
     |> List.filter_map (Option.map (fun st -> st.attack))
@@ -18,11 +18,11 @@ let fury_attack (p : player_state) =
   in
   match attacks with a :: b :: _ -> a + b | [ a ] -> a | [] -> 0
 
-let fury : card_effect =
+let fusion : card_effect =
  fun env ->
   (* Scala reads player.value: the attacks published at the start of the step,
-     before Fury's cost is paid (it matters for mana-attack elementals) *)
-  let amount = fury_attack (player_of_env env).pstate in
+     before Fusion's cost is paid (it matters for mana-attack elementals) *)
+  let amount = fusion_attack (player_of_env env).pstate in
   Player.inflict (other_of_env env) (spell_damage env amount)
 
 let therapy : card_effect =
@@ -57,9 +57,9 @@ let cards =
     creature ~key:"joy.kitsune" ~attack:(attack 1) ~life:13 ~description:"joy.kitsune.description"
       ~new_reaction:(mana_growth_reaction ~owner:true ~amount:2 ~house_indexes:[ 3 ])
       ();
-    spell ~key:"joy.eruption" ~description:"joy.eruption.description"
-      ~desc_args:(fun state pid -> [ string_of_int (fury_attack state.players.(pid)) ])
-      ~effects:(effects [ (Direct, fury) ])
+    spell ~key:"joy.fusion" ~description:"joy.fusion.description"
+      ~desc_args:(fun state pid -> [ string_of_int (fusion_attack state.players.(pid)) ])
+      ~effects:(effects [ (Direct, fusion) ])
       ();
     creature ~key:"joy.nymphea" ~attack:(attack 4) ~life:21 ~description:"joy.nymphea.description"
       ~effects:(effects [ (Direct, nymph) ])

@@ -95,12 +95,12 @@ let kitsune_grows_joy () =
   place u 0 "joy.kitsune" 0;
   check_int "joy growth +2" (before + 2) (growth u 0 3)
 
-let eruption_sums_top_two () =
+let fusion_sums_top_two () =
   let u = new_game ~mana:[ 4; 4; 4; 6 ] ~house:Joy.house () in
   place u 0 "fire.monk" 0;
   place u 0 "fire.drake" 3;
   settle u;
-  play u 0 "joy.eruption" ~input:None ~cost:6;
+  play u 0 "joy.fusion" ~input:None ~cost:6;
   check_int "3 + 4" (60 - 7) (player_life u 1)
 
 let nymphea_spawns_two () =
@@ -170,7 +170,7 @@ let () =
           Alcotest.test_case "drunken cat" `Quick cat_sweeps;
           Alcotest.test_case "sexual bond" `Quick bond_heals_per_joy;
           Alcotest.test_case "kitsune" `Quick kitsune_grows_joy;
-          Alcotest.test_case "eruption" `Quick eruption_sums_top_two;
+          Alcotest.test_case "fusion" `Quick fusion_sums_top_two;
           Alcotest.test_case "nymphea" `Quick nymphea_spawns_two;
           Alcotest.test_case "faune" `Quick faune_heals_self;
           Alcotest.test_case "solar burst" `Quick solar_burst_burns;

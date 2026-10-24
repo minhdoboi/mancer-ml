@@ -88,6 +88,7 @@ let apply_original ra target d (p : player_update) =
       Player.inflict (other_player p) d;
       Slots.inflict_creatures (other_player p).slots_update d
   | Custom f -> f target d p
+  | Custom_strikes strike -> run_all_strikes strike target d p
 
 (* --------------------------------------------------------------- spells *)
 
@@ -109,13 +110,9 @@ let mithril_spear : card_effect =
 (* The bow's one stun.  Wrapping the wielder's own run attack keeps multi-hit
    wielders (Hydra, Forest Sprite) multi-hit. *)
 let bow_run_attack (orig : run_attack) : run_attack =
-  let apply_ target d (player : player_update) =
+  let stun d (player : player_update) first_hit =
     let op = other_player player in
     let attacker = player.slots_update.slot_updates.(d.context.ctx_selected) in
-    let first_hit =
-      List.find_opt (fun n -> Option.is_some op.slots_update.slot_updates.(n).value) target
-    in
-    apply_original orig target d player;
     match attacker.value with
     | Some st when has_mark mark_bow st && not (mark_used mark_bow st) -> (
         match first_hit with
@@ -126,7 +123,27 @@ let bow_run_attack (orig : run_attack) : run_attack =
         | None -> ())
     | _ -> ()
   in
-  { orig with apply_ = Custom apply_ }
+  let first_hit target (player : player_update) =
+    let op = other_player player in
+    List.find_opt (fun n -> Option.is_some op.slots_update.slot_updates.(n).value) target
+  in
+  match orig.apply_ with
+  | Custom_strikes strike ->
+      (* a wielder that strikes twice keeps both blows *)
+      let apply_ blows target d player =
+        let hit = first_hit target player in
+        let again = strike blows target d player in
+        stun d player hit;
+        again
+      in
+      { orig with apply_ = Custom_strikes apply_ }
+  | _ ->
+      let apply_ target d player =
+        let hit = first_hit target player in
+        apply_original orig target d player;
+        stun d player hit
+      in
+      { orig with apply_ = Custom apply_ }
 
 let mithril_bow : card_effect =
  fun env ->

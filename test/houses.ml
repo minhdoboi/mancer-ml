@@ -276,6 +276,22 @@ let inertia_matter_partner () =
   check_int "sprite untouched" 22 (life_at u 1 1);
   check_int "weakest ally healed" 9 (life_at u 0 4)
 
+let inertia_heal_shows_the_life_travelling () =
+  let u = new_game ~special:Zen.house () in
+  place u 0 "zen.inertia" 1;
+  place u 0 "zen.matter" 2;
+  place u 0 "fire.goblin" 4;
+  step u (fun () ->
+      Slot.inflict (slot u 0 4)
+        (mk_damage ~is_ability:true 10 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
+  let events = ref [] in
+  Updater.listen u (fun e -> events := e :: !events);
+  step u (fun () -> Player.apply_effects (player u 0) On_turn);
+  check_bool "heal announced" true
+    (List.mem
+       (Ev_ability { kind = "zen.heal"; player = 0; num = 1; target = Some (0, 4) })
+       !events)
+
 let fighter_grows_when_the_owner_is_hit () =
   let u = new_game ~special:Zen.house () in
   (player u 0).pstate.ps_life <- 40;
@@ -283,7 +299,7 @@ let fighter_grows_when_the_owner_is_hit () =
   step u (fun () ->
       Slot.inflict (slot u 0 2)
         (mk_damage ~is_ability:true 10 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
-  check_int "absorb 5 of 10" 17 (life_at u 0 2);
+  check_int "absorb 7 of 10" 23 (life_at u 0 2);
   step u (fun () ->
       Player.inflict (player u 0) (mk_damage 4 { ctx_player = 1; ctx_card = None; ctx_selected = 0 });
       Player.inflict (player u 0)
@@ -346,18 +362,27 @@ let redlight_bonus_leaves_a_moved_neighbour () =
   step u (fun () -> ());
   check_int "goblin moved away" 4 (attack_at u 0 4)
 
-let focus_reads_the_opponent_board () =
+let focus_reads_the_whole_board () =
   let u = new_game ~special:Zen.house () in
-  place u 1 "fire.goblin" 1;
-  place u 1 "air.medic" 2;
-  place u 1 "fire.goblin" 3;
+  (* the caster's board: two empty slots at the end *)
+  place u 0 "fire.dragon" 0;
+  place u 0 "earth.troll" 1;
+  place u 0 "air.griffin" 2;
+  place u 0 "earth.forestspider" 3;
+  (* the opponent's board: five creatures, the two strongest pay the mana *)
+  place u 1 "fire.dragon" 0;
+  place u 1 "earth.troll" 1;
+  place u 1 "air.griffin" 2;
+  place u 1 "earth.forestspider" 3;
+  place u 1 "fire.goblin" 4;
   let mana i = (player u 0).houses_update.hu_value.(i).mana in
-  let fire = mana 0 and air = mana 2 in
+  let fire = mana 0 and air = mana 2 and earth = mana 3 in
   let life = player_life u 0 in
   play u 0 "zen.focus" ~input:None ~cost:3;
-  check_int "fire mana" (fire + 2) (mana 0);
+  check_int "fire mana" (fire + 1) (mana 0);
   check_int "air mana" (air + 1) (mana 2);
-  check_int "healed" (life + 3) (player_life u 0)
+  check_int "earth mana" (earth + 2) (mana 3);
+  check_int "no life" life (player_life u 0)
 
 let dreamer_pays_for_the_shock () =
   let u = new_game ~special:Zen.house () in
@@ -591,13 +616,14 @@ let () =
           test_case "inertia spawns matter" `Quick inertia_spawns_matter;
           test_case "inertia no matter" `Quick inertia_no_matter_when_right_full;
           test_case "partner heal strike" `Quick inertia_matter_partner;
+          test_case "inertia heal flow" `Quick inertia_heal_shows_the_life_travelling;
           test_case "fighter owner hits" `Quick fighter_grows_when_the_owner_is_hit;
           test_case "inertia ignores spells" `Quick inertia_ignores_spells;
           test_case "redlight boosts neighbour" `Quick redlight_boosts_the_weaker_neighbour;
           test_case "redlight spares stronger" `Quick redlight_leaves_the_stronger_neighbour;
           test_case "redlight follows the board" `Quick redlight_bonus_follows_the_board;
           test_case "redlight loses a moved neighbour" `Quick redlight_bonus_leaves_a_moved_neighbour;
-          test_case "focus reads the opponent board" `Quick focus_reads_the_opponent_board;
+          test_case "focus reads the whole board" `Quick focus_reads_the_whole_board;
           test_case "dreamer pays for the shock" `Quick dreamer_pays_for_the_shock;
         ] );
       ( "wind",

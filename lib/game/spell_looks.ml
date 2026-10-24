@@ -113,7 +113,7 @@ let custom =
     "earth.care";
     "joy.care";
     "joy.burst";
-    "joy.eruption";
+    "joy.fusion";
     "earth.therapy";
     "joy.bond";
     "faerie.fire";

@@ -6,6 +6,7 @@ open Engine
 open Support
 
 let check_int = Alcotest.(check int)
+let check_ints = Alcotest.(check (list int))
 let check_bool = Alcotest.(check bool)
 let check_string = Alcotest.(check string)
 let ctx pid = { ctx_player = pid; ctx_card = None; ctx_selected = 0 }
@@ -359,6 +360,33 @@ let dancer_strikes_twice () =
   step v (fun () -> Player.run_slots (player v 0));
   check_int "one hit on an open lane" 57 (player_life v 1)
 
+(* The two blows are two beats of their own: the board shows two lunges and
+   two hits of 3, not one lunge and a single hit of 6. *)
+let dancer_strikes_in_two_beats () =
+  let u = new_game ~special:Rogue.house () in
+  place u 0 "rogue.dancer" 2;
+  place u 1 "fire.goblin" 2;
+  let lunges = ref 0 and steps = ref [] in
+  Updater.listen u (fun e ->
+      match e with
+      | Ev_run_slot { num = 2; player = 0 } -> incr lunges
+      | Ev_refresh _ -> steps := life_at u 1 2 :: !steps
+      | _ -> ());
+  step u (fun () -> Player.run_slots (player u 0));
+  check_int "two lunges" 2 !lunges;
+  check_ints "the goblin falls in two steps" [ 13; 10 ] (List.rev !steps)
+
+(* An unopposed dancer strikes once: one lunge, one hit. *)
+let dancer_strikes_once_when_open () =
+  let u = new_game ~special:Rogue.house () in
+  place u 0 "rogue.dancer" 2;
+  let lunges = ref 0 in
+  Updater.listen u (fun e ->
+      match e with Ev_run_slot { num = 2; player = 0 } -> incr lunges | _ -> ());
+  step u (fun () -> Player.run_slots (player u 0));
+  check_int "one lunge" 1 !lunges;
+  check_int "one hit on the player" 57 (player_life u 1)
+
 let fighter_grows_from_opposite () =
   let goblin = card_by_key "fire.goblin" in
   let poke u amount =
@@ -470,6 +498,8 @@ let () =
           test_case "trickster" `Quick trickster_only_when_opposed;
           test_case "thief" `Quick thief_drains_opposite_house;
           test_case "dancer" `Quick dancer_strikes_twice;
+          test_case "dancer beats" `Quick dancer_strikes_in_two_beats;
+          test_case "dancer alone" `Quick dancer_strikes_once_when_open;
           test_case "fighter" `Quick fighter_grows_from_opposite;
           test_case "assassin" `Quick assassin_finishes_the_lane;
           test_case "trap" `Quick trap_skips_a_turn;

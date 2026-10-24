@@ -15,6 +15,22 @@ val normal_run_attack : run_attack
 val multi_run_attack : run_attack
 val never_run_attack : run_attack
 val custom_run_attack : ?multi:bool -> (int list -> damage -> player_update -> unit) -> run_attack
+val custom_strikes_run_attack :
+  ?multi:bool -> (int -> int list -> damage -> player_update -> bool) -> run_attack
+(** A custom attack that strikes several times: [strike] lands one blow and
+    returns true when another blow follows.  [blows] is the number of blows
+    that already landed, so the first call gets 0.  Every blow is animated
+    on its own, so the board shows two attacks and not one attack worth
+    double. *)
+
+val run_all_strikes :
+  (int -> int list -> damage -> player_update -> bool) ->
+  int list ->
+  damage ->
+  player_update ->
+  unit
+(** The blows of a multi-blow attack, one after the other, without the
+    animation the engine would give them. *)
 val is_multi_run : run_attack -> bool
 val is_multi_card : card -> bool
 val is_bridled : slot_state -> bool

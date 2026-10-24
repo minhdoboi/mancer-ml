@@ -213,12 +213,13 @@ let for_spell layout (c : command) =
       (* Sexual Bond: the same therapy motes, blushed pink *)
       Some (recipe ~duration:pollen_duration ~blocking:true (fun ~start -> spawn_pollen ~pink:true spots ~start))
   | "joy.burst" ->
-      (* Solar Burst: a sun flares over the board and its rings flare every slot *)
-      let spots = Array.append (slots_of player layout.slot_center) (slots_of other layout.slot_center) in
-      Some (recipe ~duration:solar_burst_duration ~blocking:true (fun ~start -> spawn_solar_burst ~spots ~start))
-  | "joy.eruption" ->
-      (* Eruption: the caster's two strongest creatures hurl their joy at the
-         opponent -- an arc of pink, yellow and red from each of them. *)
+      (* Solar Burst: a curtain of solar light rolls across the board and every
+         slot it touches is left burning *)
+      let floors = Array.append (slots_of player layout.slot_floor) (slots_of other layout.slot_floor) in
+      Some (recipe ~duration:solar_burst_duration ~blocking:true (fun ~start -> spawn_solar_burst ~floors ~start))
+  | "joy.fusion" ->
+      (* Fusion: the caster's two strongest creatures pour their joy into one
+         strike at the opponent -- an arc of pink, yellow and red from each. *)
       let strongest =
         layout.occupied player
         |> List.filter_map (fun n ->
@@ -232,8 +233,8 @@ let for_spell layout (c : command) =
       if Array.length froms = 0 then None
       else
         Some
-          (recipe ~duration:eruption_duration ~blocking:true (fun ~start ->
-               spawn_eruption ~froms ~to_:foe_life ~start))
+          (recipe ~duration:fusion_duration ~blocking:true (fun ~start ->
+               spawn_fusion ~froms ~to_:foe_life ~start))
   | "faerie.fire" ->
       let floors = slots_of other layout.slot_floor in
       Some (recipe ~duration:1.9 ~blocking:true (fun ~start -> spawn_faerie_fire ~floors ~start))
@@ -667,6 +668,14 @@ let for_ability layout ~kind ~player ~num ~target =
           recipe ~duration:(lightning_duration 2) ~blocking:true (fun ~start ->
               spawn_lightning ~style:spark [ layout.slot_center player num; layout.slot_center tp tn ] ~start))
         target
+  | "zen.heal" ->
+      (* Inertia hands its life to the creature it heals: green motes run from
+         the stone to the healed card *)
+      Option.map
+        (fun (tp, tn) ->
+          recipe ~duration:life_flow_duration ~blocking:false (fun ~start ->
+              spawn_life_flow ~from_:(layout.slot_center player num) ~to_:(layout.slot_center tp tn) ~start))
+        target
   | "phosphor_rays" | "phosphor.rays" | "quantumancer.phosphor" ->
       let foe = match target with Some (tp, _) -> tp | None -> other player in
       let hits =
@@ -766,8 +775,9 @@ let demo_names =
     "gauntlet";
     "rose";
     "underground";
-    "eruption";
+    "fusion";
     "ghosts";
+    "healflow";
   ]
 
 let spawn_demo layout name =
@@ -915,12 +925,15 @@ let spawn_demo layout name =
           (List.map (fun m -> (layout.slot_floor opponent m, layout.slot_center opponent m)) [ 0; 1; 3; 4; 5 ])
       in
       go (spawn_underground_poison ~target:foe.(2) ~floor:(layout.slot_floor opponent 2) ~foes ~start:now)
-  | "eruption" ->
-      go (spawn_eruption ~froms:[| own.(1); own.(3) |] ~to_:foe_life ~start:now)
+  | "fusion" ->
+      go (spawn_fusion ~froms:[| own.(1); own.(3) |] ~to_:foe_life ~start:now)
   | "ghosts" ->
       let targets =
         Array.of_list
           (List.map (layout.slot_center opponent) (layout.occupied opponent) @ [ foe_life ])
       in
       go (spawn_ghost_invasion ~row:foe ~targets ~start:now)
+  | "healflow" ->
+      (* Zen's Inertia: the life runs from one card to the other as green motes *)
+      go (spawn_life_flow ~from_:own.(1) ~to_:own.(4) ~start:now)
   | _ -> ()

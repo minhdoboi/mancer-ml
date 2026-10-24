@@ -269,7 +269,7 @@ let card_sound_name (c : card) =
   | "sadness.tears" -> "acidicshower"
   | "joy.care" -> "naturescare"
   | "joy.bond" -> "planttherapy"
-  | "joy.burst" -> "solarwave"
+  | "joy.burst" -> "solarburst"
   | "anger.wave" -> "flamewave"
   | "anger.inferno" -> "inferno"
   | "anger.apocalypse" -> "apocalypse"

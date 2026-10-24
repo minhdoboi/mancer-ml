@@ -16,6 +16,19 @@ let never_run_attack = { can_attack = false; apply_ = Single_target; is_multi_ta
 let custom_run_attack ?(multi = false) apply =
   { can_attack = true; apply_ = Custom apply; is_multi_target = multi }
 
+(* An attack that strikes more than once: [strike] lands one blow and returns
+   true when another blow follows.  The engine animates every blow on its
+   own, so a double strike reads as two attacks and two hits. *)
+let custom_strikes_run_attack ?(multi = false) strike =
+  { can_attack = true; apply_ = Custom_strikes strike; is_multi_target = multi }
+
+(* The blows of a multi-blow attack, one after the other, without the
+   animation the engine would give them.  A wrapper around another card's run
+   attack (Mithril Bow, hunger) uses it to keep the extra blows. *)
+let run_all_strikes (strike : int -> int list -> damage -> player_update -> bool) target d (p : player_update) =
+  let rec blows n = if n < max_strikes && strike n target d p then blows (n + 1) in
+  blows 0
+
 let is_multi_run (ra : run_attack) = ra.is_multi_target
 
 let is_multi_card (c : card) =

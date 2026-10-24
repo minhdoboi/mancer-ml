@@ -415,6 +415,7 @@ module Player = struct
     let op = other_player p in
     match st.card.c_body.b_run_attack.apply_ with
     | Custom f -> f st.target d p
+    | Custom_strikes strike -> ignore (strike 0 st.target d p)
     | Multi_target ->
         inflict op d;
         Slots.inflict_creatures op.slots_update d
@@ -438,6 +439,19 @@ module Player = struct
     run_attack p st (mk_damage st.attack ctx);
     emit p.updater (Ev_refresh { silent = false })
 
+  (* A custom attack that strikes more than once (the Shadow Dancer).  Every
+     blow is a beat of its own: its own lunge, its own damage and its own
+     refresh, so the board shows two attacks and two hits instead of one
+     attack worth double. *)
+  let rec run_strikes p num st strike blows =
+    if Option.is_none p.updater.ended then (
+      let ctx = { ctx_player = p.pid; ctx_card = Some st.card.c_card; ctx_selected = num } in
+      let d = mk_damage st.attack ctx in
+      emit p.updater (Ev_run_slot { num; player = p.pid });
+      let again = strike blows st.target d p in
+      emit p.updater (Ev_refresh { silent = false });
+      if again && blows + 1 < max_strikes then run_strikes p num st strike (blows + 1))
+
   let locate_slot p num id =
     refresh_slots p;
     let arr = p.slots_update.slot_updates in
@@ -457,7 +471,9 @@ module Player = struct
       if i <= extras && Option.is_none p.updater.ended then
         match locate_slot p num st.slot_id with
         | Some (n, s) when s.attack > 0 && Slot.is_runnable s && s.card.c_body.b_run_attack.can_attack ->
-            run_slot_once p n s;
+            (match s.card.c_body.b_run_attack.apply_ with
+            | Custom_strikes strike -> run_strikes p n s strike 0
+            | _ -> run_slot_once p n s);
             loop n (i + 1)
         | _ -> ()
     in

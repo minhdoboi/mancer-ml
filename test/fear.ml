@@ -144,7 +144,7 @@ let () =
         ] );
       ( "cards",
         [
-          Alcotest.test_case "screaming ghost" `Quick ghost_boosts_spells;
+          Alcotest.test_case "ghost" `Quick ghost_boosts_spells;
           Alcotest.test_case "harpy fires" `Quick harpy_five_fear;
           Alcotest.test_case "harpy waits" `Quick harpy_below_five;
           Alcotest.test_case "terror strike" `Quick terror_strike_hits_both;

@@ -88,16 +88,32 @@ let redlight_reaction () =
         else if abs (m.num - slot.num) <= 1 then revoke slot);
   }
 
-(* Focus: for every creature on the opponent's board, 1 mana of its house and 1 life. *)
+(* Focus: 1 mana of the house of the opponent's two strongest creatures and of
+   the caster's two weakest. *)
 let focus_spell : card_effect =
- fun env ->
-  let p = player_of_env env in
-  Slots.foreach (other_of_env env).slots_update (fun s ->
-      match s.value with
-      | None -> ()
-      | Some st ->
-          Houses.incr_mana p.houses_update 1 [ st.card.c_card.house_index ];
-          Player.heal p 1)
+  fun env ->
+    let p = player_of_env env in
+    (* the creatures of a board, weakest attack first *)
+    let by_attack (su : slots_update) =
+      Slots.foldl su [] (fun acc s ->
+          match s.value with
+          | None -> acc
+          | Some st -> s :: acc)
+      |> List.sort (fun a b ->
+             let attack s = Slots.current_attack s (Slot.get s) in
+             compare (attack a) (attack b))
+    in
+    let first n l = List.filteri (fun i _ -> i < n) l in
+    let mana_for l =
+      List.iter
+        (fun s ->
+          let st = Slot.get s in
+          Houses.incr_mana p.houses_update 1 [ st.card.c_card.house_index ])
+        l
+    in
+    (* the two weakest friends and the two strongest foes each pay a mana *)
+    mana_for (first 2 (by_attack p.slots_update));
+    mana_for (first 2 (List.rev (by_attack (other_of_env env).slots_update)))
 
 let spawn_matter : card_effect =
  fun env ->
@@ -124,15 +140,25 @@ let spawn_matter : card_effect =
             p.slots_update.slot_updates.(n).value)
 
 let inertia_heal : card_effect =
- fun env ->
-  match !matter_ref with
-  | Some matter when owner_has env matter ->
-      Option.iter
-        (fun s ->
-          Updater.focus env.env_updater s.num env.env_player false;
-          Slot.heal s 3)
-        (reduce_filled (player_of_env env).slots_update lowest_life)
-  | _ -> ()
+  fun env ->
+    match !matter_ref with
+    | Some matter when owner_has env matter ->
+        Option.iter
+          (fun s ->
+            Updater.focus env.env_updater s.num env.env_player false;
+            Slot.heal s 3;
+            (* the life itself travels: the board shows it as green motes
+               streaming from Inertia to the creature it heals *)
+            emit env.env_updater
+              (Ev_ability
+                 {
+                   kind = "zen.heal";
+                   player = env.env_player;
+                   num = env.env_selected;
+                   target = Some (env.env_player, s.num);
+                 }))
+          (reduce_filled (player_of_env env).slots_update lowest_life)
+    | _ -> ()
 
 let matter_strike : card_effect =
  fun env ->
@@ -230,7 +256,7 @@ let fighter_reaction () =
   let r = Reaction.default () in
   {
     r with
-    self_protect = (fun d -> if is_effect d then { d with amount = max 0 (d.amount - 5) } else d);
+    self_protect = (fun d -> if is_effect d then { d with amount = max 0 (d.amount - 7) } else d);
     on_protect =
       (fun e ->
         if Option.is_none e.de_target && e.de_damage.amount > 0 then (
@@ -257,7 +283,7 @@ let mimic =
 let () = mimic_ref := Some mimic
 
 let fighter =
-  creature ~key:"zen.fighter" ~attack:(attack 5) ~life:22 ~description:"zen.fighter.description"
+  creature ~key:"zen.fighter" ~attack:(attack 5) ~life:26 ~description:"zen.fighter.description"
     ~new_reaction:fighter_reaction
     ~effects:(effects [ (On_turn, zen_effect) ])
     ()
@@ -282,7 +308,7 @@ let cards =
   [
     creature ~key:"zen.elementesist" ~attack:(attack 3) ~life:14 ~description:"zen.elementesist.description"
       ~run_attack:(custom_run_attack elem_attack) ();
-    creature ~key:"zen.redlight" ~attack:(attack 2) ~life:14 ~description:"zen.redlight.description"
+    creature ~key:"zen.redlight" ~attack:(attack 2) ~life:18 ~description:"zen.redlight.description"
       ~new_reaction:redlight_reaction ();
     spell ~key:"zen.focus" ~description:"zen.focus.description"
       ~effects:(effects [ (Direct, focus_spell) ])

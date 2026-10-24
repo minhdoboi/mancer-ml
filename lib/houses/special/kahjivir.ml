@@ -23,6 +23,7 @@ let apply_attack (run : run_attack) target d (p : player_update) =
   let op = other_player p in
   match run.apply_ with
   | Custom f -> f target d p
+  | Custom_strikes strike -> run_all_strikes strike target d p
   | Multi_target ->
       Player.inflict op d;
       Slots.inflict_creatures op.slots_update d
