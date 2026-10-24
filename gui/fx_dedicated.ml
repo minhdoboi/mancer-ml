@@ -342,6 +342,99 @@ let spawn_harvest ~from_ ~to_ ~souls ~start =
               circle to_.x to_.y (18. +. (pulse *. 8.)) (rgb 0.5 0.8 1. (fade *. 0.35 *. pulse));
               circle to_.x to_.y 7. (rgb 0.85 0.95 1. (fade *. 0.55))))))
 
+(* Ghost Invasion: the soul reaper's harvest wisps, drained to dark violet, are
+   loosed as a host that pours in at the right edge and sweeps left across the
+   foe's lanes, each bursting on the creature it reaches. A wave, not a fan:
+   every ghost flies the same right-to-left current, so the rightmost lane is
+   hit first. The host rides a sine, so the front ripples as it crosses and
+   straightens as each ghost closes on its prey. *)
+let ghost_invasion_duration = 1.8
+
+let spawn_ghost_invasion ~row ~targets ~start =
+  let duration = ghost_invasion_duration in
+  (* the host gathers at the right edge of the board and sweeps left *)
+  let right_x = world_w -. 8. in
+  let entry_y =
+    if Array.length row = 0 then 110.
+    else Array.fold_left (fun a (p : spot) -> a +. p.y) 0. row /. float (Array.length row)
+  in
+  (* the whole board must be crossed in the same current, so a step of [travel]
+     is drawn at a constant speed; [speed] sets how fast the wave advances *)
+  let speed = 620. in
+  (* three wisps per target, fanned vertically, so the line has body *)
+  let flights =
+    Array.concat
+      (Array.to_list
+         (Array.mapi
+            (fun i to_ ->
+              Array.init 3 (fun k ->
+                  (to_, (i * 3) + k, (float k *. 0.05), (float k -. 1.) *. 16.)))
+            targets))
+  in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.24) in
+      if fade > 0.02 then (
+        (* the cold gate at the right edge, breathing before the host enters *)
+        let puff = Float.min 1. (age /. 0.35) in
+        let a0 = (1. -. puff) *. fade *. 0.35 in
+        if a0 > 0.03 then (
+          circle right_x entry_y (20. +. (puff *. 26.)) (rgb 0.35 0.15 0.6 a0);
+          circle (right_x -. 16.) (entry_y +. 26.) (13. +. (puff *. 16.)) (rgb 0.15 0.05 0.3 (a0 *. 0.7)));
+        additive (fun () ->
+            Array.iter
+              (fun (to_, seed, delay, off) ->
+                let a = age -. delay in
+                if a > 0. then (
+                  let jitter = (noise seed 1 3 -. 0.5) *. 24. in
+                  (* the path of one wisp: straight across the board, but riding
+                     a sine whose ripple dies out as the ghost nears its prey *)
+                  let path u =
+                    let x = right_x +. ((to_.x -. right_x) *. u) in
+                    let env = Float.min 1. ((right_x -. x) /. 70.) in
+                    let ph = (u *. 2.3 *. Float.pi) +. (a *. 1.5) +. (float seed *. 0.85) in
+                    let sway =
+                      ((16. *. sin ph) +. (5. *. sin ((ph *. 2.3) +. 1.1))) *. env
+                    in
+                    let y = to_.y +. ((off +. jitter) *. (1. -. u)) +. sway in
+                    (x, y)
+                  in
+                  let travel = Float.max 0.08 (Float.abs (to_.x -. right_x) /. speed) in
+                  let u = clamp01 (a /. travel) in
+                  let px, py = path u in
+                  let nx, ny = path (Float.min 1. (u +. 0.04)) in
+                  let vx = nx -. px and vy = ny -. py in
+                  let len = Float.max 0.001 (hypot vx vy) in
+                  let tx = vx /. len and ty = vy /. len in
+                  for s = 1 to 5 do
+                    let tu = Float.max 0. (u -. (float s *. 0.04)) in
+                    let sx, sy = path tu in
+                    circle
+                      (sx -. (tx *. float s *. 4.))
+                      (sy -. (ty *. float s *. 4.))
+                      (5.5 -. (float s *. 0.6))
+                      (rgb 0.5 0.25 0.85 (fade *. (1. -. (float s /. 6.)) *. 0.16))
+                  done;
+                  let size = (1. -. (u *. 0.2)) *. 11. in
+                  let al = fade *. (0.6 +. (0.25 *. (1. -. u))) in
+                  circle
+                    (px -. (tx *. size *. 1.8))
+                    (py -. (ty *. size *. 1.8))
+                    (size *. 0.95)
+                    (rgb 0.28 0.05 0.45 (al *. 0.5));
+                  circle px py (size *. 0.72) (rgb 0.6 0.3 0.95 (al *. 0.7));
+                  circle (px +. (tx *. 2.)) (py +. (ty *. 2.)) (size *. 0.32) (rgb 0.92 0.82 1. al);
+                  (* hollow eyes so each wisp reads as a face at a glance *)
+                  if size *. 0.2 > 0.8 && u < 0.9 then (
+                    let ox = -.ty and oy = tx in
+                    circle (px +. (ox *. 2.2)) (py +. (oy *. 2.2)) (size *. 0.2) (rgb 0.12 0. 0.2 (al *. 0.9));
+                    circle (px -. (ox *. 2.2)) (py -. (oy *. 2.2)) (size *. 0.2) (rgb 0.12 0. 0.2 (al *. 0.9)));
+                  if a >= travel then (
+                    let hit = clamp01 ((a -. travel) /. 0.18) in
+                    circle to_.x to_.y (10. +. (hit *. 16.))
+                      (rgb 0.55 0.25 0.95 (fade *. (1. -. hit) *. 0.5));
+                    circle to_.x to_.y 4. (rgb 0.9 0.75 1. (fade *. (1. -. hit))))))
+              flights)))
+
 (* Mithril Bow: the enchanted wielder raises a mithril bow and looses an arrow
    down the lane at the creature standing opposite.  The shot belongs to the
    wielder -- it starts at the bow and lands on the foe, not on a portrait. *)
@@ -1632,6 +1725,159 @@ let spawn_solar_wave ~own ~foe ~foe_life ~start =
                   2.5
                   (rgb 1. 0.93 0.5 ((1. -. hit) *. 0.9))
               done)))
+
+(* Solar Burst: joy's answer to Stone Shower.  No rocks fall; a small sun
+   ignites over the middle of the board and its flash sweeps out in golden
+   rings, flaring every creature slot it passes, own and foe alike. *)
+let solar_burst_duration = 1.7
+
+let spawn_solar_burst ~spots ~start =
+  let duration = solar_burst_duration in
+  let n = Array.length spots in
+  if n = 0 then mk ~start ~duration:0. (fun ~age:_ -> ())
+  else
+    let cx = Array.fold_left (fun a (p : spot) -> a +. p.x) 0. spots /. float n in
+    let cy = Array.fold_left (fun a (p : spot) -> a +. p.y) 0. spots /. float n in
+    let max_r =
+      Array.fold_left
+        (fun m (p : spot) -> Float.max m (hypot (p.x -. cx) (p.y -. cy)))
+        1. spots
+      +. 60.
+    in
+    let travel = 0.9 in
+    mk ~start ~duration (fun ~age ->
+        let fade = Float.min 1. ((duration -. age) /. 0.35) in
+        if fade > 0.02 then
+          additive (fun () ->
+              (* the flash at the heart *)
+              let flash = clamp01 (age /. 0.18) in
+              if flash > 0.02 then (
+                circle cx cy (30. +. (90. *. flash))
+                  (rgb 1. 0.75 0.2 (fade *. 0.3 *. (1. -. (flash *. 0.5))));
+                circle cx cy (14. +. (34. *. flash)) (rgb 1. 0.9 0.5 (fade *. 0.6)));
+              (* light motes carried out with the ring *)
+              for i = 0 to 79 do
+                let t = clamp01 ((age /. travel) -. (noise i 1 71 *. 0.25)) in
+                if t > 0. && t < 1. then (
+                  let ang = noise i 2 73 *. Float.pi *. 2. in
+                  let rr = max_r *. ease_out t *. (0.35 +. (0.65 *. noise i 3 79)) in
+                  let x = cx +. (cos ang *. rr) in
+                  let y = cy +. (sin ang *. rr *. 0.55) -. (10. *. t) in
+                  let a = sin (t *. Float.pi) *. fade in
+                  let sz = 1.6 +. (2.6 *. noise i 4 83) in
+                  circle x y (sz *. 2.3) (rgb 1. 0.72 0.2 (a *. 0.18));
+                  circle x y sz (rgb 1. 0.9 0.45 (a *. 0.9)))
+              done;
+              (* golden rays lancing out of the heart *)
+              for k = 0 to 11 do
+                let ang = (float k *. (Float.pi /. 6.)) +. (age *. 0.6) in
+                let len = (40. +. (70. *. noise k 5 89)) *. clamp01 (age /. 0.4) *. fade in
+                line cx cy
+                  (cx +. (cos ang *. len))
+                  (cy +. (sin ang *. len *. 0.6))
+                  2. (rgb 1. 0.85 0.4 (fade *. 0.35))
+              done;
+              (* each slot flares as the ring reaches it *)
+              Array.iter
+                (fun (p : spot) ->
+                  let reach = travel *. (hypot (p.x -. cx) (p.y -. cy) /. max_r) in
+                  let hit = clamp01 ((age -. reach) /. 0.3) in
+                  if hit > 0. then (
+                    let h = 1. -. hit in
+                    circle p.x p.y (14. +. (30. *. hit)) (rgb 1. 0.8 0.25 (h *. 0.45 *. fade));
+                    circle p.x p.y (7. +. (12. *. hit)) (rgb 1. 0.97 0.7 (h *. 0.7 *. fade));
+                    for k = 0 to 5 do
+                      let ang = noise k (int_of_float p.x) 97 *. Float.pi *. 2. in
+                      let rr = (10. +. (18. *. hit)) *. (0.6 +. noise k 7 101) in
+                      circle
+                        (p.x +. (cos ang *. rr))
+                        (p.y +. (sin ang *. rr))
+                        1.8
+                        (rgb 1. 0.92 0.55 (h *. fade *. 0.85))
+                    done))
+                spots))
+
+(* Eruption: joy's Fury.  The caster's two strongest creatures gather their
+   joy and hurl it at the opponent -- a volley of pink, yellow and red motes
+   flying over the board on a wide arc, all of them landing on the opponent's
+   portrait at once. *)
+let eruption_duration = 1.2
+let eruption_hit = 0.78 (* when the volley lands on the opponent *)
+
+(* Joy runs pink, yellow and red. *)
+let eruption_color k =
+  match k mod 3 with
+  | 0 -> (1., 0.45, 0.72)
+  | 1 -> (1., 0.86, 0.3)
+  | _ -> (1., 0.28, 0.22)
+
+let spawn_eruption ~froms ~to_ ~start =
+  let duration = eruption_duration in
+  if Array.length froms = 0 then mk ~start ~duration:0. (fun ~age:_ -> ())
+  else
+    mk ~start ~duration (fun ~age ->
+        let fade = Float.min 1. ((duration -. age) /. 0.25) in
+        if fade > 0.02 then (
+          (* the creatures gather their joy before letting it fly *)
+          Array.iteri
+            (fun j (from_ : spot) ->
+              let charge = clamp01 ((age -. (float j *. 0.14)) /. 0.4) in
+              if charge > 0.02 then (
+                let r, g, b = eruption_color j in
+                circle from_.x from_.y (8. +. (22. *. charge))
+                  (rgb r g b (charge *. charge *. 0.3 *. fade));
+                circle from_.x from_.y (4. +. (9. *. charge)) (rgb 1. 0.95 0.85 (charge *. 0.45 *. fade))))
+            froms;
+          additive (fun () ->
+              Array.iteri
+                (fun j (from_ : spot) ->
+                  let dx = to_.x -. from_.x and dy = to_.y -. from_.y in
+                  let lift = 44. +. Float.min 30. (Float.abs dx *. 0.12) in
+                  let c1x = from_.x +. (dx *. 0.25) and c1y = from_.y +. (dy *. 0.25) -. lift in
+                  let c2x = from_.x +. (dx *. 0.75) and c2y = from_.y +. (dy *. 0.75) -. lift in
+                  for i = 0 to 17 do
+                    (* every mote leaves a little later, so the joy flies in a stream *)
+                    let born = (float (i mod 6) *. 0.06) +. (float j *. 0.14) +. (noise i j 3 *. 0.05) in
+                    let travel = eruption_hit -. born in
+                    let a = age -. born in
+                    if a > 0. && a < travel then (
+                      let u = a /. travel in
+                      let x = bezier from_.x c1x c2x to_.x u +. ((noise i j 5 -. 0.5) *. 10.) in
+                      let y = bezier from_.y c1y c2y to_.y u +. ((noise i j 6 -. 0.5) *. 10.) in
+                      let r, g, b = eruption_color (i + j) in
+                      let rad = 2.4 +. (noise i j 7 *. 1.8) in
+                      let alpha = fade *. (0.4 +. (0.6 *. sin (Float.pi *. u))) in
+                      circle x y (rad *. 2.4) (rgb r g b (alpha *. 0.2));
+                      circle x y rad (rgb r g b alpha);
+                      circle (x -. (rad *. 0.3)) (y -. (rad *. 0.35)) (rad *. 0.45)
+                        (rgb 1. 0.95 0.9 (alpha *. 0.75)))
+                  done)
+                froms;
+              let hit = age -. eruption_hit in
+              if hit > 0. then (
+                let k = clamp01 (hit /. 0.42) in
+                let a = (1. -. k) *. fade in
+                (* the flash on the opponent *)
+                circle to_.x to_.y (12. +. (46. *. k)) (rgb 1. 0.5 0.55 (a *. 0.28));
+                circle to_.x to_.y (6. +. (22. *. k)) (rgb 1. 0.85 0.55 (a *. 0.55));
+                (* the joy thrown out of the hit *)
+                for i = 0 to 17 do
+                  let ang = noise i 9 1 *. 2. *. Float.pi in
+                  let dist = (14. +. (noise i 9 2 *. 44.)) *. ease_out k in
+                  let px = to_.x +. (cos ang *. dist) and py = to_.y +. (sin ang *. dist *. 0.85) in
+                  let r, g, b = eruption_color i in
+                  circle px py (2.6 +. (noise i 9 3 *. 2.4)) (rgb r g b (a *. 0.85))
+                done;
+                (* the ring running out of the hit *)
+                for i = 0 to 19 do
+                  let ang = float i *. (Float.pi *. 2. /. 20.) in
+                  let rr = 18. +. (66. *. k) in
+                  circle
+                    (to_.x +. (cos ang *. rr))
+                    (to_.y +. (sin ang *. rr *. 0.72))
+                    (0.6 +. (2.8 *. (1. -. k)))
+                    (rgb 1. 0.62 0.6 (a *. 0.5))
+                done))))
 
 (* Eternal Summer lets the caster play an extra creature and spell, so the
    warmth falls on the board and the hand: a golden haze drifts over the rows

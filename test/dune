@@ -9,6 +9,26 @@
  (libraries mancer support alcotest))
 
 (test
+ (name anger)
+ (modules anger)
+ (libraries mancer support alcotest))
+
+(test
+ (name sadness)
+ (modules sadness)
+ (libraries mancer support alcotest))
+
+(test
+ (name fear)
+ (modules fear)
+ (libraries mancer support alcotest))
+
+(test
+ (name joy)
+ (modules joy)
+ (libraries mancer support alcotest))
+
+(test
  (name shuffle)
  (modules shuffle)
  (libraries mancer support alcotest))

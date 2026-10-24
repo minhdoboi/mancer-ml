@@ -145,6 +145,24 @@ let campaign_class () =
   Alcotest.(check string) "upper case" "Troopers" (Table.campaign_class_of "troopers");
   Alcotest.(check string) "unknown" Prefs.default_campaign_class (Table.campaign_class_of "nope")
 
+(* Mode picks the basic houses: standard swaps fire for anger. *)
+let mode_picks_basics () =
+  let desc t = Session.desc (Table.session t) in
+  let basic t pid = (desc t).gd_players.(pid).pd_houses.(0).phd_house.h_key in
+  let base = { Table.default_setup with seats = (greedy, greedy); seed = Some 5 } in
+  let standard = Table.start { base with mode = Catalog.Standard } in
+  check_bool "standard anger" true (basic standard owner = "anger");
+  let classic = Table.start { base with mode = Catalog.Classic } in
+  check_bool "classic fire" true (basic classic owner = "fire")
+
+(* A campaign setup takes the campaign mode; the duel mode is not involved. *)
+let campaign_mode () =
+  let n = Campaign.node "entomologist" in
+  let standard = Table.campaign_setup ~mode:Catalog.Standard ~player_special:"zen" n in
+  check_bool "explicit standard" true (standard.mode = Catalog.Standard);
+  let classic = Table.campaign_setup ~mode:Catalog.Classic ~player_special:"zen" n in
+  check_bool "explicit classic" true (classic.mode = Catalog.Classic)
+
 let () =
   Alcotest.run "table"
     [
@@ -158,5 +176,7 @@ let () =
           Alcotest.test_case "campaign class" `Quick campaign_class;
           Alcotest.test_case "switch swaps houses and cards" `Quick switch_swaps_houses_and_cards;
           Alcotest.test_case "restart keeps deal" `Quick restart_keeps_deal;
+          Alcotest.test_case "mode picks basics" `Quick mode_picks_basics;
+          Alcotest.test_case "campaign mode" `Quick campaign_mode;
         ] );
     ]

@@ -238,13 +238,26 @@ let pollen_yellow =
     colors = [ { u = 0.; r = 1.; g = 0.9; b = 0.2 }; { u = 1.; r = 1.; g = 0.8; b = 0.3 } ];
   }
 
+(* Sexual bond: the same rising pollen, blushed pink. *)
+let pollen_pink =
+  {
+    pollen_green with
+    colors = [ { u = 0.; r = 1.; g = 0.35; b = 0.7 }; { u = 1.; r = 1.; g = 0.68; b = 0.85 } ];
+  }
+
+let pollen_rose =
+  {
+    pollen_yellow with
+    colors = [ { u = 0.; r = 1.; g = 0.25; b = 0.55 }; { u = 1.; r = 1.; g = 0.55; b = 0.78 } ];
+  }
+
 let pollen_duration = 0.85 +. 1.5
 
-let spawn_pollen (spots : spot list) ~start =
+let spawn_pollen ?(pink = false) (spots : spot list) ~start =
+  let first = if pink then pollen_pink else pollen_green in
+  let second = if pink then pollen_rose else pollen_yellow in
   let emitters =
-    List.concat_map
-      (fun p -> [ make_emitter pollen_green ~x:p.x ~y:p.y; make_emitter pollen_yellow ~x:p.x ~y:p.y ])
-      spots
+    List.concat_map (fun p -> [ make_emitter first ~x:p.x ~y:p.y; make_emitter second ~x:p.x ~y:p.y ]) spots
   in
   mk ~start ~duration:pollen_duration (fun ~age ->
       let fade = Float.min 1. ((pollen_duration -. age) /. 0.2) in
@@ -333,10 +346,19 @@ let acid_rain =
     texture = "particle";
   }
 
-(* Acidic shower: slanted streaks of toxic green rain pour onto every slot's own
-   column, splash on the slot floor and leave a low green haze. *)
-let spawn_acid_rain (floors : spot array) ~start =
+(* Acidic shower: slanted streaks of rain pour onto every slot's own column,
+   splash on the slot floor and leave a low haze. [blue] keeps the same shape
+   but rains clean water-blue instead of toxic green, for Rain of Tears. *)
+let spawn_acid_rain ?(blue = false) (floors : spot array) ~start =
   let duration = 2.4 in
+  let c (r, g, b) a = rgb r g b a in
+  let haze_hi = if blue then (0.35, 0.7, 1.) else (0.5, 1., 0.35) in
+  let haze_lo = if blue then (0.15, 0.45, 0.9) else (0.2, 0.8, 0.15) in
+  let streak = if blue then (0.2, 0.55, 1.) else (0.25, 0.9, 0.18) in
+  let seed = if blue then (0.55, 0.82, 1.) else (0.75, 1., 0.55) in
+  let splash = if blue then (0.35, 0.7, 1.) else (0.45, 1., 0.3) in
+  let mist_lo = if blue then (0.15, 0.22, 0.35) else (0.2, 0.28, 0.18) in
+  let mist_hi = if blue then (0.3, 0.45, 0.65) else (0.42, 0.52, 0.34) in
   mk ~start ~duration (fun ~age ->
       let fade = Float.min 1. ((duration -. age) /. 0.4) in
       let power = Float.min 1. (age /. 0.35) *. fade in
@@ -345,8 +367,8 @@ let spawn_acid_rain (floors : spot array) ~start =
             Array.iteri
               (fun j (f : spot) ->
                 let haze = power *. (0.75 +. (0.25 *. sin ((age *. 6.) +. float j))) in
-                ellipse f.x (f.y -. 4.) 46. 9. (rgb 0.2 0.8 0.15 (0.2 *. haze));
-                ellipse f.x (f.y -. 4.) 28. 5. (rgb 0.5 1. 0.35 (0.16 *. haze));
+                ellipse f.x (f.y -. 4.) 46. 9. (c haze_lo (0.2 *. haze));
+                ellipse f.x (f.y -. 4.) 28. 5. (c haze_hi (0.16 *. haze));
                 for d = 0 to 43 do
                   (* only some drops are alive while the shower builds and thins out *)
                   if noise d j 9 < power then (
@@ -360,21 +382,21 @@ let spawn_acid_rain (floors : spot array) ~start =
                       let q = p /. 0.82 in
                       let y = f.y -. depth -. (top *. (1. -. q)) in
                       let hx = x -. (slant *. (1. -. q)) in
-                      line (hx -. 3.) (y -. 16.) hx y 1.5 (rgb 0.25 0.9 0.18 (0.55 *. power));
-                      circle hx y 1.5 (rgb 0.75 1. 0.55 (0.8 *. power)))
+                      line (hx -. 3.) (y -. 16.) hx y 1.5 (c streak (0.55 *. power));
+                      circle hx y 1.5 (c seed (0.8 *. power)))
                     else
                       let q = (p -. 0.82) /. 0.18 in
                       let w = 3. +. (9. *. q) in
-                      ellipse x (f.y -. depth) w (w *. 0.35) (rgb 0.45 1. 0.3 ((1. -. q) *. 0.55 *. power));
+                      ellipse x (f.y -. depth) w (w *. 0.35) (c splash ((1. -. q) *. 0.55 *. power));
                       if q < 0.7 then
                         circle
                           (x +. ((noise d j 6 -. 0.5) *. 16. *. q))
                           (f.y -. depth -. (7. *. sin (q *. 4.)))
                           1.2
-                          (rgb 0.7 1. 0.5 ((1. -. q) *. 0.8 *. power)))
+                          (c seed ((1. -. q) *. 0.8 *. power)))
                 done)
               floors);
-      (* acrid smoke rising where the drops eat into the ground: it shows the damage *)
+      (* low mist hanging where the drops land: it shows the damage *)
       if fade > 0.02 then
         Array.iteri
           (fun j (f : spot) ->
@@ -388,8 +410,8 @@ let spawn_acid_rain (floors : spot array) ~start =
                 let y = f.y -. 6. -. ((38. +. (36. *. noise k j 14)) *. ease_out q) in
                 let r = 7. +. (15. *. q) in
                 let al = sin (Float.pi *. Float.min 1. (q ** 0.7)) *. 0.42 *. fade in
-                circle x y r (rgb 0.2 0.28 0.18 al);
-                circle (x -. (r *. 0.25)) (y -. (r *. 0.2)) (r *. 0.6) (rgb 0.42 0.52 0.34 (al *. 0.7)))
+                circle x y r (c mist_lo al);
+                circle (x -. (r *. 0.25)) (y -. (r *. 0.2)) (r *. 0.6) (c mist_hi (al *. 0.7)))
             done)
           floors)
 

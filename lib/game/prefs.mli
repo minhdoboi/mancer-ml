@@ -24,6 +24,7 @@ val key_campaign_position : string
 val key_campaign_night_rest : string
 val key_campaign_wake_far : string
 val key_campaign_class : string
+val key_campaign_mode : string
 val key_debug_mode : string
 val key_ambient_sound : string
 val key_language : string
@@ -31,6 +32,7 @@ val key_setup_seats : string
 val key_setup_specials : string
 val key_setup_budget : string
 val key_setup_portraits : string
+val key_setup_mode : string
 
 val default_path : unit -> string
 (** [$MANCER_USER_PREFS], else [<home>/.mancer/user.prefs]. *)
@@ -101,6 +103,16 @@ val campaign_class : t -> string
 val set_campaign_class : t -> string -> unit
 (** Stores the campaign class. It outlives a campaign restart. *)
 
+val default_campaign_mode : string
+(** ["classic"], the deal a campaign used before the mode was selectable. *)
+
+val campaign_mode : t -> string
+(** [campaign.mode]: ["standard"] (anger) or ["classic"] (fire); anything else reads as
+    {!default_campaign_mode}. Separate from {!setup_mode}. *)
+
+val set_campaign_mode : t -> string -> unit
+(** Stores the campaign mode. It outlives a campaign restart. *)
+
 val setup_seats : t -> string * string
 (** [setup.seats] as [(p1, p2)] seat names, else [("human", "oracle")]. *)
 
@@ -109,6 +121,11 @@ val setup_specials : t -> string list * string list
 val set_setup_specials : t -> string list * string list -> unit
 val setup_budget : t -> int
 val set_setup_budget : t -> int -> unit
+
+val setup_mode : t -> string
+(** [setup.mode]: ["standard"] (anger) or ["classic"] (fire); anything else reads as ["standard"]. *)
+
+val set_setup_mode : t -> string -> unit
 
 val setup_portraits : t -> string * string
 (** [setup.portraits], falling back to [player.portrait] for player one. *)

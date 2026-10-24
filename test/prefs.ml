@@ -92,6 +92,16 @@ let campaign_progress () =
       Prefs.reset_campaign (Prefs.load ~path ());
       check_string "reset" Campaign.day_start_id (Prefs.campaign_position (Prefs.load ~path ())))
 
+(* The campaign mode is separate from the duel mode and defaults to classic. *)
+let campaign_mode () =
+  with_temp (fun path ->
+      Sys.remove path;
+      let p = Prefs.load ~path () in
+      check_string "default" "classic" (Prefs.campaign_mode p);
+      check_string "duel untouched" "standard" (Prefs.setup_mode p);
+      Prefs.set_campaign_mode p "standard";
+      check_string "round trip" "standard" (Prefs.campaign_mode (Prefs.load ~path ())))
+
 let old_singles () =
   (* Files written before multi-select keep loading as one house per side. *)
   with_temp (fun path ->
@@ -143,6 +153,7 @@ let () =
           Alcotest.test_case "scala format" `Quick scala_format;
           Alcotest.test_case "clamp and fallback" `Quick clamp_and_fallback;
           Alcotest.test_case "campaign progress" `Quick campaign_progress;
+          Alcotest.test_case "campaign mode" `Quick campaign_mode;
           Alcotest.test_case "continuation and backslash" `Quick continuation_and_backslash;
           Alcotest.test_case "comments are not keys" `Quick comments_not_keys;
           Alcotest.test_case "unwritable dir" `Quick unwritable_dir;

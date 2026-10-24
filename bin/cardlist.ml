@@ -31,9 +31,10 @@ open Yojson.Safe
 let out = ref "docs"
 let template = ref "templates"
 
-(* The four basic houses and Troopers are the closest to the classes of the
-   original game, which this project is a tribute to; they stay out of the
-   published list. *)
+(* The four classic basics (the elements of the original game, which this
+   project is a tribute to) and Troopers stay out of the published list. The
+   standard-mode basics — Anger, Sadness, Fear and Joy — are in it, on the
+   page and in the game alike. *)
 let hidden_houses = [ "air"; "fire"; "water"; "earth"; "troopers"; "Troopers" ]
 
 (* ------------------------------------------------------------ languages *)

@@ -4,7 +4,17 @@ open Sp
 
 type t
 
+type mode = Standard | Classic
+(** Which set of basic houses a game is dealt from. Classic is fire/water/air/earth; standard swaps fire for anger. *)
+
+val classic_basics : house list
+val standard_basics : house list
 val basics : house list
+(** The classic set, kept for replaying recorded games. *)
+val basics_of : mode -> house list
+val string_of_mode : mode -> string
+val mode_of_string : string -> mode
+(** Unknown names read as [Standard]. *)
 val specials : house list
 val all : house list
 val init : unit -> unit

@@ -7,9 +7,13 @@ open Engine
 let all_houses =
   [
     Fire.house;
+    Anger.house;
     Water.house;
+    Sadness.house;
     Air.house;
+    Fear.house;
     Earth.house;
+    Joy.house;
     Troopers.house;
     Zen.house;
     Wind.house;
@@ -57,9 +61,13 @@ let all_houses =
 
 let init_all_houses () =
   Game.init_cards Fire.house;
+  Game.init_cards Anger.house;
   Game.init_cards Water.house;
+  Game.init_cards Sadness.house;
   Game.init_cards Air.house;
+  Game.init_cards Fear.house;
   Game.init_cards Earth.house;
+  Game.init_cards Joy.house;
   Game.init_cards ~cost_fn:Troopers.conscription_cost Troopers.house;
   Game.init_cards Zen.house;
   Game.init_cards Wind.house;

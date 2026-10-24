@@ -14,6 +14,7 @@ type setup = {
   max_turns : int;
   starting : player_id;
   life : int option;
+  mode : Catalog.mode;  (** Which basic houses are dealt: standard (anger) or classic (fire). *)
 }
 
 let default_setup =
@@ -25,6 +26,7 @@ let default_setup =
     max_turns = 300;
     starting = owner;
     life = None;
+    mode = Catalog.Standard;
   }
 
 let seat_name = function Human -> "human" | Bot id -> id
@@ -146,9 +148,12 @@ let special_houses () =
   Lazy.force catalog;
   Catalog.specials
 
-(* Like Scala resolveChoices: a side plays a random house from its checked
-   set; an empty set means every ported special. Unknown names are dropped. *)
-let campaign_setup ?(budget_ms = default_setup.budget_ms) ?seed ~player_special (n : Campaign.node) =
+(* The campaign mode: which basic houses a campaign is dealt from, stored by the
+   map's mode selector and read here. It is separate from the duel mode. *)
+let campaign_mode () = Catalog.mode_of_string (Prefs.campaign_mode (Prefs.load ()))
+
+let campaign_setup ?(budget_ms = default_setup.budget_ms) ?seed ?mode ~player_special
+    (n : Campaign.node) =
   match n.Campaign.fight with
   | None -> failwith ("campaign node has no fight: " ^ n.id)
   | Some f ->
@@ -160,6 +165,7 @@ let campaign_setup ?(budget_ms = default_setup.budget_ms) ?seed ~player_special 
         seed;
         starting = Campaign.starter_player n.id;
         life = f.life;
+        mode = Option.value mode ~default:(campaign_mode ());
       }
 
 (* The player's campaign class: the special house the map's class selector
@@ -171,6 +177,8 @@ let campaign_class_of name =
 
 let campaign_class () = campaign_class_of (Prefs.campaign_class (Prefs.load ()))
 
+(* Like Scala resolveChoices: a side plays a random house from its checked
+   set; an empty set means every ported special. Unknown names are dropped. *)
 let resolve_special =
   let rng = Random.State.make_self_init () in
   fun names ->
@@ -215,7 +223,7 @@ let start ?on_event (setup : setup) =
   let rng = Random.State.make [| seed |] in
   let s0, s1 = setup.specials in
   let specials = (Catalog.find_special s0, Catalog.find_special s1) in
-  let p0, p1 = Shuffle.two_players ~rng ~starting:setup.starting ~specials Catalog.basics in
+  let p0, p1 = Shuffle.two_players ~rng ~starting:setup.starting ~specials (Catalog.basics_of setup.mode) in
   let desc = { gd_players = [| p0.desc; p1.desc |] } in
   let rng_seed = Random.State.bits rng in
   let mana = [| Array.to_list p0.mana; Array.to_list p1.mana |] in

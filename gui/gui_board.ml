@@ -554,6 +554,8 @@ let fx_layout ui : Fx.layout =
         | None -> None);
     slot_life =
       (fun pid n -> Option.map (fun (st : slot_state) -> st.life) (view ui).players.(pid).ps_slots.(n));
+    slot_attack =
+      (fun pid n -> Option.map (fun (st : slot_state) -> st.attack) (view ui).players.(pid).ps_slots.(n));
     slot_card =
       (fun pid n ->
         Option.map (fun (st : slot_state) -> st.card.c_card.key) (view ui).players.(pid).ps_slots.(n));

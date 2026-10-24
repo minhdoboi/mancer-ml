@@ -26,6 +26,7 @@ let key_campaign_position = "campaign.position"
 let key_campaign_night_rest = "campaign.night.rest"
 let key_campaign_wake_far = "campaign.wake.far"
 let key_campaign_class = "campaign.class"
+let key_campaign_mode = "campaign.mode"
 let key_debug_mode = "debug.mode"
 let key_ambient_sound = "sound.ambient"
 let key_language = "language"
@@ -37,6 +38,7 @@ let key_setup_seats = "setup.seats"
 let key_setup_specials = "setup.specials"
 let key_setup_budget = "setup.budget"
 let key_setup_portraits = "setup.portraits"
+let key_setup_mode = "setup.mode"
 let default_server = "172.99.78.51"
 let default_server_port = "12345"
 let default_card_theme = "vibe"
@@ -48,8 +50,11 @@ let default_ambient_sound = default_ocean_sound
 let default_campaign_position = "day_start"
 (* The house the player plays with all through a campaign. *)
 let default_campaign_class = "shaman"
+(* A campaign keeps the classic deal unless the player picks otherwise. *)
+let default_campaign_mode = "classic"
 let default_language = "en"
 let default_budget_ms = 1000
+let default_mode = "standard"
 let default_seats = ("human", "oracle")
 let default_specials = ([ "Troopers" ], [ "Troopers" ])
 let default_portraits = ("ember", "oracle")
@@ -199,6 +204,16 @@ let mark_wake_far t = persist t [ (key_campaign_wake_far, "true") ]
 let campaign_class t = Option.value (get_nonempty t key_campaign_class) ~default:default_campaign_class
 let set_campaign_class t v = persist t [ (key_campaign_class, v) ]
 
+(* The campaign mode: which basic houses a campaign is dealt from. It is
+   separate from [setup.mode], so a duel mode does not change the campaign,
+   and it outlives a campaign restart. *)
+let campaign_mode t =
+  match get t key_campaign_mode with
+  | Some v when String.trim v = "standard" -> "standard"
+  | _ -> default_campaign_mode
+
+let set_campaign_mode t v = persist t [ (key_campaign_mode, v) ]
+
 (* --- OCaml setup screens ---------------------------------------------- *)
 
 let pair_of_csv v ~default =
@@ -231,6 +246,15 @@ let setup_budget t =
       match int_of_string_opt (String.trim v) with Some n when n > 0 -> n | _ -> default_budget_ms)
 
 let set_setup_budget t ms = persist t [ (key_setup_budget, string_of_int ms) ]
+
+(* Game mode: "standard" (anger) or "classic" (fire). Stored as text so a new
+   mode can be added without touching the file format. *)
+let setup_mode t =
+  match get t key_setup_mode with
+  | Some v when String.trim v = "classic" -> "classic"
+  | _ -> default_mode
+
+let set_setup_mode t v = persist t [ (key_setup_mode, v) ]
 
 let setup_portraits t =
   match get t key_setup_portraits with

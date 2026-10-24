@@ -24,6 +24,7 @@ type layout = {
   source_of : command -> spot option;
   slot_house : player_id -> int -> int option;
   slot_life : player_id -> int -> int option;
+  slot_attack : player_id -> int -> int option;
   slot_card : player_id -> int -> string option;
   house_cards : player_id -> int -> spot list;
   extreme_house : player_id -> [ `Highest | `Lowest ] -> int;
@@ -32,6 +33,10 @@ type layout = {
 let scale = ref 1.
 let off_x = ref 0.
 let off_y = ref 0.
+
+(* The board world is Scala's 832 wide; an effect that pours in from off the
+   board needs to know where the frame ends. *)
+let world_w = 832.
 
 let set_transform ~scale:s ~off_x:ox ~off_y:oy =
   scale := s;
