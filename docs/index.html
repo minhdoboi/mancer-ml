@@ -6,17 +6,24 @@
 <title>Mancers</title>
 <meta name="description" content="Mancers: a duel card game of 42 houses, a campaign and AI opponents, written in OCaml.">
 <style>
-:root{--bg:#14110f;--fg:#e8dfd0;--muted:#a89c88;--accent:#d9a441;--card:#1f1a16;--line:#3a3028;--note:#f0e8d8;--note-text:#8b7f75;}
-@media (prefers-color-scheme:light){:root{--bg:#f6f0e4;--fg:#2a211a;--muted:#6b5d4d;--accent:#9a5b0f;--card:#fffaf0;--line:#d8ccb6;--note:#f0e8d8;--note-text:#8b7f75;}}
+:root{--bg:#14110f;--fg:#e8dfd0;--muted:#a89c88;--accent:#d9a441;--card:#1f1a16;--line:#3a3028;--note:#f0e8d8;--note-text:#8b7f75;--lower-bg:#0b0908;}
+@media (prefers-color-scheme:light){:root{--bg:#b6d2e4;--fg:#2a211a;--muted:#6b5d4d;--accent:#222222;--card:#fffaf0;--line:#d8ccb6;--note:#f0e8d8;--note-text:#8b7f75;--lower-bg:#e6dbc4;}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 Georgia,serif}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 Georgia,serif;position:relative}
 main{max-width:860px;margin:0 auto;padding:48px 16px}
-h1{font-size:3rem;margin:0;color:var(--accent);letter-spacing:.02em}
-.tag{color:var(--muted);font-size:1.2rem;margin:.25em 0 1.5em}
-img{width:100%;height:auto;border:1px solid var(--line);border-radius:8px;display:block}
-.btns{display:flex;flex-wrap:wrap;gap:12px;margin:24px 0}
+h1{font-size:3rem;margin:0;color:var(--accent);letter-spacing:.02em;text-align:center}
+.tag{color:var(--muted);font-size:1.2rem;margin:.25em 0 1.5em;text-align:center}
+img{border:1px solid var(--line);border-radius:8px;display:block;max-width:100%}
+.screenshot{display: block;margin-left: auto;margin-right: auto;}
+.btns{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:24px 0}
 a.btn{padding:10px 20px;border-radius:6px;border:1px solid var(--accent);color:var(--accent);text-decoration:none}
 a.btn.primary{background:var(--accent);color:var(--bg)}
+a.btn.icon{display:inline-flex;align-items:center;padding:10px 13px}
+a.btn.icon svg{width:20px;height:20px;fill:var(--accent)}
+a.btn.icon:hover{background:var(--accent)}
+a.btn.icon:hover svg{fill:var(--bg)}
+a.btn.corner{position:absolute;top:14px;right:14px;background:var(--bg)}
+@media (max-width:640px){main{padding-top:76px}h1{font-size:2.2rem}}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:32px 0}
 .grid div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}
 h2{margin:0 0 .3em;font-size:1.1rem;color:var(--accent)}
@@ -30,61 +37,75 @@ footer a{color:var(--accent)}
 .grimoire strong{color:var(--accent);font-size:1.2rem}
 .grimoire span{color:var(--muted);font-size:.95rem}
 .notes{padding:8px 16px;border:1px solid var(--line);border-radius:8px;background:var(--note);color:var(--note-text)}
+.intro{margin:32px 0}
+.intro h2{margin:0 0 .6em;font-size:1.5rem}
+.intro .lede{font-size:1.12rem;color:var(--fg);margin:0 0 1em}
+.story{margin:26px 0 0;padding:22px 26px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;background:var(--card)}
+.story h3{margin:0 0 .8em;font-size:.95rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.story p{margin:0 0 .9em}
+.story p:last-child{margin-bottom:0}
+.story .dropcap:first-letter{float:left;font-size:3.1rem;line-height:.9;padding:.06em .14em 0 0;color:var(--accent)}
+.lower{background:var(--lower-bg);border-top:1px solid var(--line)}
+.lower-inner{max-width:860px;margin:0 auto;padding:40px 16px 56px}
 </style>
 </head>
 <body>
+<a class="btn icon corner" href="https://github.com/minhdoboi/mancer-ml" title="Source on GitHub" aria-label="Source on GitHub">
+  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+</a>
 <main>
   <h1>The Mancer's echo</h1>
-  <p class="tag">A fantasy card duel, small tribute to Spectromancer©.</p>
-  <img src="screenshot.jpg" alt="Mancers duel board screenshot">
-  <p>
-  <div>The game is an AI port of a personal project with some improvements (fixes, enhancements) and generic AI generated art in dark fantasy MTG style.
-  </div>
-  <p>The campaign is supposed to happen a long time after the epoch of the original game. You would better play the original game first to understand the game mechanics.
-  </p>
-  </p>
+  <p class="tag">A fantasy card duel game, small tribute to Spectromancer©.</p>
+  <img class="screenshot" src="screenshot.jpg" alt="Mancers duel board screenshot">
+  <section class="intro">
+    <div class="story">
+      <h3>About</h3>
+      <p class="dropcap">The unity of the elements seems to have been replaced by an order you no longer understand. Unsure whether the cause lies within you, you set off on a journey—a voyage to a fantastical land where you will encounter mages of various persuasions.</p>
+    </div>
+  </section>
   <div class="btns">
     <a class="btn primary" href="https://github.com/minhdoboi/mancer-ml/releases">Download</a>
-    <a class="btn" href="https://github.com/minhdoboi/mancer-ml">Source on GitHub</a>
     <a class="btn grimoire" href="cards.html">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
       Grimoire
     </a>
   </div>
-  <div class="grid">
-    <div><h2>Houses from community suggestions</h2><p>Vampires, Shadowmage, Entomologist and more, each with its own creatures and spells.</p></div>
-    <div><h2>Campaign &amp; duels</h2><p>Work through the campaign, or pick a duel against a bot.</p></div>
-    <div><h2>Internationalization</h2><p>Contains AI translations in multiple languages (English, French, Spanish, Russian, Vietnamese).</p></div>
-  </div>
-  <p>
-    <p>
-      <h2>Credits</h2>
-You can support the original game by buying it on <a href="https://www.spectromancer.com/">Spectromancer.com</a>.
-The art is great (music and graphics). There are tutorials, a beginner friendly campaign, multiplayer mode, and the classes are well balanced and archetypal.
-    </p>
-  <p>Thanks to the Spectromancer community for sharing their class suggestions destinated to the original game,
-    and to the AI tools that make this project possible. I excuse in advance if I misused any of their ideas.</p>
-  </p>
-  <div class="notes">
-    <div>
-      <p>
-        <strong>Limitations:</strong> Not all rules of the original game are implemented (the 1% rule, some deck rules). There are some bugs. Hidden knowledge is not completely hidden for some bots (stealth cards, or meteomancer called element for example)
-      </p>
-      <p>
-        <strong>Tips:</strong> The classes that are easier to play: Shaman, Sower, Troopers (a rebranding of the original mecha by a starcraft fan I think).
-        You can adapt the difficulty by giving the AI more or less time to think.
-      </p>
-    </div>
-    <div>
-      <strong>Class updates:</strong>
-      <ul>
-        <li><strong>Blacksmith</strong> — <em>Pegasus</em>: the end-of-turn hit drops from X+6 to X+4.</li>
-      </ul>
-      <ul>
-        <li><strong>Zen</strong>, <strong>Junk</strong>, <strong>Snowblood</strong>, <strong>Warp</strong> — reworked the classes.</li>
-      </ul>
-    </div>
-  </div>
 </main>
+<section class="lower">
+  <div class="lower-inner">
+    <p>The game is an AI port of a personal project with some improvements (fixes, enhancements) and generic AI generated art in dark fantasy MTG style.</p>
+    <p>The campaign is supposed to happen a long time after the epoch of the original game. You would better play the original game first to understand the game mechanics.</p>
+    <div class="grid">
+      <div><h2>Houses from community suggestions</h2><p>Vampires, Shadowmage, Entomologist and more, each with its own creatures and spells.</p></div>
+      <div><h2>Campaign &amp; duels</h2><p>Work through the campaign, or pick a duel against a bot.</p></div>
+      <div><h2>Internationalization</h2><p>Contains AI translations in multiple languages (English, French, Spanish, Russian, Vietnamese).</p></div>
+    </div>
+    <h2>Credits</h2>
+    <p>You can support the original game by buying it on <a href="https://www.spectromancer.com/">Spectromancer.com</a>.
+    The art is great (music and graphics). There are tutorials, a beginner friendly campaign, multiplayer mode, and the classes are well balanced and archetypal.</p>
+    <p>Thanks to the Spectromancer community for sharing their class suggestions destinated to the original game,
+    and to the AI tools that make this project possible. I excuse in advance if I misused any of their ideas.</p>
+    <div class="notes">
+      <div>
+        <p>
+          <strong>Limitations:</strong> Not all rules of the original game are implemented (the 1% rule, some deck rules). There are some bugs. Hidden knowledge is not completely hidden for some bots (stealth cards, or meteomancer called element for example)
+        </p>
+        <p>
+          <strong>Tips:</strong> The classes that are easier to play: Shaman, Sower, Troopers (a rebranding of the original mecha by a starcraft fan I think).
+          You can adapt the difficulty by giving the AI more or less time to think.
+        </p>
+      </div>
+      <div>
+        <strong>Class updates:</strong>
+        <ul>
+          <li><strong>Blacksmith</strong> — <em>Pegasus</em>: the end-of-turn hit drops from X+6 to X+4.</li>
+        </ul>
+        <ul>
+          <li><strong>Zen</strong>, <strong>Junk</strong>, <strong>Snowblood</strong>, <strong>Warp</strong> — reworked the classes.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
 </body>
 </html>
