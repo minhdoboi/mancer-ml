@@ -93,7 +93,75 @@ jobs:
             Windows) opam exec -- ldd dist/*/mancer.exe ;;
           esac
 
+      # The package has to start on the machine it was built for: the game
+      # opens a hidden window, loads its fonts and its art, and plays a few
+      # seconds of a game. scripts/smoke.sh runs that check on the zip.
+      - name: Software OpenGL for the check (Windows)
+        id: mesa
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          # The runner has no GPU, and Windows' own OpenGL is 1.1 while
+          # raylib wants 3.3: Mesa's llvmpipe gives it one in software.
+          $release = Invoke-RestMethod https://api.github.com/repos/pal1000/mesa-dist-win/releases/latest
+          $asset = $release.assets | Where-Object { $_.name -like '*-release-mingw.7z' } | Select-Object -First 1
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile mesa.7z
+          $mesa = Join-Path $env:RUNNER_TEMP "mesa"
+          & "${env:ProgramFiles}\7-Zip\7z.exe" x mesa.7z "-o$mesa" "x64/opengl32.dll" "x64/libgallium_wgl.dll" -y
+          "MESA=$mesa" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Unpack the package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $zip = (Get-ChildItem dist/*.zip)[0]
+          Remove-Item -Recurse -Force dist/.smoke -ErrorAction Ignore
+          Expand-Archive -Path $zip.FullName -DestinationPath dist/.smoke
+          if ("${{ steps.mesa.outcome }}" -eq "success") {
+            # Mesa's OpenGL is only used when it sits next to the exe.
+            Copy-Item "$env:MESA/x64/*.dll" (Get-ChildItem dist/.smoke -Directory)[0].FullName
+          }
+
+      - name: Unpack the package (Linux and macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          rm -rf dist/.smoke && mkdir -p dist/.smoke
+          unzip -q dist/mancer-*.zip -d dist/.smoke
+
+      - name: Check the package starts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri
+          scripts/smoke.sh dist/.smoke/mancer-*
+
+      - name: Check the package starts (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # The macOS runners have no OpenGL at all (NSGL finds no pixel
+          # format), so the game cannot open a window there: the package is
+          # checked, and the bundle is read instead of the window.
+          scripts/smoke.sh dist/.smoke/mancer-* --allow-missing-window
+          # Gatekeeper wants a signed app: Apple Silicon refuses an unsigned
+          # one, and this is the ad-hoc signature of the packager.
+          codesign -dv dist/.smoke/mancer-*/mancer.app
+          plutil -lint dist/.smoke/mancer-*/mancer.app/Contents/Info.plist
+
+      - name: Check the package starts (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          if [ "${{ steps.mesa.outcome }}" = "success" ]; then
+            export GALLIUM_DRIVER=llvmpipe LIBGL_ALWAYS_SOFTWARE=1
+            scripts/smoke.sh dist/.smoke/mancer-*
+          else
+            scripts/smoke.sh dist/.smoke/mancer-* --allow-missing-window
+          fi
+
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: mancer-${{ matrix.name }}
           path: dist/*.zip

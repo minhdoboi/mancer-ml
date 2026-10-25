@@ -2,6 +2,10 @@
 
 After any code change, run `dune build` and fix compile errors before finishing.
 
+To see whether a packaged build starts on this machine, run
+`scripts/smoke.sh` (it opens the game in a hidden window and plays a few
+seconds); `docs/tech/packaging.md` has the details.
+
 Editing a house or its English strings also means the site is stale: run
 `dune exec ./bin/cardlist.exe` and commit `docs/cards.html` and the card
 lists (`docs/cards.json`, `docs/cards.<lang>.json`). The GitHub Pages workflow

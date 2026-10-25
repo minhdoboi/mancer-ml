@@ -31,6 +31,60 @@ against, so do not ship a zip built on a rolling distro (Arch, Fedora
 Rawhide, Ubuntu devel). The macOS jobs set `MACOSX_DEPLOYMENT_TARGET=11.0`.
 The macOS app gets an ad-hoc signature so Apple Silicon will launch it.
 
+Every job then runs `scripts/smoke.sh` on the zip it just built: the game
+opens a hidden window, loads its fonts and its art, and plays a few seconds
+of a game. A package that cannot start fails the build there, not on a
+player's desktop.
+
+## Check the package
+
+`scripts/smoke.sh` is the same check, on your own machine:
+
+```sh
+scripts/smoke.sh                          # the newest package for this OS
+scripts/smoke.sh dist/mancer-1.0-mac-aarch64
+scripts/smoke.sh dist/mancer-1.0.zip      # the archive the player gets
+scripts/smoke.sh --no-window              # the assets only, no display needed
+scripts/smoke.sh --allow-missing-window   # a machine with no OpenGL is not a failed build
+```
+
+It prints what the build found and exits 0 when it runs:
+
+```text
+checking dist/mancer-1.0-mac-aarch64/mancer.app/Contents/MacOS/mancer
+mancer check
+  version: 1.0
+  platform: Unix 64-bit
+  assets: /Users/me/mancer/dist/mancer-1.0-mac-aarch64/mancer.app/Contents/Resources/assets
+  assets: ok
+  text: ok
+  window: ok
+  fonts: ok
+  game: ok (played 3. s)
+mancer check: ok
+```
+
+The game itself does the check: `gui.exe --check` (the `--check` flag of the
+binary) opens the window, looks for the folders a package must ship, and
+plays. `--no-window` checks the binary and its assets alone, for a machine
+with no display; `--check-secs N` says how long the game plays.
+
+The exit codes tell the two failures apart:
+
+| Code | Meaning |
+|---|---|
+| 0 | the build runs |
+| 1 | the package is broken (an asset is missing, the text does not load) |
+| 3 | this machine has no display and no OpenGL 3.3 — the package was checked, the window was not |
+
+CI has no GPU, and Windows' own OpenGL is 1.1 while raylib wants 3.3, so the
+Windows job puts [Mesa](https://github.com/pal1000/mesa-dist-win)'s llvmpipe
+next to the exe. It renders in software, which is slow but enough to open a
+window. The Linux job runs the check under `xvfb-run`. The macOS runners
+have no OpenGL at all — NSGL finds no pixel format there — so that job
+checks the package and the bundle (the signature Gatekeeper reads, and the
+`Info.plist`) and leaves the window alone.
+
 ## Linux
 
 Needs a desktop with X11 (`libX11`). Wayland sessions work through Xwayland;
@@ -141,8 +195,9 @@ add one, install the folder as-is and point the shortcut at `mancer.bat`.
 - The Scala JRE / `files/vibe` atlas. This port reads loose JPEGs from
   `assets/`, not a libGDX pack.
 
-## Check the zip
+## Look at it yourself
 
+The check says whether the build runs; your eyes say whether it looks right.
 Unzip to a throwaway folder (not the repo) and launch without
 `MANCER_ASSETS` set. The lobby portraits and a Fire card should have art.
 On Linux:

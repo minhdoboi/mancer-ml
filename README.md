@@ -151,6 +151,19 @@ The first macOS launch needs right-click → Open (the app is not signed).
 Windows is built with mingw via Diskuv OCaml or opam; Git Bash can run the
 same script.
 
+Does the package actually start? `scripts/smoke.sh` opens the game in a
+hidden window, loads its fonts and its art, and plays a few seconds of a
+game; it exits 0 when the build runs.
+
+```sh
+scripts/smoke.sh                  # the newest package for this OS
+scripts/smoke.sh dist/mancer-1.0.zip
+scripts/smoke.sh --no-window      # the assets only, for a machine with no display
+```
+
+CI runs the same check on the macOS app, on the Windows exe, and on the
+Linux binary, so a build that cannot start fails the pipeline instead of the
+player's desktop.
 Full steps, signing, and DLL notes: [docs/tech/packaging.md](docs/tech/packaging.md).
 
 ## Layout

@@ -152,9 +152,24 @@ type shot = {
   special : string option;
 }
 
-let parse_shot () =
+(* The self-test of a build: `gui.exe --check` opens the window the game uses,
+   loads the fonts and the art the launcher points at, and plays a few
+   seconds of a real game. It is what CI runs on the packaged macOS app and
+   on the Windows exe, so a build that cannot start fails the pipeline
+   instead of the player's desktop. --no-window keeps the check to the binary
+   and its assets, for a machine with no display.
+
+   It exits 0 when the build runs, 1 when the package is broken, and 3 when
+   the machine has no display and no OpenGL 3.3 to draw on — that is the
+   machine's fault, not the package's. *)
+type check = { secs : float; window : bool }
+
+type mode = Play of shot option | Check of check
+
+let parse_mode () =
   let file = ref "" and wait = ref 2. and bots = ref false and setup_only = ref false in
   let seed = ref None and special = ref None in
+  let do_check = ref false and secs = ref 3. and window = ref true in
   Arg.parse
     [
       ("--shot", Arg.Set_string file, "FILE  save a screenshot to FILE and exit");
@@ -163,32 +178,129 @@ let parse_shot () =
       ("--setup", Arg.Set setup_only, " shoot the lobby instead of a game");
       ("--seed", Arg.Int (fun n -> seed := Some n), "N  seed for the deal");
       ("--special", Arg.String (fun h -> special := Some h), "NAME  special house for both players");
+      ("--check", Arg.Set do_check, " check this build (window, fonts, assets, a short game) and exit");
+      ("--check-secs", Arg.Set_float secs, "SECS  seconds the check plays (default 3)");
+      ("--no-window", Arg.Clear window, " check the binary and its assets only (no display needed)");
     ]
     (fun a -> raise (Arg.Bad a))
-    "gui [--shot FILE [--wait SECS] [--bots] [--setup] [--seed N] [--special NAME]]";
-  if !file = "" then None
+    "gui [--shot FILE [--wait SECS] [--bots] [--setup] [--seed N] [--special NAME]]\n\
+    \  gui --check [--check-secs SECS] [--no-window]";
+  if !do_check then Check { secs = !secs; window = !window }
   else
-    Some
-      { file = !file; wait = !wait; bots = !bots; setup_only = !setup_only; seed = !seed; special = !special }
+    Play
+      (if !file = "" then None
+       else
+         Some
+           { file = !file; wait = !wait; bots = !bots; setup_only = !setup_only; seed = !seed; special = !special })
+
+(* ------------------------------------------------------- the self-test *)
+
+let say fmt = Printf.ksprintf (fun s -> print_endline s; flush stdout) fmt
+
+(* What a packaged build must find next to it: the launcher points
+   MANCER_ASSETS at that tree, and the game reads its art and its text from
+   there. A package that lost a folder is the usual reason a build does not
+   start, so the check names every missing one. *)
+let check_assets () =
+  let root = Assets.root () in
+  let missing = ref [] in
+  let need what path = if not (Sys.file_exists path) then missing := (what, path) :: !missing in
+  let need_dir what path =
+    if not (Sys.file_exists path) then missing := (what, path) :: !missing
+    else if Sys.is_directory path && Array.length (Sys.readdir path) = 0 then missing := (what, path) :: !missing
+  in
+  let under dir name = Filename.concat (Filename.concat root dir) name in
+  need "i18n/en.properties" (under "i18n" "en.properties");
+  need "fonts/IMFellEnglish.ttf" (under "fonts" "IMFellEnglish.ttf");
+  need_dir "cards" (under "" "cards");
+  need_dir "portraits" (under "" "portraits");
+  need_dir "sounds" (under "" "sounds");
+  need_dir "backgrounds" (under "" "backgrounds");
+  need_dir "combat" (under "" "combat");
+  need_dir "ui" (under "" "ui");
+  List.rev !missing
+
+(* What the build runs on: the OS the runtime knows, and how wide it is. *)
+let platform () = Printf.sprintf "%s %d-bit" Sys.os_type Sys.word_size
+
+(* The report of the self-test: what the build found, and whether it runs.
+   It answers with the state of the package alone: a machine with no display
+   is not a broken package, and the caller tells the two apart. *)
+let check_report ~missing ~text_ok ~window ~fonts ~game =
+  say "mancer check";
+  say "  version: %s" (Version.current ());
+  say "  platform: %s" (platform ());
+  say "  assets: %s" (Assets.root ());
+  (match missing with
+  | [] -> say "  assets: ok"
+  | l -> List.iter (fun (what, path) -> say "  assets: missing %s (%s)" what path) l);
+  say "  text: %s" (if text_ok then "ok" else "missing (the i18n bundle)");
+  say "  window: %s"
+    (match window with `ok -> "ok" | `none -> "skipped" | `no -> "unavailable (no display, or no OpenGL 3.3)");
+  say "  fonts: %s" (match fonts with `ok -> "ok" | `no -> "failed" | `none -> "skipped");
+  say "  game: %s"
+    (match game with
+    | `ok s -> Printf.sprintf "ok (played %s s)" s
+    | `no -> "failed"
+    | `none -> "skipped");
+  let broken = missing <> [] || not text_ok || fonts = `no || game = `no in
+  say "mancer check: %s" (if broken then "FAILED" else "ok");
+  broken
 
 let () =
-  let shot = parse_shot () in
+  let mode = parse_mode () in
+  let shot = match mode with Play sh -> sh | Check _ -> None in
   R.set_trace_log_level R.TraceLogLevel.Warning;
   (* GNOME on Wayland paints a large libdecor header even around GLFW. Prefer
      X11 so the window stays undecorated and the thin bar is the chrome. *)
   (match Sys.getenv_opt "WAYLAND_DISPLAY" with
   | Some _ -> Unix.putenv "WAYLAND_DISPLAY" ""
   | None -> ());
-  R.set_config_flags R.ConfigFlags.(window_resizable + window_undecorated + msaa_4x_hint + vsync_hint);
-  R.init_window 832 (768 + int_of_float chrome_h) window_title;
-  size_window_to_monitor ();
-  R.set_window_min_size 416 (384 + int_of_float chrome_h);
-  R.set_exit_key R.Key.Null;
-  R.set_target_fps 60;
-  R.init_audio_device ();
-  load_fonts ();
-  Fx.set_font !bold;
-  Fx.load ();
+  (* The check keeps its window hidden: it must not take over the desktop
+     while CI runs it. *)
+  let flags = R.ConfigFlags.(window_resizable + window_undecorated + msaa_4x_hint + vsync_hint) in
+  let flags = match mode with Check _ -> R.ConfigFlags.( flags + window_hidden ) | Play _ -> flags in
+  let no_window = match mode with Check c -> not c.window | Play _ -> false in
+  let missing = ref [] and text_ok = ref false and fonts_ok = ref true in
+  (match mode with
+  | Play _ -> ()
+  | Check _ ->
+      missing := check_assets ();
+      (* A bundle that did not load leaves the key itself in place. *)
+      text_ok := (try Assets.text "lobby.title" <> "lobby.title" with _ -> false));
+  if not no_window then (
+    R.set_config_flags flags;
+    R.init_window 832 (768 + int_of_float chrome_h) window_title;
+    if not (R.is_window_ready ()) then (
+      (* No display, or no OpenGL 3.3. raylib would die inside GLFW a moment
+         later, so say what is wrong and stop. The macOS CI runners have no
+         OpenGL at all, and that is the machine's fault, not the package's:
+         the check leaves 3 for that, and 1 for a broken package. *)
+      (match mode with
+      | Check _ ->
+          let broken =
+            check_report ~missing:!missing ~text_ok:!text_ok ~window:`no ~fonts:`none ~game:`none
+          in
+          exit (if broken then 1 else 3)
+      | Play _ -> ());
+      prerr_endline "mancer: no window (no display, or no OpenGL 3.3)";
+      exit 1);
+    size_window_to_monitor ();
+    R.set_window_min_size 416 (384 + int_of_float chrome_h);
+    R.set_exit_key R.Key.Null;
+    R.set_target_fps 60;
+    R.init_audio_device ();
+    load_fonts ();
+    (* the atlas of the paper face: without it the board has no text *)
+    fonts_ok := R.is_texture_valid (R.Font.texture !paper_font);
+    Fx.set_font !bold;
+    Fx.load ());
+  (* Without a display only the binary and its assets can be checked. *)
+  (match mode with
+  | Check c when not c.window ->
+      let bad = check_report ~missing:!missing ~text_ok:!text_ok ~window:`none ~fonts:`none ~game:`none in
+      exit (if bad then 1 else 0)
+  | _ -> ());
   let screen = ref (Lobby (new_lobby ())) in
   let fight ?(persist = true) lobby =
     if persist then persist_duel lobby;
@@ -227,22 +339,26 @@ let () =
     | exception Failure msg -> ( match !screen with Lobby l -> l.message <- msg | _ -> ())
   in
   let quit = ref false in
-  (* A game shot skips the lobby without persisting its flags. *)
-  (match shot with
-  | Some sh when not sh.setup_only -> (
-      match !screen with
-      | Lobby lobby ->
-          let s0, s1 = lobby.duel.sides in
-          if sh.bots then (
-            s0.seat <- Table.Bot "oracle";
-            s0.portrait <- clamp_portrait s0.seat "ember";
-            s1.seat <- Table.Bot "oracle";
-            s1.portrait <- clamp_portrait s1.seat "oracle");
-          (match sh.special with Some h -> lobby.gs.specials <- ([ h ], [ h ]) | None -> ());
-          if sh.bots then lobby.gs.budget_ms <- 100;
-          lobby.gs.seed_text <- (match sh.seed with Some n -> string_of_int n | None -> "");
-          fight ~persist:false lobby
-      | _ -> ())
+  (* A game shot skips the lobby without persisting its flags. The check
+     starts a game the same way, with two oracle bots so the board fills. *)
+  let start_game ~bots ~seed ~special =
+    match !screen with
+    | Lobby lobby ->
+        let s0, s1 = lobby.duel.sides in
+        if bots then (
+          s0.seat <- Table.Bot "oracle";
+          s0.portrait <- clamp_portrait s0.seat "ember";
+          s1.seat <- Table.Bot "oracle";
+          s1.portrait <- clamp_portrait s1.seat "oracle");
+        (match special with Some h -> lobby.gs.specials <- ([ h ], [ h ]) | None -> ());
+        if bots then lobby.gs.budget_ms <- 100;
+        lobby.gs.seed_text <- (match seed with Some n -> string_of_int n | None -> "");
+        fight ~persist:false lobby
+    | _ -> ()
+  in
+  (match mode with
+  | Play (Some sh) when not sh.setup_only -> start_game ~bots:sh.bots ~seed:sh.seed ~special:sh.special
+  | Check _ -> start_game ~bots:true ~seed:None ~special:None
   | _ -> ());
   let t0 = R.get_time () in
   (* TEMP-DEBUG: FX_DEMO=rose spawns one demo effect 0.2 s in, so --shot can catch it *)
@@ -533,6 +649,11 @@ let () =
         R.unload_image img;
         quit := true
     | _ -> ());
+    (* The check plays for a few seconds, then stops: it is the game running
+       that it wants to see, not a screenshot of it. *)
+    (match mode with
+    | Check c when R.get_time () -. t0 >= c.secs -> quit := true
+    | _ -> ());
     R.set_mouse_cursor (if !hovering then R.MouseCursor.Pointing_hand else R.MouseCursor.Default);
     (* only humans submit from a click, never while a search reads the board;
        leaving a game settles the search first *)
@@ -547,4 +668,12 @@ let () =
   Choir.unload ();
   Fx.unload ();
   R.close_audio_device ();
-  R.close_window ()
+  R.close_window ();
+  (* The check reports what it found and whether the build runs. *)
+  match mode with
+  | Check c ->
+      let fonts = if !fonts_ok then `ok else `no in
+      let game = `ok (string_of_float c.secs) in
+      let bad = check_report ~missing:!missing ~text_ok:!text_ok ~window:`ok ~fonts ~game in
+      exit (if bad then 1 else 0)
+  | Play _ -> ()
