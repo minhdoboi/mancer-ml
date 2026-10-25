@@ -433,6 +433,10 @@ and game_event =
   | Ev_refresh of { silent : bool }
   | Ev_spell_played of command
   | Ev_ability of { kind : string; player : player_id; num : int; target : (player_id * int) option }
+  (* A creature moved the mana of some (not all) houses: the UI draws an arc
+     from the creature to each affected house label, light for a bonus and
+     dark red for a malus. *)
+  | Ev_mana of { player : player_id; num : int; target : player_id; deltas : (int * int) list }
   | Ev_to_move of { t : int; player : player_id }
   | Ev_submitted of { t : int; player : player_id; command : command option }
   | Ev_game_over of { winner : player_id option; reason : string }

@@ -1,5 +1,5 @@
 (* Special house Mountain King — port of priv/sp/house/MountainKing.scala. Adjacent dwarves form a
-   hird; the crossbowman key keeps Scala's Cyrillic С. *)
+   hird. *)
 
 open Sp
 open Engine
@@ -365,8 +365,6 @@ let mk_listener () =
                 | _ -> ())));
   }
 
-let crossbow_key = "mountainking.Dwarven\u{0421}rossbowman.name"
-
 let cards =
   [
     creature ~key:"mountainking.DwarvenSoldier.name" ~attack:(attack 3) ~life:12
@@ -375,8 +373,8 @@ let cards =
       ();
     creature ~key:"mountainking.DwarvenShieldman.name" ~attack:(attack 3) ~life:15
       ~description:"mountainking.DwarvenShieldman.description" ~new_reaction:shieldman_reaction ();
-    creature ~key:crossbow_key ~attack:(attack 3) ~life:20
-      ~description:"mountainking.Dwarven\u{0421}rossbowman.description"
+    creature ~key:"mountainking.DwarvenCrossbowman.name" ~attack:(attack 3) ~life:20
+      ~description:"mountainking.DwarvenCrossbowman.description"
       ~run_attack:(custom_run_attack crossbow_attack) ~new_reaction:crossbow_reaction ();
     creature ~key:"mountainking.ArmourcladDwarf.name" ~attack:(attack 5) ~life:23
       ~description:"mountainking.ArmourcladDwarf.description" ~new_reaction:armour_reaction ();

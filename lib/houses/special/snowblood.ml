@@ -56,7 +56,7 @@ let bounty_reaction () =
               match d.context.ctx_card with
               | Some c when is_card !bounty_ref c && d.context.ctx_selected = me.num ->
                   let card = dead.d_slot.card.c_card in
-                  Houses.incr_mana me.slots.player.houses_update ((card.cost + 2) / 3) [ card.house_index ]
+                  incr_mana_from me me.slots.player ((card.cost + 2) / 3) [ card.house_index ]
               | _ -> ())
             dead.d_damage);
   }
@@ -228,7 +228,7 @@ let janus_turn : card_effect =
             Slot.inflict s d;
             hit := true;
             Player.heal p 1;
-            Houses.incr_mana p.houses_update 1 [ st.card.c_card.house_index ]);
+            incr_mana_from me p 1 [ st.card.c_card.house_index ]);
   if !hit then focus_slot me
 
 (* -------------------------------------------------------------- amaterasu *)
@@ -246,7 +246,7 @@ let apply_amaterasu (me : slot_update) (slot : slot_update) house_index =
       let houses = p.houses_update.hu_value in
       let lowest = ref 0 in
       Array.iteri (fun i h -> if h.mana < houses.(!lowest).mana then lowest := i) houses;
-      Houses.incr_mana p.houses_update 1 [ !lowest ]
+      incr_mana_from me p 1 [ !lowest ]
   | 2 -> Player.inflict (other_player p) (mk_damage ~is_ability:true 3 ctx)
   | 3 -> Player.heal p 3
   | _ -> ()

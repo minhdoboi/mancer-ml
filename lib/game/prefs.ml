@@ -26,7 +26,7 @@ let key_campaign_position = "campaign.position"
 let key_campaign_night_rest = "campaign.night.rest"
 let key_campaign_wake_far = "campaign.wake.far"
 let key_campaign_class = "campaign.class"
-let key_campaign_mode = "campaign.mode"
+let key_campaign_difficulty = "campaign.difficulty"
 let key_debug_mode = "debug.mode"
 let key_ambient_sound = "sound.ambient"
 let key_language = "language"
@@ -50,8 +50,8 @@ let default_ambient_sound = default_ocean_sound
 let default_campaign_position = "day_start"
 (* The house the player plays with all through a campaign. *)
 let default_campaign_class = "shaman"
-(* A campaign is dealt the standard basics unless the player picks otherwise. *)
-let default_campaign_mode = "standard"
+(* The campaign bot time: normal is the old 1 s default. *)
+let default_campaign_difficulty = "normal"
 let default_language = "en"
 let default_budget_ms = 1000
 let default_mode = "standard"
@@ -214,12 +214,22 @@ let mark_wake_far t = persist t [ (key_campaign_wake_far, "true") ]
 let campaign_class t = Option.value (get_nonempty t key_campaign_class) ~default:default_campaign_class
 let set_campaign_class t v = persist t [ (key_campaign_class, v) ]
 
-(* The campaign mode: which basic houses a campaign is dealt from. It is
-   separate from [setup.mode], so a duel mode does not change the campaign,
-   and it outlives a campaign restart. *)
-let campaign_mode t = get_mode t key_campaign_mode ~default:default_campaign_mode
+(* The campaign difficulty: the bot time a campaign fight uses. It is separate
+   from [setup.budget], which is the duel bot time, and it outlives a campaign
+   restart. Unknown names read as the default. *)
+let campaign_difficulty t =
+  match get t key_campaign_difficulty with
+  | Some v -> (
+      match String.lowercase_ascii (String.trim v) with
+      | ("easy" | "normal" | "hard") as d -> d
+      | _ -> default_campaign_difficulty)
+  | None -> default_campaign_difficulty
 
-let set_campaign_mode t v = persist t [ (key_campaign_mode, v) ]
+let set_campaign_difficulty t v = persist t [ (key_campaign_difficulty, v) ]
+
+(* Bot think time per move for each difficulty, in ms. *)
+let campaign_difficulty_ms t =
+  match campaign_difficulty t with "easy" -> 50 | "hard" -> 2000 | _ -> 1000
 
 (* --- OCaml setup screens ---------------------------------------------- *)
 

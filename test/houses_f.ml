@@ -223,7 +223,7 @@ let ballista_shots () =
 
 let crossbow_hits_both () =
   let u = new_game ~mana:ten ~special:Mountainking.house () in
-  place u 0 Mountainking.crossbow_key 2;
+  place u 0 "mountainking.DwarvenCrossbowman.name" 2;
   place u 1 "fire.goblin" 2;
   run_at u 0 2;
   check_int "player" 57 (player_life u 1);

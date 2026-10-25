@@ -74,7 +74,7 @@ let fusion_turn : card_effect =
         if op.houses_update.hu_value.(i).mana < op.houses_update.hu_value.(best).mana then i else best)
       0 [ 1; 2; 3; 4 ]
   in
-  Houses.incr_mana op.houses_update (-1) [ idx ];
+  incr_mana_from (own_slot_of_env env) op (-1) [ idx ];
   Updater.focus env.env_updater env.env_selected env.env_player true
 
 (* Same input rules as [Game.available_commands]: a spell with no legal target

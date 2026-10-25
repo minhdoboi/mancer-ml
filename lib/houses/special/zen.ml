@@ -182,7 +182,7 @@ let zen_effect : card_effect =
             opp_st.attack > mine.attack || opp_st.life > mine.life
             || opp_st.card.c_card.cost > mine.card.c_card.cost
           then (
-            Houses.incr_mana (player_of_env env).houses_update 1 [ opp_st.card.c_card.house_index ];
+            incr_mana_from slot (player_of_env env) 1 [ opp_st.card.c_card.house_index ];
             Slot.heal slot 3))
         opp.value
   | _ -> ()
@@ -236,7 +236,7 @@ let mimic_reaction () =
         let me = Reaction.bound_slot r in
         if slot.num <> me.num && List.mem slot.num (cocoons me.slots.player) then (
           set_cocoons me.slots.player (List.filter (( <> ) slot.num) (cocoons me.slots.player));
-          Houses.incr_mana me.slots.player.houses_update 2 [ (Slot.get slot).card.c_card.house_index ];
+          incr_mana_from me me.slots.player 2 [ (Slot.get slot).card.c_card.house_index ];
           Player.heal me.slots.player 3;
           Updater.focus me.slots.player.updater me.num me.slots.player.pid false));
     on_my_death =

@@ -84,7 +84,7 @@ let harvester_reaction () =
     on_death =
       (fun _ ->
         let me = Reaction.bound_slot r in
-        Houses.incr_mana me.slots.player.houses_update 1 [ Dice.int me.slots.player.updater.rng 4 ];
+        incr_mana_from me me.slots.player 1 [ Dice.int me.slots.player.updater.rng 4 ];
         focus_slot me);
   }
 
@@ -115,7 +115,7 @@ let antimancer_listener () =
             Slots.foreach p.slots_update (fun s ->
                 match s.value with
                 | Some st when is_card !mirror_priest_ref st.card.c_card && not (is_bridled st) ->
-                    Houses.incr_mana p.houses_update 1 [ c.cmd_card.house_index ];
+                    incr_mana_from s p 1 [ c.cmd_card.house_index ];
                     focus_slot s
                 | _ -> ());
             r);

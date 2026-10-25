@@ -108,7 +108,7 @@ let likho_reaction () =
             | Some st ->
                 let l = st.life in
                 drain opp (mk_damage ~is_ability:true (if l < 11 then l else l - 10) ctx))
-        | _ -> Houses.incr_mana me.slots.player.houses_update 2 [ Dice.int me.slots.player.updater.rng 5 ]);
+        | _ -> incr_mana_from me me.slots.player 2 [ Dice.int me.slots.player.updater.rng 5 ]);
   }
 
 let sirin_effect : card_effect =

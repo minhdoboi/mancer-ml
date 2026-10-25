@@ -195,7 +195,7 @@ let render_settings (w, _) ui =
       duel_row gs.srow 0 "P1 special" (special_label gs.sp0);
       duel_row gs.srow 1 "P2 special" (special_label gs.sp1);
       duel_row gs.srow 2 "Mode" mode;
-      duel_row gs.srow 3 "Bot budget" (Printf.sprintf "%d ms" gs.budget);
+      duel_row gs.srow 3 "Duel bot budget" (Printf.sprintf "%d ms" gs.budget);
       duel_row gs.srow 4 "Seed" (seed ^ if gs.srow = 4 then "_" else "");
       duel_row gs.srow 5 "Language" gs.lang;
       duel_row gs.srow 6 "Back" "";
@@ -611,7 +611,7 @@ let new_campaign () = { i = 0; message = "" }
 let campaign_fight node =
   let p = Prefs.load () in
   let player_special = Table.campaign_class () in
-  let setup = Table.campaign_setup ~budget_ms:(Prefs.setup_budget p) ~player_special node in
+  let setup = Table.campaign_setup ~budget_ms:(Prefs.campaign_difficulty_ms p) ~player_special node in
   new_game ~campaign:(Some node) setup
 
 (* The campaign class: the house the player keeps all the way through. *)

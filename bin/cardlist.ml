@@ -132,7 +132,7 @@ let body_text b (c : card) =
   Assets.fill_basic_houses t houses
 
 (* a file name with a space or an accent in it still has to make a valid URL:
-   "Bill Bull.jpg" and "DwarvenСrossbowman" are both in assets/cards *)
+   "Bill Bull.jpg" and "DwarvenCrossbowman" are both in assets/cards *)
 let url_enc s =
   let b = Buffer.create (String.length s * 3) in
   String.iter

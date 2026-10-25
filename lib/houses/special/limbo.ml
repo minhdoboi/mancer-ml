@@ -111,8 +111,8 @@ let tower_reaction () =
       (fun entering ->
         let me = Reaction.bound_slot r in
         let idx = (Slot.get entering).card.c_card.house_index in
-        Houses.incr_mana me.slots.player.houses_update 1 [ idx ];
-        Houses.incr_mana (other_player me.slots.player).houses_update (-1) [ idx ];
+        incr_mana_from me me.slots.player 1 [ idx ];
+        incr_mana_from me (other_player me.slots.player) (-1) [ idx ];
         focus_slot me);
   }
 

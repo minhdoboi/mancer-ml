@@ -653,6 +653,10 @@ let for_spell layout (c : command) =
              spawn_excalibur ~wielder ~through ~start))
   | _ -> Option.map (look_recipe layout c) (Spell_looks.get c.cmd_card.key)
 
+(* Contextual mana: arcs from a creature to the house labels it moved. *)
+let mana_arcs ~from_ ~links =
+  recipe ~duration:mana_arc_duration ~blocking:false (fun ~start -> spawn_mana_arcs ~from_ ~links ~start)
+
 let for_ability layout ~kind ~player ~num ~target =
   match kind with
   | "paganist.flood" ->
@@ -718,6 +722,38 @@ let for_ability layout ~kind ~player ~num ~target =
       Some
         (recipe ~duration:0.95 ~blocking:false (fun ~start ->
              spawn_harvest ~from_:(layout.slot_center dead_p slot) ~to_:(layout.life player) ~souls:1 ~start))
+  | "meteomancer.storm" ->
+      (* Astral Storm: arcs lash out of the storm card at every foe creature
+         and the last one breaks on the foe themselves *)
+      let foe = other player in
+      let foes = layout.occupied foe |> List.map (layout.slot_center foe) |> Array.of_list in
+      Some
+        (recipe ~duration:astral_storm_duration ~blocking:true (fun ~start ->
+             spawn_astral_storm
+               ~from_:(layout.slot_center player num) ~targets:foes ~foe_life:(layout.life foe) ~start))
+  | kind when String.starts_with ~prefix:"meteomancer.prism." kind ->
+      (* Prism Mage: a ray from the foe's Called Element label is refracted by
+         the mage onto every foe creature *)
+      let called =
+        match String.split_on_char '.' kind with
+        | [ _; _; n ] -> Option.value (int_of_string_opt n) ~default:0
+        | _ -> 0
+      in
+      let foe = other player in
+      let targets = layout.occupied foe |> List.map (layout.slot_center foe) |> Array.of_list in
+      Some
+        (recipe ~duration:prism_duration ~blocking:true (fun ~start ->
+             spawn_prism ~from_:(layout.house foe called) ~at:(layout.slot_center player num)
+               ~targets ~called ~start))
+  | "meteomancer.grenadier" ->
+      (* Astral Grenadier: a single astral grenade is lobbed at the creature
+         the foe just summoned *)
+      Option.map
+        (fun (tp, tn) ->
+          recipe ~duration:grenade_duration ~blocking:true (fun ~start ->
+              spawn_grenade ~src:(layout.slot_center player num) ~target:(layout.slot_center tp tn)
+                ~pid:tp ~num:tn ~start))
+        target
   | _ -> None
 
 let demo_names =
@@ -778,6 +814,10 @@ let demo_names =
     "fusion";
     "ghosts";
     "healflow";
+    "prism";
+    "grenade";
+    "astralstorm";
+    "quake";
   ]
 
 let spawn_demo layout name =
@@ -936,4 +976,15 @@ let spawn_demo layout name =
   | "healflow" ->
       (* Zen's Inertia: the life runs from one card to the other as green motes *)
       go (spawn_life_flow ~from_:own.(1) ~to_:own.(4) ~start:now)
+  | "prism" ->
+      let targets = Array.of_list (List.map (layout.slot_center opponent) (layout.occupied opponent)) in
+      go (spawn_prism ~from_:(layout.house opponent 0) ~at:own.(2) ~targets ~called:0 ~start:now)
+  | "grenade" -> go (spawn_grenade ~src:own.(2) ~target:foe.(2) ~pid:opponent ~num:2 ~start:now)
+  | "astralstorm" ->
+      let targets = Array.of_list (List.map (layout.slot_center opponent) (layout.occupied opponent)) in
+      go (spawn_astral_storm ~from_:own.(2) ~targets ~foe_life ~start:(now -. 0.9))
+  | "quake" ->
+      let centers = slots_of opponent layout.slot_center in
+      let floors = slots_of opponent layout.slot_floor in
+      go (spawn_quake ~centers ~floors ~foe_pid:opponent ~start:now)
   | _ -> ()

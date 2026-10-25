@@ -67,15 +67,25 @@ let quake : card_effect =
       let amount = abs (mine.(h).mana - op.houses_update.hu_value.(h).mana) in
       Slot.inflict slot (spell_damage env amount))
 
+(* The Ram halves the life of the opposite creature (the damage is rounded up),
+   and the mana of the houses moves with it: the victim gains 1 mana of its own
+   house and loses 1 of every other one.  Without a creature to hit, nothing
+   happens. *)
 let ram : card_effect =
  fun env ->
-  let op = other_of_env env in
-  let slot = op.slots_update.slot_updates.(env.env_selected) in
-  Option.iter
-    (fun (s : slot_state) ->
-      Slot.destroy slot;
-      Houses.incr_mana op.houses_update (max 0 (s.card.c_card.cost - 3)) [ s.card.c_card.house_index ])
-    slot.value
+   let op = other_of_env env in
+   let slot = op.slots_update.slot_updates.(env.env_selected) in
+   match slot.value with
+   | None -> ()
+   | Some (s : slot_state) ->
+       let house = s.card.c_card.house_index in
+       let half = (s.life + 1) / 2 in
+       Slot.inflict slot (ability_damage env half);
+       let others =
+         List.filter (fun i -> i <> house) (List.init (Array.length op.houses_update.hu_value) Fun.id)
+       in
+       incr_mana_from (own_slot_of_env env) op 1 [ house ];
+       incr_mana_from (own_slot_of_env env) op (-1) others
 
 (* The Queen silences every enemy creature, hurts them, and lets them go at the end of the next turn *)
 let queen : card_effect =
@@ -148,7 +158,7 @@ let cloak_mana : card_effect =
  fun env ->
   match (own_slot_of_env env).value with
   | Some { data = Cloaked c; _ } ->
-      Houses.incr_mana (player_of_env env).houses_update 2 [ c.card.c_card.house_index ]
+      incr_mana_from (own_slot_of_env env) (player_of_env env) 2 [ c.card.c_card.house_index ]
   | _ -> ()
 
 let cloak_reaction () =

@@ -219,7 +219,7 @@ let () =
     let p = Prefs.load () in
     (* The player keeps the campaign class all the way through. *)
     let player_special = Table.campaign_class () in
-    let setup = Table.campaign_setup ~budget_ms:(Prefs.setup_budget p) ~player_special node in
+    let setup = Table.campaign_setup ~budget_ms:(Prefs.campaign_difficulty_ms p) ~player_special node in
     let you = Prefs.player_portrait p in
     let opp = match node.Campaign.fight with Some f -> f.portrait_id | None -> "summoner" in
     match new_game ~campaign:(Some node) setup (you, opp) with
@@ -253,10 +253,11 @@ let () =
   let demo_done = ref false in
   while not (!quit || R.window_should_close ()) do
     (match (demo_env, !screen) with
-    | Some name, Game ui when (not !demo_done) && R.get_time () -. t0 >= Option.value ~default:0.2 demo_at ->
+    | Some name, Game ui
+      when (not !demo_done) && R.get_time () -. t0 >= Option.value ~default:0.2 demo_at ->
         lay := make_layout ui.table;
-        demo_done := true;
-        Fx.spawn_demo (fx_layout ui) name
+        Fx.spawn_demo (fx_layout ui) name;
+        demo_done := true
     | _ -> ());
     (match !screen with
     | Lobby l -> ambient_on := l.gs.ambient_enabled
@@ -284,15 +285,18 @@ let () =
           screen := Campaign (new_campaign ()));
         if lobby.want_quit then quit := true;
         if lobby.show_settings then settings_seed_keys lobby.gs;
-        (* The campaign intro's class and mode lists live only while the dialog is up. *)
-        if not lobby.show_campaign_intro then (
-          lobby.class_select.sel_open := false;
-          lobby.mode_select.sel_open := false);
+        (* The campaign intro's class list lives only while the dialog is up. *)
+        if not lobby.show_campaign_intro then lobby.class_select.sel_open := false;
+        if not lobby.show_settings then lobby.gs.campaign_class_select.sel_open := false;
         let wheel = R.get_mouse_wheel_move () in
-        if wheel <> 0. && lobby.show_settings && lobby.gs.tab = 0 && inside class_wheel then
-          class_scroll_by lobby.gs wheel;
+        if wheel <> 0. && lobby.show_settings && lobby.gs.tab = 0
+           && inside (class_wheel settings_class_layout)
+        then class_scroll_by settings_class_layout lobby.gs wheel;
+        if wheel <> 0. && lobby.show_duel && lobby.duel_tab = 1
+           && inside (class_wheel duel_class_layout)
+        then class_scroll_by duel_class_layout lobby.gs wheel;
         select_scroll lobby.class_select wheel;
-        select_scroll lobby.mode_select wheel;
+        select_scroll lobby.gs.campaign_class_select wheel;
         if R.is_key_pressed R.Key.Escape then
           if lobby.show_campaign_intro then
             close_dialog "campaign-intro" (fun () -> lobby.show_campaign_intro <- false)
@@ -307,9 +311,12 @@ let () =
         else if (not lobby.show_duel) && (not lobby.show_settings) && not lobby.show_campaign_intro then
           lobby_keys lobby
     | Campaign camp ->
+        if not camp.show_settings then camp.gs.campaign_class_select.sel_open := false;
         let wheel = R.get_mouse_wheel_move () in
-        select_scroll camp.class_select wheel;
-        select_scroll camp.mode_select wheel;
+        if wheel <> 0. && camp.show_settings && camp.gs.tab = 0
+           && inside (class_wheel settings_class_layout)
+        then class_scroll_by settings_class_layout camp.gs wheel;
+        select_scroll camp.gs.campaign_class_select wheel;
         (match camp.pending_lobby with
         | true ->
             camp.pending_lobby <- false;
@@ -327,7 +334,11 @@ let () =
             campaign_fight n
         | None -> ());
         if R.is_key_pressed R.Key.Escape then
-          if dlg_open camp.dlg then close_dialog "campaign" (fun () -> camp.dlg <- Camp_none)
+          if camp.show_settings then
+            close_dialog "settings" (fun () ->
+                camp.show_settings <- false;
+                camp.gs.seed_focus <- false)
+          else if dlg_open camp.dlg then close_dialog "campaign" (fun () -> camp.dlg <- Camp_none)
           else camp.pending_lobby <- true
     | Epilogue -> if R.is_key_pressed R.Key.Escape then screen := Lobby (new_lobby ())
     | Game ui ->
@@ -336,11 +347,16 @@ let () =
         let wheel = R.get_mouse_wheel_move () in
         (if wheel <> 0. then
            match (ui.settings, ui.house_dlg) with
-           | Some gs, _ when gs.tab = 0 && inside class_wheel -> class_scroll_by gs wheel
+           | Some gs, _ when gs.tab = 0 && inside (class_wheel settings_class_layout) ->
+               class_scroll_by settings_class_layout gs wheel
            | None, Some dlg -> house_scroll_by dlg wheel
            | _ ->
                ui.scroll_y <- Float.min max_scroll (Float.max 0. (ui.scroll_y +. (wheel *. 48.)));
                Fx.set_scroll ui.scroll_y);
+        (match ui.settings with
+        | Some gs ->
+            select_scroll gs.campaign_class_select wheel
+        | None -> ());
         if R.is_key_pressed R.Key.Escape then
           match (ui.settings, ui.called_dlg, ui.house_dlg, ui.campaign_end) with
           | Some _, _, _, _ -> close_dialog "settings" (fun () -> ui.settings <- None)

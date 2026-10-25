@@ -35,8 +35,9 @@ let clairvoyant_summon : card_effect =
   | None -> ()
   | Some called ->
       let op = other_of_env env in
-      Houses.incr_mana op.houses_update 3 [ called ];
-      Houses.incr_mana op.houses_update (-1) (List.filter (( <> ) called) [ 0; 1; 2; 3; 4 ])
+      let me = own_slot_of_env env in
+      incr_mana_from me op 3 [ called ];
+      incr_mana_from me op (-1) (List.filter (( <> ) called) [ 0; 1; 2; 3; 4 ])
 
 let prism_turn : card_effect =
  fun env ->
@@ -47,6 +48,16 @@ let prism_turn : card_effect =
       let dmg = mana / 2 in
       if dmg > 0 then (
         Updater.focus env.env_updater env.env_selected env.env_player true;
+        (* the front end draws the foe's Called Element mana to the mage, then
+           refracts it onto the foe's creatures *)
+        emit env.env_updater
+          (Ev_ability
+             {
+               kind = Printf.sprintf "meteomancer.prism.%d" called;
+               player = env.env_player;
+               num = env.env_selected;
+               target = None;
+             });
         Slots.inflict_creatures (other_of_env env).slots_update (ability_damage env dmg))
 
 let ctx_of owner source source_num =
@@ -69,9 +80,12 @@ let storm_strike owner source source_num =
   let opp = other_player owner in
   let ctx = ctx_of owner source source_num in
   let d = mk_damage ~is_ability:true 19 ctx in
+  (* the card gathers the storm before it lashes out, so the arcs leave it *)
+  focus_slot owner.slots_update.slot_updates.(source_num);
+  emit owner.updater
+    (Ev_ability { kind = "meteomancer.storm"; player = owner.pid; num = source_num; target = None });
   Slots.inflict_creatures opp.slots_update d;
-  Player.inflict opp d;
-  focus_slot owner.slots_update.slot_updates.(source_num)
+  Player.inflict opp d
 
 let extremophile_ref : card option ref = ref None
 
@@ -100,7 +114,7 @@ let on_opponent_plays_called owner (command : command) =
           | "meteomancer.prism" -> add_attack slot (Attack_func (fun a -> a + 1))
           | "meteomancer.storm" -> storm_strike owner st.card.c_card slot.num
           | "meteomancer.fateweaver" ->
-              Houses.incr_mana owner.houses_update 4 [ called ];
+              incr_mana_from slot owner 4 [ called ];
               set_data owner { (get_data owner) with mt_fate = (get_data owner).mt_fate + 1 }
           | _ -> ())
         filled
@@ -188,6 +202,15 @@ let grenadier_reaction () =
               | Some state ->
                   let ctx = ctx_of me.slots.player (Option.get me.value).card.c_card me.num in
                   let amount = if e.s_card.c_card.house_index = called then (state.life + 1) / 2 else 4 in
+                  (* the front end lobs an astral grenade at the summoned creature *)
+                  emit me.slots.player.updater
+                    (Ev_ability
+                       {
+                         kind = "meteomancer.grenadier";
+                         player = me.slots.player.pid;
+                         num = me.num;
+                         target = Some (e.s_player.pid, e.s_num);
+                       });
                   Slot.inflict slot (mk_damage ~is_ability:true amount ctx);
                   focus_slot me));
   }

@@ -390,3 +390,82 @@ let spawn_scatterbomb ~pid ~src ~bases ~start =
                       (rgb 1. 0.8 0.3 (1. -. ps))
                 done)))
         bases)
+
+(* Astral Grenadier: a single astral grenade is lobbed from the card onto the
+   creature the foe just summoned, then goes off in a violet blast. *)
+let grenade_duration = 1.15
+
+let spawn_grenade ~src ~target ~pid ~num ~start =
+  let fall = 0.45 and boom = 0.7 in
+  let cy = target.y -. 24. in
+  add_shake pid num ~start:(start +. fall) ~duration:0.35 ~strength:0.7;
+  mk ~start ~duration:grenade_duration (fun ~age ->
+      if age >= 0. && age < fall then (
+        let p = age /. fall in
+        let arc = 120. in
+        let x = lerp src.x target.x p and y = lerp src.y cy p -. (arc *. 4. *. p *. (1. -. p)) in
+        (* the burning fuse sheds astral sparks *)
+        additive (fun () ->
+            for k = 1 to 6 do
+              let pb = Float.max 0. (p -. (float k *. 0.03)) in
+              let tx = lerp src.x target.x pb
+              and ty = lerp src.y cy pb -. (arc *. 4. *. pb *. (1. -. pb)) in
+              circle tx (ty -. 8.) (3. -. (float k *. 0.4)) (rgb 0.72 0.5 1. (0.7 -. (float k *. 0.1)))
+            done);
+        (* the grenade: dark body with a violet sheen, a fuse and a bright spark *)
+        let sp = age *. 9. in
+        circle x y 7. (rgb 0.12 0.1 0.18 1.);
+        circle (x -. 2.2) (y -. 2.4) 2.2 (rgb 0.6 0.55 0.82 0.9);
+        additive (fun () ->
+            circle x y 10. (rgb 0.5 0.3 1. 0.16);
+            let fx = x +. (sin sp *. 3.) and fy = y -. 7. -. 5. in
+            line (x +. 1.) (y -. 6.) fx fy 1.6 (rgb 0.72 0.6 0.5 1.);
+            let fl = 0.7 +. (0.3 *. sin (age *. 60.)) in
+            circle fx fy (4. *. fl) (rgb 0.82 0.62 1. 0.9);
+            circle fx fy (1.8 *. fl) (rgb 1. 1. 1. 1.)));
+      let te = age -. fall in
+      if te >= 0. && te < boom then (
+        let p = te /. boom in
+        let q = 1. -. p in
+        (* a puff of violet smoke *)
+        if p > 0.12 then
+          for k = 0 to 4 do
+            let s = noise k 3 11 in
+            let ps = clamp01 ((p -. 0.12) /. 0.88) in
+            circle
+              (target.x +. ((s -. 0.5) *. 46.) +. (sin ((te *. 3.) +. float k) *. 5.))
+              (cy -. (ps *. (24. +. (46. *. s))))
+              (10. +. (ps *. 17.))
+              (rgb 0.18 0.16 0.24 (q *. 0.5))
+          done;
+        additive (fun () ->
+            if p < 0.35 then
+              circle target.x cy
+                ((52. *. (1. -. (p /. 0.35))) +. 10.)
+                (rgb 0.93 0.9 1. ((1. -. (p /. 0.35)) ** 2.));
+            let r = 14. +. (34. *. ease_out p) in
+            circle target.x cy r (rgb 0.45 0.2 0.95 (q *. 0.75));
+            circle target.x cy (r *. 0.6) (rgb 0.78 0.58 1. (q *. 0.8));
+            (if p < 0.5 then
+               let pr = p /. 0.5 in
+               let ring = 12. +. (80. *. ease_out pr) in
+               for k = 0 to 15 do
+                 let ang = float k *. (Float.pi *. 2. /. 16.) in
+                 circle
+                   (target.x +. (cos ang *. ring))
+                   (cy +. 8. +. (sin ang *. ring *. 0.4))
+                   ((2.2 *. (1. -. pr)) +. 1.)
+                   (rgb 0.72 0.5 1. ((1. -. pr) *. 0.8))
+               done);
+            for s = 0 to 11 do
+              let life = 0.35 +. (0.3 *. noise s 3 3) in
+              if te < life then
+                let ps = te /. life in
+                let ang = -.(Float.pi /. 2.) +. ((noise s 5 5 -. 0.5) *. Float.pi *. 1.7) in
+                let speed = 90. +. (150. *. noise s 9 9) in
+                circle
+                  (target.x +. (cos ang *. speed *. te))
+                  (cy +. (sin ang *. speed *. te) +. (240. *. te *. te))
+                  ((2.2 *. (1. -. ps)) +. 1.)
+                  (rgb 0.86 0.72 1. (1. -. ps))
+            done)))

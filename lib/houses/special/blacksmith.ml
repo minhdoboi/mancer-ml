@@ -255,7 +255,7 @@ let astral_cloak_reaction () =
     on_my_death =
       (fun _ ->
         let me = Reaction.bound_slot r in
-        Houses.incr_mana me.slots.player.houses_update 1 [ 1; 3 ]);
+        incr_mana_from me me.slots.player 1 [ 1; 3 ]);
   }
 
 let astral_dagger_reaction () =
@@ -265,7 +265,7 @@ let astral_dagger_reaction () =
     on_my_death =
       (fun _ ->
         let me = Reaction.bound_slot r in
-        Houses.incr_mana me.slots.player.houses_update 1 [ 0; 2 ]);
+        incr_mana_from me me.slots.player 1 [ 0; 2 ]);
   }
 
 let rec nearest_empty_side (p : player_update) selected step =

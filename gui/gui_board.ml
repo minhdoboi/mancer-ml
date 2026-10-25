@@ -693,6 +693,11 @@ let queue_slides ui e =
         ui.late_sounds <- (at, card_sound_name c.cmd_card) :: ui.late_sounds
   | Ev_ability { kind; player; num; target } ->
       ignore (Option.map (run_fx ui) (Fx.for_ability (fx_layout ui) ~kind ~player ~num ~target))
+  | Ev_mana { player; num; target; deltas } ->
+      (* a creature moved some but not all of a player's houses: arcs to the labels *)
+      let fl = fx_layout ui in
+      let links = List.map (fun (i, d) -> (fl.house target i, d >= 0)) deltas in
+      ignore (run_fx ui (Fx.mana_arcs ~from_:(fl.slot_center player num) ~links))
   | Ev_game_over { winner; _ } ->
       push_frame ui ~silent:true;
       (* Engine already set Over; Scala waitAction holds endGame until the
@@ -1185,6 +1190,103 @@ let draw_label_plate ?font ~size ~color x y s =
   fill ~round:0.16 (rect (x -. pad_x) (y -. pad_y) (tw +. (pad_x *. 2.)) (size +. (pad_y *. 2.))) plate_ink;
   text ?font ~size ~color x y s
 
+(* Meteomancer: the Called Element is a symbol beside the life total — a flame
+   for Fire, a drop for Water, spirals for Air, a leaf for Earth. Mistwalker
+   keeps the element from the other side, which reads a question mark. *)
+let element_color = function
+  | 0 -> rgb01 1. 0.46 0.12 1.
+  | 1 -> rgb01 0.36 0.72 1. 1.
+  | 2 -> rgb01 0.8 0.94 1. 1.
+  | _ -> rgb01 0.46 0.82 0.3 1.
+
+(* A teardrop: a round bottom under a point. *)
+let draw_drop cx cy w h color =
+  let r = w /. 2. in
+  let by = cy +. (h /. 2.) -. r in
+  R.draw_circle_v (pos cx by) (r *. !scale) (alpha_color color);
+  R.draw_triangle (pos (cx -. r) by) (pos (cx +. r) by) (pos cx (cy -. (h /. 2.))) (alpha_color color)
+
+(* Two spiral arms winding out of a centre. *)
+let draw_spirals cx cy r color =
+  let steps = 20 and turns = 1.7 in
+  for arm = 0 to 1 do
+    let px = ref 0. and py = ref 0. and first = ref true in
+    for i = 0 to steps do
+      let t = float i /. float steps in
+      let ang = (float arm *. Float.pi) +. (t *. turns *. 2. *. Float.pi) in
+      let x = cx +. (cos ang *. r *. t) and y = cy +. (sin ang *. r *. t) in
+      if not !first then R.draw_line_ex (pos !px !py) (pos x y) (1.7 *. !scale) (alpha_color color);
+      px := x;
+      py := y;
+      first := false
+    done
+  done
+
+(* A leaf: a pointed lens with a centre vein. Raylib culls clockwise triangles,
+   so the old fan left Earth as a lone green line; fill the lens as a strip of
+   triangles wound like the drop, between the two bezier edges. *)
+let draw_leaf cx cy w h color vein =
+  let bez (x0, y0) (cx', cy') (x1, y1) t =
+    let u = 1. -. t in
+    ( (u *. u *. x0) +. (2. *. u *. t *. cx') +. (t *. t *. x1),
+      (u *. u *. y0) +. (2. *. u *. t *. cy') +. (t *. t *. y1) )
+  in
+  let top = (cx, cy -. h) and bot = (cx, cy +. h)
+  and right = (cx +. w, cy) and left = (cx -. w, cy) in
+  let n = 9 in
+  let right_pts = Array.init (n + 1) (fun i -> bez top right bot (float i /. float n)) in
+  let left_pts = Array.init (n + 1) (fun i -> bez top left bot (float i /. float n)) in
+  let col = alpha_color color in
+  for i = 0 to n - 1 do
+    let p (x, y) = pos x y in
+    let a = p right_pts.(i) and b = p right_pts.(i + 1)
+    and c = p left_pts.(i) and d = p left_pts.(i + 1) in
+    (* DrawTriangle culls clockwise faces; keep the drop's winding. *)
+    R.draw_triangle c b a col;
+    R.draw_triangle c d b col
+  done;
+  R.draw_line_ex (pos cx (cy -. h)) (pos cx (cy +. h)) (1.1 *. !scale) (alpha_color vein)
+
+let draw_element_symbol cx cy s idx =
+  let color = element_color idx in
+  match idx with
+  | 0 ->
+      draw_drop cx (cy +. 1.) (s *. 0.7) (s *. 1.15) color;
+      draw_drop cx (cy +. 3.) (s *. 0.32) (s *. 0.62) (rgb01 1. 0.92 0.45 1.)
+  | 1 ->
+      draw_drop cx (cy +. 1.) (s *. 0.74) (s *. 1.08) color;
+      R.draw_circle_v (pos (cx -. (s *. 0.15)) (cy -. (s *. 0.1))) (s *. 0.12 *. !scale)
+        (alpha_color (rgb01 1. 1. 1. 0.85))
+  | 2 -> draw_spirals cx cy (s *. 0.52) color
+  | _ -> draw_leaf cx cy (s *. 0.5) (s *. 0.56) color (rgb01 0.18 0.48 0.14 1.)
+
+(* Hover label for the Called Element badge, drawn with the other tooltips. *)
+let element_tip : (rect * string) option ref = ref None
+
+(* The Called Element badge, drawn just past the life plate. *)
+let draw_element_badge ui pid x y =
+  match (view ui).players.(pid).ps_data with
+  | Meteo_data d when Option.is_some d.mt_called ->
+      let size = 26. in
+      let box = rect x y size size in
+      fill ~round:0.22 box plate_ink;
+      let cx = x +. (size /. 2.) and cy = y +. (size /. 2.) in
+      (match if d.mt_hidden && pid <> viewer ui then None else d.mt_called with
+      | Some i ->
+          outline ~round:0.22 ~thick:1.5 box (element_color i);
+          if inside box then (
+            hovering := true;
+            element_tip :=
+              Some
+                ( box,
+                  Assets.format (Assets.text "meteomancer.called") [ (basic_names ui pid).(i) ] ));
+          draw_element_symbol cx cy 17. i
+      | None ->
+          let s = "?" in
+          let w = text_w ~font:bold 17. s in
+          text ~font:bold ~size:17. ~color:fg (cx -. (w /. 2.)) (cy -. 8.5) s)
+  | _ -> ()
+
 let draw_player_bar ui pid =
   let x = 8. in
   let y = oy ui (row_y pid) in
@@ -1208,7 +1310,10 @@ let draw_player_bar ui pid =
   | Table.Human -> ());
   let tx = x +. portrait_size +. 8. in
   let p = (view ui).players.(pid) in
-  draw_label_plate ~font:bold ~size:22. ~color:fg tx (y +. 8.) (string_of_int p.ps_life);
+  let life = string_of_int p.ps_life in
+  draw_label_plate ~font:bold ~size:22. ~color:fg tx (y +. 8.) life;
+  (* Meteomancer: the Called Element symbol sits beside the life total. *)
+  draw_element_badge ui pid (tx +. text_w ~font:bold 22. life +. 10.) (y +. 7.);
   (* Scala DataPanel beside the life: souls, Dark power, eclipse shield, shaman buffs. *)
   let line_y = ref (y +. 36.) in
   let badge s =
@@ -1232,6 +1337,7 @@ let draw_player_bar ui pid =
   then badge "protector -2"
 
 let draw_board ui =
+  element_tip := None;
   (* Solar Wave: the opponent's creatures wear golden powder while they take triple damage. *)
   (* A creature that is sliding or attacking has left its slot: no powder on it. *)
   let settled pid n =
@@ -1763,6 +1869,7 @@ let draw_menu ui ~quit ~settings ~switch ~replay ~start_new =
       if icon_button r name f then tip := Some (r, Assets.text tip_key))
     items;
   Option.iter (fun (anchor, label) -> tooltip_below anchor label) !tip;
+  Option.iter (fun (anchor, label) -> tooltip_below anchor label) !element_tip;
   if ui.message <> "" then text ~size:12. ~color:red 8. (bar.y +. bar.h +. 4.) (fit 12. 400. ui.message)
 
 let draw_pass ui =

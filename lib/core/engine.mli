@@ -45,6 +45,10 @@ module Houses : sig
   val incr_growth : houses_update -> int -> int list -> unit
 end
 
+val incr_mana_from : slot_update -> player_update -> int -> int list -> unit
+(** Like {!Houses.incr_mana}, but attributed to the creature at [src] so the UI
+    can draw the contextual bonus/malus arcs. A change to every house is quiet. *)
+
 (** SlotUpdate *)
 module Slot : sig
   val get : slot_update -> slot_state

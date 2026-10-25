@@ -84,6 +84,28 @@ module Houses = struct
       idxs
 end
 
+(* A creature's contextual mana move: applies the mana and tells the UI which
+   houses moved, so it can draw a light arc from the creature to a bonus house
+   and a dark-red one to a malus house. A move that touches every house is not
+   contextual, so it stays silent (the plain mana refresh already shows it). *)
+let incr_mana_from (src : slot_update) (target : player_update) amount idxs =
+  if amount <> 0 && idxs <> [] then (
+    (* duplicates are real: two adjacent fire creatures pay twice *)
+    Houses.incr_mana target.houses_update amount idxs;
+    let counts = Hashtbl.create 8 in
+    List.iter
+      (fun i -> Hashtbl.replace counts i (1 + Option.value (Hashtbl.find_opt counts i) ~default:0))
+      idxs;
+    if Hashtbl.length counts < Array.length target.houses_update.hu_value then
+      emit target.updater
+        (Ev_mana
+           {
+             player = src.slots.player.pid;
+             num = src.num;
+             target = target.pid;
+             deltas = Hashtbl.fold (fun i n acc -> (i, amount * n) :: acc) counts [];
+           }))
+
 (* ------------------------------------------------------------------ board *)
 
 (* The part of SlotsUpdate that Slot itself depends on *)

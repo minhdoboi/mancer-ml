@@ -24,7 +24,7 @@ val key_campaign_position : string
 val key_campaign_night_rest : string
 val key_campaign_wake_far : string
 val key_campaign_class : string
-val key_campaign_mode : string
+val key_campaign_difficulty : string
 val key_debug_mode : string
 val key_ambient_sound : string
 val key_language : string
@@ -103,15 +103,18 @@ val campaign_class : t -> string
 val set_campaign_class : t -> string -> unit
 (** Stores the campaign class. It outlives a campaign restart. *)
 
-val default_campaign_mode : string
-(** ["standard"], the deal a campaign gets unless the player picks otherwise. *)
+val default_campaign_difficulty : string
+(** ["normal"], the bot time a campaign gets unless the player picks otherwise. *)
 
-val campaign_mode : t -> string
-(** [campaign.mode]: ["standard"] (anger) or ["classic"] (fire); anything else reads as
-    {!default_campaign_mode}. Separate from {!setup_mode}. *)
+val campaign_difficulty : t -> string
+(** [campaign.difficulty]: ["easy"], ["normal"] or ["hard"]; anything else reads as
+    {!default_campaign_difficulty}. Separate from {!setup_budget}. *)
 
-val set_campaign_mode : t -> string -> unit
-(** Stores the campaign mode. It outlives a campaign restart. *)
+val set_campaign_difficulty : t -> string -> unit
+(** Stores the campaign difficulty. It outlives a campaign restart. *)
+
+val campaign_difficulty_ms : t -> int
+(** The bot think time per move for {!campaign_difficulty}: 50 ms easy, 1000 ms normal, 2000 ms hard. *)
 
 val setup_seats : t -> string * string
 (** [setup.seats] as [(p1, p2)] seat names, else [("human", "oracle")]. *)

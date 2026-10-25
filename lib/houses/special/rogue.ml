@@ -43,7 +43,7 @@ let energy_steal : card_effect =
   Option.iter
     (fun (opp : slot_state) ->
       focus_slot slot;
-      Houses.incr_mana (other_of_env env).houses_update (-1) [ opp.card.c_card.house_index ])
+      incr_mana_from slot (other_of_env env) (-1) [ opp.card.c_card.house_index ])
     (Slot.opposite slot).value
 
 let assassin_summon : card_effect =

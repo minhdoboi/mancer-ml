@@ -250,7 +250,7 @@ let amit_reaction () =
         let power = dead.d_player.houses_update.hu_value.(dead.d_slot.card.c_card.house_index).mana in
         let ctx = { ctx_player = me.slots.player.pid; ctx_card = !amit_ref; ctx_selected = me.num } in
         Player.inflict dead.d_player (mk_damage ~is_ability:true power ctx);
-        Houses.incr_mana me.slots.player.houses_update 1 [ 4 ];
+        incr_mana_from me me.slots.player 1 [ 4 ];
         focus_slot me);
   }
 

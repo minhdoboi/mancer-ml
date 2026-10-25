@@ -46,6 +46,10 @@ val sound_delay : string -> float
 (** Seconds after a spell's effect starts that its sound begins (0 for most spells). *)
 
 
+val mana_arcs : from_:spot -> links:(spot * bool) list -> recipe
+(** Contextual mana arcs from a creature to the house labels it moved: light
+    for a bonus, dark red for a malus. *)
+
 val for_ability :
   layout -> kind:string -> player:player_id -> num:int -> target:(player_id * int) option -> recipe option
 

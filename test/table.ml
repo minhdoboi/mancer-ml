@@ -175,8 +175,8 @@ let mode_names_basics () =
   check_string "classic air" (Assets.text "air") classic.(2);
   check_string "classic earth" (Assets.text "earth") classic.(3)
 
-(* A campaign setup takes the campaign mode; the duel mode is not involved. *)
-let campaign_mode () =
+(* An explicit mode overrides the Game tab's mode for a campaign setup. *)
+let campaign_mode_override () =
   let n = Campaign.node "entomologist" in
   let standard = Table.campaign_setup ~mode:Catalog.Standard ~player_special:"zen" n in
   check_bool "explicit standard" true (standard.mode = Catalog.Standard);
@@ -198,6 +198,6 @@ let () =
           Alcotest.test_case "restart keeps deal" `Quick restart_keeps_deal;
           Alcotest.test_case "mode picks basics" `Quick mode_picks_basics;
           Alcotest.test_case "mode names basics" `Quick mode_names_basics;
-          Alcotest.test_case "campaign mode" `Quick campaign_mode;
+          Alcotest.test_case "campaign mode override" `Quick campaign_mode_override;
         ] );
     ]

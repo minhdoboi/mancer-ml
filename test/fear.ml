@@ -51,7 +51,7 @@ let harpy_below_five () =
   step u (fun () -> Player.apply_effects (player u 0) Direct);
   check_int "no damage below 5 fear" 60 (player_life u 1)
 
-let terror_strike_hits_both () =
+let terror_shock_hits_both () =
   let u = new_game ~mana:[ 4; 4; 10; 4 ] ~house:Fear.house () in
   place u 1 "anger.boar" 1;
   play u 0 "fear.strike" ~input:(Some 1) ~cost:3;
@@ -147,7 +147,7 @@ let () =
           Alcotest.test_case "ghost" `Quick ghost_boosts_spells;
           Alcotest.test_case "harpy fires" `Quick harpy_five_fear;
           Alcotest.test_case "harpy waits" `Quick harpy_below_five;
-          Alcotest.test_case "terror strike" `Quick terror_strike_hits_both;
+          Alcotest.test_case "terror shock" `Quick terror_shock_hits_both;
           Alcotest.test_case "crow sage" `Quick crow_sage_heals_joy;
           Alcotest.test_case "crow sage reads joy" `Quick crow_sage_reads_joy;
           Alcotest.test_case "freezing fog" `Quick freezing_fog_burns;

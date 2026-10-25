@@ -92,17 +92,25 @@ let campaign_progress () =
       Prefs.reset_campaign (Prefs.load ~path ());
       check_string "reset" Campaign.day_start_id (Prefs.campaign_position (Prefs.load ~path ())))
 
-(* The campaign mode is separate from the duel mode and defaults to standard. *)
-let campaign_mode () =
+(* The campaign difficulty is separate from the duel bot time and maps to the
+   signed bot budget. *)
+let campaign_difficulty () =
   with_temp (fun path ->
       Sys.remove path;
       let p = Prefs.load ~path () in
-      check_string "default" "standard" (Prefs.campaign_mode p);
-      check_string "duel untouched" "standard" (Prefs.setup_mode p);
-      Prefs.set_campaign_mode p "classic";
-      check_string "round trip classic" "classic" (Prefs.campaign_mode (Prefs.load ~path ()));
-      Prefs.set_campaign_mode p "standard";
-      check_string "round trip standard" "standard" (Prefs.campaign_mode (Prefs.load ~path ())))
+      check_string "default" "normal" (Prefs.campaign_difficulty p);
+      Alcotest.(check int) "normal ms" 1000 (Prefs.campaign_difficulty_ms p);
+      Prefs.set_campaign_difficulty p "easy";
+      let q = Prefs.load ~path () in
+      check_string "round trip easy" "easy" (Prefs.campaign_difficulty q);
+      Alcotest.(check int) "easy ms" 50 (Prefs.campaign_difficulty_ms q);
+      Prefs.set_campaign_difficulty p "hard";
+      let r = Prefs.load ~path () in
+      check_string "round trip hard" "hard" (Prefs.campaign_difficulty r);
+      Alcotest.(check int) "hard ms" 2000 (Prefs.campaign_difficulty_ms r);
+      (* an unknown name reads as the default *)
+      Prefs.set_campaign_difficulty p "brutal";
+      check_string "unknown" "normal" (Prefs.campaign_difficulty (Prefs.load ~path ())))
 
 let old_singles () =
   (* Files written before multi-select keep loading as one house per side. *)
@@ -155,7 +163,7 @@ let () =
           Alcotest.test_case "scala format" `Quick scala_format;
           Alcotest.test_case "clamp and fallback" `Quick clamp_and_fallback;
           Alcotest.test_case "campaign progress" `Quick campaign_progress;
-          Alcotest.test_case "campaign mode" `Quick campaign_mode;
+          Alcotest.test_case "campaign difficulty" `Quick campaign_difficulty;
           Alcotest.test_case "continuation and backslash" `Quick continuation_and_backslash;
           Alcotest.test_case "comments are not keys" `Quick comments_not_keys;
           Alcotest.test_case "unwritable dir" `Quick unwritable_dir;

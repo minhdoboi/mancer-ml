@@ -148,12 +148,11 @@ let special_houses () =
   Lazy.force catalog;
   Catalog.specials
 
-(* The campaign mode: which basic houses a campaign is dealt from, stored by the
-   map's mode selector and read here. It is separate from the duel mode. *)
-let campaign_mode () = Catalog.mode_of_string (Prefs.campaign_mode (Prefs.load ()))
+(* The campaign mode is the duel mode from the Game tab: a campaign is dealt
+   from the same basics a duel is. *)
 
-let campaign_setup ?(budget_ms = default_setup.budget_ms) ?seed ?mode ~player_special
-    (n : Campaign.node) =
+let campaign_setup ?(budget_ms = Prefs.campaign_difficulty_ms (Prefs.load ())) ?seed ?mode
+    ~player_special (n : Campaign.node) =
   match n.Campaign.fight with
   | None -> failwith ("campaign node has no fight: " ^ n.id)
   | Some f ->
@@ -165,7 +164,7 @@ let campaign_setup ?(budget_ms = default_setup.budget_ms) ?seed ?mode ~player_sp
         seed;
         starting = Campaign.starter_player n.id;
         life = f.life;
-        mode = Option.value mode ~default:(campaign_mode ());
+        mode = Option.value mode ~default:(Catalog.mode_of_string (Prefs.setup_mode (Prefs.load ())));
       }
 
 (* The player's campaign class: the special house the map's class selector
@@ -334,6 +333,13 @@ let event_line ?(name = fun (c : card) -> c.name) =
   | Ev_ability { kind; player; num; target } ->
       let on = match target with Some (tp, tn) -> Printf.sprintf " on %s slot %d" (p tp) tn | None -> "" in
       Some (Printf.sprintf "%s slot %d: %s%s" (p player) num kind on)
+  | Ev_mana { player; num; target; deltas } ->
+      let moves =
+        deltas
+        |> List.map (fun (i, d) -> Printf.sprintf "%+d h%d" d i)
+        |> String.concat ", "
+      in
+      Some (Printf.sprintf "%s slot %d mana for %s: %s" (p player) num (p target) moves)
   | Ev_game_over { winner = Some w; reason } -> Some (Printf.sprintf "== %s wins (%s)" (p w) reason)
   | Ev_game_over { winner = None; reason } -> Some (Printf.sprintf "== draw (%s)" reason)
   | Ev_spell_played _ | Ev_run_slot _ | Ev_focus _ | Ev_refresh _ -> None

@@ -46,6 +46,7 @@ let victory = Fx_scenes.victory
 let for_spell = Fx_stage.for_spell
 let sound_delay = Fx_stage.sound_delay
 let for_ability = Fx_stage.for_ability
+let mana_arcs = Fx_stage.mana_arcs
 let demo_names = Fx_stage.demo_names
 let spawn_demo = Fx_stage.spawn_demo
 let set_vortex_spots spots = Fx_core.vortex_spots := spots

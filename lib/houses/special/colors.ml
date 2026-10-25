@@ -176,7 +176,7 @@ let amber_reaction () =
         |> List.rev
         |> fun ranked ->
         List.iteri
-          (fun i (idx, _) -> if i < 2 then Houses.incr_mana me.slots.player.houses_update x [ idx ])
+          (fun i (idx, _) -> if i < 2 then incr_mana_from me me.slots.player x [ idx ])
           ranked);
   }
 

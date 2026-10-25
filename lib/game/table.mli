@@ -64,11 +64,7 @@ type t
 val campaign_setup :
   ?budget_ms:int -> ?seed:int -> ?mode:Catalog.mode -> player_special:string -> Campaign.node -> setup
 (** Human vs the node's bot, player's special vs the fight house, with the node's starter and life. The
-    mode defaults to {!campaign_mode}. *)
-
-val campaign_mode : unit -> Catalog.mode
-(** The campaign deal: the mode the map's selector stores, defaulting to standard. Separate from the duel
-    mode. *)
+    mode defaults to the Game tab's mode ({!Prefs.setup_mode}). *)
 
 val campaign_class : unit -> string
 (** The house key of the player's campaign class: the special house the map's class selector stores, or the

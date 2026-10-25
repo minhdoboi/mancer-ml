@@ -382,13 +382,24 @@ let quake_uses_power_gap () =
   play u 0 "warp.quake" ~input:None ~cost:2;
   check_int "6 - 2" (before - 4) (life_at u 1 0)
 
-let ram_destroys_and_pays () =
+let ram_halves_and_shifts_mana () =
   let u = new_game ~mana:[ 4; 4; 4; 4; 10 ] ~special:Warp.house () in
   place u 1 "fire.dragon" 2;
-  let cost = (card_by_key "fire.dragon").cost in
+  let before = life_at u 1 2 in
   play u 0 "warp.ram" ~input:(Some 2) ~cost:6;
-  check_bool "gone" true (is_empty u 1 2);
-  check_int "its owner gets cost - 3" (4 + cost - 3) (mana u 1 0)
+  check_bool "alive" false (is_empty u 1 2);
+  check_int "life halved" (before / 2) (life_at u 1 2);
+  check_int "1 mana in its house" 5 (mana u 1 0);
+  check_int "1 less in the other houses" 3 (mana u 1 1);
+  check_int "1 less in the other houses" 3 (mana u 1 2);
+  check_int "1 less in the other houses" 3 (mana u 1 3);
+  check_int "1 less in the other houses" 9 (mana u 1 4)
+
+let ram_without_a_target () =
+  let u = new_game ~mana:[ 4; 4; 4; 4; 10 ] ~special:Warp.house () in
+  play u 0 "warp.ram" ~input:(Some 2) ~cost:6;
+  check_int "no mana moved" 4 (mana u 1 0);
+  check_int "no mana moved" 10 (mana u 1 4)
 
 let queen_silences_for_two_turns () =
   let u = new_game ~special:Warp.house () in
@@ -664,7 +675,8 @@ let () =
       ( "warp",
         [
           test_case "quake" `Quick quake_uses_power_gap;
-          test_case "ram" `Quick ram_destroys_and_pays;
+          test_case "ram" `Quick ram_halves_and_shifts_mana;
+          test_case "ram no target" `Quick ram_without_a_target;
           test_case "queen" `Quick queen_silences_for_two_turns;
           test_case "cloak" `Quick cloak_adds_the_creature;
           test_case "schizo" `Quick schizo_silences_opposite;

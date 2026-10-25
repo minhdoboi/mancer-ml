@@ -97,7 +97,7 @@ like the original, they think on the full `game_state`, so anything the
 engine tracks is visible to them even when your board keeps it secret.
 
 - **Opponent hands in search.** Strategist, lecturer, oracle, and summoner
-  explore the opponent's replies with that side's real hand, never a guess. That can be a problem for hidden knowledge like stealth card, or Meteomancer called element for example.
+  explore the opponent's replies with that side's real hand, never a guess. That can be a problem for hidden knowledge like stealth card, or Mistwalker called element for example.
   Diviner is the exception: it samples belief hands for the opponent's
   deck, but even its worlds keep the true board, Stalker included.
 - **Not every rule of the original game is implemented.** The 1% rule and

@@ -2667,7 +2667,7 @@ let spawn_warcry ~source ~foe ~foe_life ~foe_pid ~start =
 (* Warp Earthquake: the ground splits along the opponent's row, and every creature
    on it takes the difference between the two mana pools in its own element. The
    creatures tremble as the seam races out from the middle, and the dust it
-   throws up rolls in behind them rather than over their faces, so the smoke is
+   throws up rolls in behind them rather than over their faces, so the grit is
    drawn under the cards and the card occludes the middle of every plume. *)
 let spawn_quake ~centers ~floors ~foe_pid ~start =
   let duration = 1.9 in
@@ -2694,30 +2694,44 @@ let spawn_quake ~centers ~floors ~foe_pid ~start =
             let x0 = ox +. (width *. u0) and x1 = ox +. (width *. u1) in
             let y0 = oy +. jag u0 and y1 = oy +. jag u1 in
             let a = reach *. hold *. fade in
-            line x0 y0 x1 y1 (1.4 +. (open_ *. 3.4)) (rgb 0.05 0.035 0.03 (a *. 0.85));
-            line x0 (y0 -. 1.6) x1 (y1 -. 1.6) 1. (rgb 1. 0.6 0.16 (a *. 0.45)))
+            (* the split: a thin gash with the heat of it showing through, rather
+               than a fat black bar lying on the ground *)
+            line x0 y0 x1 y1 (0.9 +. (open_ *. 1.1)) (rgb 0.17 0.08 0.03 (a *. 0.8));
+            line x0 y0 x1 y1 (0.5 +. (open_ *. 0.8)) (rgb 1. 0.52 0.14 (a *. 0.7));
+            line x0 (y0 -. 1.4) x1 (y1 -. 1.4) 0.5 (rgb 1. 0.86 0.52 (a *. 0.45)))
         done;
-        (* smoke rolling up behind each creature: wide and soft, so what shows is
-           the column either side of the card and the crown above it *)
+        (* the dust: grit thrown out of the seam, and a low bank of it rolling
+           along the ground. Grit reads as dust; the bank keeps the row from
+           looking clean, and both stay small enough to see the seam through. *)
+        for k = 0 to 69 do
+          let r = noise k 5 31 in
+          let mid = noise k 6 37 in
+          let a = age -. (float k *. 0.014) in
+          let reach = clamp01 ((age /. 0.45) -. (Float.abs (mid -. 0.5) *. 0.8)) in
+          if a > 0. && a < 0.9 && reach > 0. then (
+            let u = clamp01 (a /. 0.9) in
+            let dir = if noise k 7 41 > 0.5 then 1. else -1. in
+            let gx = ox +. (width *. mid) +. (dir *. ((8. +. (r *. 42.)) *. u)) in
+            let gy = oy -. (((30. +. (r *. 60.)) *. u) *. (1. -. (0.4 *. u *. u))) in
+            let al = fade *. reach *. (1. -. u) *. (0.35 +. (r *. 0.5)) in
+            if al > 0.01 then circle gx gy (1.2 +. (r *. 2.2)) (rgb 0.7 0.6 0.46 al))
+        done;
         Array.iteri
-          (fun i (p : spot) ->
+          (fun i _ ->
             let hit = 0.06 +. (float i *. 0.07) in
             let c = card i in
-            for k = 0 to 9 do
-              let r = noise i k 11 in
-              let a = age -. (hit +. (float k *. 0.05)) in
-              if a > 0. && a < 1.05 then
-                let span = 0.55 +. (r *. 0.4) in
+            for k = 0 to 8 do
+              let r = noise i k 23 in
+              let a = age -. (hit +. (float k *. 0.07)) in
+              if a > 0. && a < 1.2 then (
+                let span = 0.7 +. (r *. 0.5) in
                 let u = clamp01 (a /. span) in
                 let rise = ease_out u in
-                let py = p.y -. (rise *. (60. +. (r *. 80.))) in
-                (* the plume leans out as it climbs, clearing the card's edges *)
-                let px = c.x +. ((noise i k 13 -. 0.5) *. (12. +. (rise *. 66.))) in
-                let rad = (13. +. (r *. 15.)) *. (0.55 +. (rise *. 1.45)) in
-                let al = fade *. sin (u *. Float.pi) *. (0.16 +. (r *. 0.12)) in
-                if al > 0.004 then (
-                  ellipse px py rad (rad *. 0.8) (rgb 0.44 0.38 0.33 al);
-                  ellipse px (py -. (rad *. 0.25)) (rad *. 0.7) (rad *. 0.5) (rgb 0.62 0.57 0.5 (al *. 0.5)))
+                let hx = c.x +. ((noise i k 29 -. 0.5) *. (24. +. (rise *. 46.))) in
+                let hy = oy -. (rise *. (5. +. (r *. 9.))) in
+                let rx = (14. +. (r *. 16.)) *. (0.5 +. (rise *. 0.8)) in
+                let al = fade *. sin (u *. Float.pi) *. (0.05 +. (r *. 0.05)) in
+                if al > 0.004 then ellipse hx hy rx (rx *. 0.26) (rgb 0.64 0.56 0.45 al))
             done)
           floors))
 
@@ -3845,3 +3859,265 @@ let spawn_roots_smoke ~floors ~start =
                 circle x y (r *. 0.55) (rgb 0.2 0.4 0.12 (al *. 0.3)))
             done)
           floors)
+(* ---------------------------------------------------------------- prism mage *)
+
+(* Prism Mage: the foe's mana in the Called Element is drawn to the mage as a
+   single ray, then split into a fan of rays that strike every foe creature. *)
+let prism_duration = 1.2
+
+let prism_element_color = function
+  | 0 -> (1., 0.46, 0.12)
+  | 1 -> (0.36, 0.72, 1.)
+  | 2 -> (0.8, 0.94, 1.)
+  | _ -> (0.46, 0.82, 0.3)
+
+(* A straight ray from [a], grown [grow] of the way to [b]. *)
+let prism_ray ~a ~b ~grow (r, g, bl) alpha =
+  let x1 = a.x +. ((b.x -. a.x) *. grow) and y1 = a.y +. ((b.y -. a.y) *. grow) in
+  line a.x a.y x1 y1 7. (rgb r g bl (alpha *. 0.16));
+  line a.x a.y x1 y1 2.6 (rgb r g bl (alpha *. 0.5));
+  line a.x a.y x1 y1 1. (rgb 1. 1. 1. (alpha *. 0.95))
+
+let spawn_prism ~from_ ~at ~targets ~called ~start =
+  let duration = prism_duration in
+  let in_dur = 0.3 in
+  let out_start = 0.4 in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.25) in
+      if fade > 0.02 then
+        additive (fun () ->
+            (* the ray arrives from the foe's Called Element label *)
+            let grow_in = clamp01 (age /. in_dur) in
+            if age <= in_dur +. 0.16 then
+              prism_ray ~a:from_ ~b:at ~grow:grow_in (prism_element_color called)
+                (fade *. (1. -. clamp01 ((age -. in_dur) /. 0.16)));
+            (* the mage holds the light before splitting it *)
+            if age >= in_dur -. 0.06 then (
+              let pulse = 0.7 +. (0.3 *. sin (age *. 22.)) in
+              let r, g, bl = prism_element_color called in
+              circle at.x at.y
+                (11. +. (7. *. clamp01 ((age -. in_dur) /. 0.25)))
+                (rgb r g bl (fade *. 0.3 *. pulse));
+              circle at.x at.y 4.5 (rgb 1. 1. 1. (fade *. 0.6)));
+            (* the prism splits it onto every foe creature *)
+            Array.iteri
+              (fun id to_ ->
+                let t0 = out_start +. (float (id mod 6) *. 0.045) in
+                let grow = clamp01 ((age -. t0) /. 0.2) in
+                if grow > 0.02 then (
+                  prism_ray ~a:at ~b:to_ ~grow (prism_element_color called) fade;
+                  if grow > 0.85 then (
+                    let hit = (grow -. 0.85) /. 0.15 in
+                    circle to_.x to_.y (7. +. (hit *. 15.)) (rgb 0.85 0.88 1. (fade *. (1. -. hit) *. 0.5));
+                    circle to_.x to_.y 3.5 (rgb 1. 1. 1. (fade *. (1. -. hit))))))
+              targets))
+
+(* ---------------------------------------------------------------- astral storm *)
+
+(* Astral Storm: the storm card throws a lash of astral energy at the foe. The
+   arc crosses the board and lands on the foe themselves, then the lash wipes
+   sideways through the foe's row -- it runs right over every card standing
+   there -- so the whole row is wiped in one sweep. *)
+let astral_storm_duration = 1.8
+
+let astral_sample path u =
+  let n = Array.length path in
+  if n = 0 then { x = 0.; y = 0. }
+  else
+    let f = clamp01 u *. float (n - 1) in
+    let i = int_of_float (Float.min (float (n - 1)) f) in
+    let frac = f -. float i in
+    let p = path.(i) and q = path.(min (n - 1) (i + 1)) in
+    { x = p.x +. ((q.x -. p.x) *. frac); y = p.y +. ((q.y -. p.y) *. frac) }
+
+(* The throw of the lash. It leaves the card in a bowed arc that crosses the
+   board and lands on the foe, then wipes sideways through the foe's row: the
+   wipe runs level with the cards and crosses every one of them, so it reads as
+   a sweep and not as a touch. *)
+let build_whip ~from_ ~targets ~foe_life =
+  let segs = ref [] in
+  let starts = ref [] in
+  let total = ref 0 in
+  let add seg =
+    segs := !segs @ [ seg ];
+    starts := !starts @ [ !total ];
+    total := !total + List.length seg
+  in
+  let hits = ref [] in
+  (* the arc to the foe, bowed aside so it reads as a throw *)
+  let bow = 24. in
+  let dx = foe_life.x -. from_.x and dy = foe_life.y -. from_.y in
+  let l = Float.max 1. (hypot dx dy) in
+  let d = { x = dx /. l; y = dy /. l } in
+  let n = { x = -.d.y; y = d.x } in
+  let ctrl =
+    { x = ((from_.x +. foe_life.x) /. 2.) +. (n.x *. bow);
+      y = ((from_.y +. foe_life.y) /. 2.) +. (n.y *. bow) }
+  in
+  let arc_n = 14 in
+  add
+    (List.init (arc_n + 1) (fun i ->
+         let u = float i /. float arc_n in
+         let q = 1. -. u in
+         {
+           x = (q *. q *. from_.x) +. (2. *. q *. u *. ctrl.x) +. (u *. u *. foe_life.x);
+           y = (q *. q *. from_.y) +. (2. *. q *. u *. ctrl.y) +. (u *. u *. foe_life.y);
+         }));
+  let arc_seg = List.length !segs - 1 in
+  (* the foe is struck first, where the arc lands *)
+  hits := (List.nth !starts arc_seg + arc_n, foe_life) :: !hits;
+  (* the wipe runs from the foe out across the row, level with the cards *)
+  let ordered = List.sort (fun a b -> compare a.x b.x) (Array.to_list targets) in
+  let row_y = match ordered with c :: _ -> c.y | [] -> foe_life.y in
+  let last_x = match List.rev ordered with c :: _ -> c.x | [] -> foe_life.x +. 90. in
+  let start_x = foe_life.x in
+  let span = Float.max 1. ((last_x +. 70.) -. start_x) in
+  let wipe_n = 42 in
+  let wipe_pt u =
+    let rise = Float.min 1. (u *. 4.) in
+    { x = start_x +. (u *. span); y = foe_life.y +. ((row_y -. foe_life.y) *. rise) }
+  in
+  add (List.init (wipe_n + 1) (fun i -> wipe_pt (float i /. float wipe_n)));
+  let wipe_seg = List.length !segs - 1 in
+  let wipe_start = List.nth !starts wipe_seg in
+  List.iter
+    (fun c ->
+      let u = clamp01 ((c.x -. start_x) /. span) in
+      hits := (wipe_start + int_of_float (u *. float wipe_n), c) :: !hits)
+    ordered;
+  let path = Array.of_list (List.concat !segs) in
+  let last = float (max 1 (Array.length path - 1)) in
+  let hits = List.map (fun (i, c) -> (float i /. last, c)) !hits in
+  (path, hits)
+
+let spawn_astral_storm ~from_ ~targets ~foe_life ~start =
+  let duration = astral_storm_duration in
+  let path, hits = build_whip ~from_ ~targets ~foe_life in
+  let n = Array.length path in
+  let travel = 1.25 in (* seconds for the whole sweep *)
+  let charge_t = 0.22 in (* the card gathers the storm first *)
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.3) in
+      if fade > 0.02 then (
+        (* the card gathers the storm before it lets it go *)
+        let charge = clamp01 (age /. charge_t) in
+        additive (fun () ->
+            circle from_.x from_.y (15. +. (13. *. charge)) (rgb 0.36 0.16 0.82 (fade *. charge *. 0.09));
+            circle from_.x from_.y (7. +. (5. *. charge)) (rgb 0.56 0.36 1. (fade *. charge *. 0.2));
+            circle from_.x from_.y 3. (rgb 0.92 0.86 1. (fade *. charge *. 0.55));
+            for k = 0 to 5 do
+              let ang = (age *. 5.) +. (float k *. 1.047) in
+              let r = 13. +. (6. *. sin ((age *. 6.) +. float k)) in
+              circle
+                (from_.x +. (cos ang *. r))
+                (from_.y +. (sin ang *. r))
+                1.8
+                (rgb 0.8 0.7 1. (fade *. charge *. 0.5))
+            done);
+        let p = clamp01 ((age -. charge_t) /. travel) in
+        (* the head accelerates: the lash creeps out and then whips *)
+        let u = p *. p in
+        let drawn = int_of_float (Float.min (float (n - 1)) (u *. float (n - 1))) in
+        additive (fun () ->
+            (* the lash itself: a thin white core in a violet strand *)
+            for i = 0 to drawn - 1 do
+              let s = path.(i) and t = path.(i + 1) in
+              let k = float i /. float (max 1 (n - 2)) in
+              line s.x s.y t.x t.y (2.2 +. (1.6 *. k)) (rgb 0.6 0.4 1. (fade *. 0.5));
+              line s.x s.y t.x t.y (0.9 +. (0.9 *. k)) (rgb 0.96 0.93 1. (fade *. 0.95))
+            done;
+            (* the head of the lash, and the tail it drags *)
+            let h = astral_sample path u in
+            for s = 1 to 6 do
+              let q = astral_sample path (clamp01 (u -. (float s *. 0.02))) in
+              circle
+                q.x q.y
+                (4.6 -. (float s *. 0.55))
+                (rgb 0.72 0.55 1. (fade *. (0.4 -. (float s *. 0.055))))
+            done;
+            circle h.x h.y 5.5 (rgb 0.5 0.28 1. (fade *. 0.5));
+            circle h.x h.y 2.4 (rgb 0.95 0.9 1. (fade *. 0.95));
+            (* the lash runs over a card and it cracks *)
+            List.iter
+              (fun (f, c) ->
+                let ta = charge_t +. (sqrt f *. travel) in
+                if age >= ta then (
+                  let hit = clamp01 ((age -. ta) /. 0.32) in
+                  let r = 10. in
+                  circle c.x c.y (r +. (30. *. hit)) (rgb 0.5 0.28 1. (fade *. (1. -. hit) *. 0.42));
+                  circle c.x c.y (r *. 0.4) (rgb 0.95 0.9 1. (fade *. (1. -. hit)));
+                  for k = 0 to 7 do
+                    let ang = (float k *. 0.785) +. ((noise k 3 9 -. 0.5) *. 0.9) in
+                    let l0 = r *. 0.5 in
+                    let l1 = l0 +. (16. *. hit) +. (noise k 5 4 *. 9.) in
+                    line
+                      (c.x +. (cos ang *. l0))
+                      (c.y +. (sin ang *. l0))
+                      (c.x +. (cos ang *. l1))
+                      (c.y +. (sin ang *. l1))
+                      1.6
+                      (rgb 0.9 0.85 1. (fade *. (1. -. hit) *. 0.8))
+                  done))
+              hits)))
+
+(* ------------------------------------------------------------ contextual mana *)
+
+(* A creature that moves the mana of some houses but not all draws an arc from
+   itself to each house it touches: a light green arc for a bonus, a dark red
+   one for a malus. Non-blocking, so a repeating effect never holds the turn. *)
+let mana_arc_duration = 0.7
+
+let draw_mana_arc ~from_ ~to_ ~bonus ~i ~age =
+  let duration = mana_arc_duration in
+  let t = age -. (float i *. 0.04) in
+  if t >= 0. && t < duration then (
+    let fade = Float.min 1. ((duration -. t) /. 0.25) in
+    let grow = clamp01 (t /. 0.2) in
+    let bow = (if i mod 2 = 0 then 1. else -1.) *. (22. +. (float (i / 2) *. 10.)) in
+    let dx = to_.x -. from_.x and dy = to_.y -. from_.y in
+    let l = Float.max 1. (hypot dx dy) in
+    let nx = -.dy /. l and ny = dx /. l in
+    let ctrl =
+      { x = ((from_.x +. to_.x) /. 2.) +. (nx *. bow); y = ((from_.y +. to_.y) /. 2.) +. (ny *. bow) }
+    in
+    (* a soft shimmer travelling along the arc, so it reads as a tether between
+       planes rather than a solid damage beam *)
+    let warp u = sin ((u *. 3.5) +. (t *. 2.2)) *. 3. *. sin (u *. Float.pi) in
+    let point u =
+      let q = 1. -. u in
+      let x = (q *. q *. from_.x) +. (2. *. q *. u *. ctrl.x) +. (u *. u *. to_.x) in
+      let y = (q *. q *. from_.y) +. (2. *. q *. u *. ctrl.y) +. (u *. u *. to_.y) in
+      let w = warp u in
+      { x = x +. (nx *. w); y = y +. (ny *. w) }
+    in
+    let n = 18 in
+    let pts = List.init (n + 1) (fun k -> point (float k /. float n *. grow)) in
+    let r, g, bl = if bonus then (0.42, 0.82, 0.46) else (0.62, 0.12, 0.12) in
+    additive (fun () ->
+        (* a translucent body with no hard core *)
+        let rec segs = function
+          | a :: (b :: _ as rest) ->
+              line a.x a.y b.x b.y 2.4 (rgb r g bl (fade *. 0.1));
+              line a.x a.y b.x b.y 0.9 (rgb r g bl (fade *. 0.42));
+              segs rest
+          | _ -> ()
+        in
+        segs pts;
+        (* motes drifting along the tether *)
+        for k = 0 to 6 do
+          let u = mod_float ((float k /. 7.) +. (t *. 0.5)) 1. in
+          if u <= grow then (
+            let p = point u in
+            let tw = 0.5 +. (0.5 *. sin ((t *. 5.) +. (float k *. 1.9))) in
+            circle p.x p.y (1. +. (0.5 *. tw)) (rgb r g bl (fade *. 0.45 *. tw)))
+        done;
+        if grow > 0.9 then (
+          let hit = (grow -. 0.9) /. 0.1 in
+          circle to_.x to_.y (3. +. (4. *. hit)) (rgb r g bl (fade *. (1. -. hit) *. 0.35));
+          circle to_.x to_.y 1.3 (rgb r g bl (fade *. (1. -. hit) *. 0.6)))))
+
+(* Drawn in the underlay, so the tether sits behind the slot wells and the
+   creature cards: it reads as reaching in from another plane. *)
+let spawn_mana_arcs ~from_ ~links ~start =
+  mk ~under:true ~start ~duration:mana_arc_duration (fun ~age ->
+      List.iteri (fun i (to_, bonus) -> draw_mana_arc ~from_ ~to_ ~bonus ~i ~age) links)

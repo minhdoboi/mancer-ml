@@ -337,6 +337,21 @@ let clairvoyant_swaps () =
   check_int "earth" 9 (mana u 1 3);
   check_int "special" 9 (mana u 1 4)
 
+let clairvoyant_sends_mana_arcs () =
+  let u = new_game ~mana:ten ~special:Meteomancer.house () in
+  let events = ref [] in
+  Updater.listen u (fun e -> events := e :: !events);
+  play u 0 "meteomancer.clairvoyant" ~input:(Some 0) ~cost:3 ~flag:(Some (Called_element 0));
+  let arcs =
+    List.filter_map
+      (function
+        | Ev_mana { player; num; target; deltas } -> Some (player, num, target, List.sort compare deltas)
+        | _ -> None)
+      !events
+  in
+  check_bool "bonus arc" true (List.mem (0, 0, 1, [ (0, 3) ]) arcs);
+  check_bool "malus arcs" true (List.mem (0, 0, 1, [ (1, -1); (2, -1); (3, -1); (4, -1) ]) arcs)
+
 let extremophile_ignores_then_spawns () =
   let u = new_game ~mana:ten ~special:Meteomancer.house () in
   play u 0 "meteomancer.extremophile" ~input:(Some 2) ~cost:2 ~flag:(Some (Called_element 0));
@@ -566,6 +581,7 @@ let () =
           Alcotest.test_case "attune" `Quick meteo_attunes;
           Alcotest.test_case "mistwalker hide" `Quick mistwalker_hides;
           Alcotest.test_case "clairvoyant" `Quick clairvoyant_swaps;
+          Alcotest.test_case "clairvoyant arcs" `Quick clairvoyant_sends_mana_arcs;
           Alcotest.test_case "extremophile" `Quick extremophile_ignores_then_spawns;
           Alcotest.test_case "thief" `Quick thief_thunder;
           Alcotest.test_case "grenadier" `Quick grenadier_halves_called;

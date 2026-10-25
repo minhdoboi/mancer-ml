@@ -230,20 +230,26 @@ let power_listener () =
       (fun p ->
         player := Some p;
         let op = other_player p in
-        (* Power Hunter: reward actual damage dealt, post-mitigation *)
+        (* Power Hunter: reward actual damage dealt, post-mitigation. The mana
+           is attributed to the hunter so the UI can draw its arcs. *)
+        let hunter_mana target amount idxs =
+          match !hunter_ref with
+          | Some c -> Option.iter (fun hs -> incr_mana_from hs target amount idxs) (Slots.find_card p.slots_update c)
+          | None -> ()
+        in
         Array.iter
           (fun (slot : slot_update) ->
             let old = slot.on_damage_hook in
             slot.on_damage_hook <-
               (fun st d ->
                 old st d;
-                if hunter_dealt p d then Houses.incr_mana p.houses_update 1 [ 4 ]))
+                if hunter_dealt p d then hunter_mana p 1 [ 4 ]))
           op.slots_update.slot_updates;
         let old_damage = op.on_player_damage_hook in
         op.on_player_damage_hook <-
           (fun d ->
             old_damage d;
-            if hunter_dealt p d then Houses.incr_mana op.houses_update (-1) [ Dice.int p.updater.rng 5 ]);
+            if hunter_dealt p d then hunter_mana op (-1) [ Dice.int p.updater.rng 5 ]);
         let old_submit = p.submit_command_hook in
         p.submit_command_hook <-
           (fun c ->

@@ -31,5 +31,4 @@ bisect*.coverage
 .DS_Store
 tui-games/
 gui-games/
-tmp/
-tmp_art/
+.tmp/

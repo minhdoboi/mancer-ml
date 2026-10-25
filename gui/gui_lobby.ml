@@ -114,6 +114,7 @@ type game_settings = {
   mutable class_grab_y : float option;
   mutable class_grab_scroll : float;
   mutable class_panning : bool;
+  campaign_class_select : select_state;
 }
 
 type lobby_ui = {
@@ -121,13 +122,13 @@ type lobby_ui = {
   gs : game_settings;
   mutable menu : int;
   mutable show_duel : bool;
+  mutable duel_tab : int;
   mutable show_settings : bool;
   mutable show_campaign_intro : bool;
   mutable show_campaign : bool;
   mutable want_quit : bool;
   mutable message : string;
   class_select : select_state;
-  mode_select : select_state;
   mutable update : Update.outcome option;
   mutable update_job : Update.job option;
   mutable show_update : bool;
@@ -155,6 +156,7 @@ let game_settings_from_prefs () =
     class_grab_y = None;
     class_grab_scroll = 0.;
     class_panning = false;
+    campaign_class_select = select_state ();
   }
 
 let duel_from_prefs () =
@@ -167,13 +169,13 @@ let new_lobby () =
     gs = game_settings_from_prefs ();
     menu = 1;
     show_duel = false;
+    duel_tab = 0;
     show_settings = false;
     show_campaign_intro = false;
     show_campaign = false;
     want_quit = false;
     message = "";
     class_select = select_state ();
-    mode_select = select_state ();
     update = None;
     update_job = None;
     show_update = false;
@@ -232,7 +234,9 @@ let draw_lobby lobby =
       on_click r (fun () ->
           lobby.menu <- i;
           if key = "campaign" then open_campaign lobby
-          else if key = "duel" then lobby.show_duel <- true
+          else if key = "duel" then (
+            lobby.duel_tab <- 0;
+            lobby.show_duel <- true)
           else if key = "settings" then (
             lobby.show_settings <- true;
             lobby.gs.tab <- 0)))
@@ -318,79 +322,48 @@ let lobby_keys lobby =
   if R.is_key_pressed R.Key.Enter then
     match lobby.menu with
     | 0 -> open_campaign lobby
-    | 1 -> lobby.show_duel <- true
+    | 1 ->
+        lobby.duel_tab <- 0;
+        lobby.show_duel <- true
     | _ ->
         lobby.show_settings <- true;
         lobby.gs.tab <- 0
 
-(* Duel setup (Scala DuelDialog): portraits pick the faces, and an AI
-   portrait brings its bot along. Dev mode can put a bot in seat one. *)
-let draw_duel lobby ~fight =
-  click_full (fun () -> close_dialog "duel" (fun () -> lobby.show_duel <- false));
-  let debug = debug_mode () in
-  let box = rect 106. 150. 620. (if debug then 440. else 400.) in
-  paper box;
-  on_click box (fun () -> ());
-  text_c ~font:paper_font ~size:26. ~color:ink box (box.y +. 16.) (Assets.text "button.duel");
-  let s0, s1 = lobby.duel.sides in
-  if (not debug) && match s0.seat with Table.Bot _ -> true | Table.Human -> false then (
-    s0.seat <- Table.Human;
-    s0.portrait <- clamp_portrait Table.Human s0.portrait);
-  (match s1.portrait with
-  | id when List.mem id ai_portrait_ids -> set_ai_side s1 id
-  | _ -> set_ai_side s1 (List.hd ai_portrait_ids));
-  let col_w = 280. in
-  let side ~x ~label ~(sd : duel_side) ~you =
-    text_c ~font:paper_font ~size:22. ~color:ink (rect x (box.y +. 52.) col_w 0.) (box.y +. 52.) label;
-    let y = ref (box.y +. 82.) in
-    if you && debug then (
-      let hw = paper_btn_w ~size:16. "Human" and bw = paper_btn_w ~size:16. "Bot" in
-      let gap = 6. in
-      let x0 = x +. ((col_w -. hw -. gap -. bw) /. 2.) in
-      pbutton ~selected:(sd.seat = Table.Human) ~size:16. (rect x0 !y hw 26.) "Human" (fun () ->
-          sd.seat <- Table.Human;
-          sd.portrait <- clamp_portrait Table.Human sd.portrait);
-      pbutton
-        ~selected:(match sd.seat with Table.Bot _ -> true | Table.Human -> false)
-        ~size:16.
-        (rect (x0 +. hw +. gap) !y bw 26.)
-        "Bot"
-        (fun () ->
-          let id = if List.mem sd.portrait ai_portrait_ids then sd.portrait else List.hd ai_portrait_ids in
-          set_ai_side sd id);
-      y := !y +. 32.);
-    let ids, sub, on_pick =
-      match sd.seat with
-      | Table.Human -> (Table.player_portraits, "", fun v -> sd.portrait <- v)
-      | Table.Bot _ -> (ai_portrait_ids, ai_label sd.portrait, set_ai_side sd)
-    in
-    draw_portrait_chooser ~x ~y:!y ~size:120. ~col_w ~sub ~name_size:18. ~sub_size:16. sd.portrait ids on_pick;
-    match sd.seat with
-    | Table.Bot _ when debug ->
-        let size = 14. in
-        List.iteri
-          (fun i l ->
-            text_c ~font:paper_font ~size ~color:ink_soft (rect x 0. col_w 0.)
-              (!y +. 120. +. 56. +. (float i *. (size +. 3.)))
-              l)
-          (wrap ~font:paper_font size col_w (ai_description sd.portrait))
-    | Table.Bot _ | Table.Human -> ()
-  in
-  side ~x:126. ~label:(Assets.text "lobby.you") ~sd:s0 ~you:true;
-  side ~x:426. ~label:(Assets.text "lobby.opponent") ~sd:s1 ~you:false;
-  paper_btn_row ~size:20. ~h:30.
-    ~cx:(box.x +. (box.w /. 2.))
-    ~y:(box.y +. box.h -. 48.)
-    [
-      (Assets.text "button.fight", fight);
-      (Assets.text "button.cancel", fun () -> close_dialog "duel" (fun () -> lobby.show_duel <- false));
-    ]
+(* Every ported special house, by display name. *)
+let all_specials () = List.map (fun (h : house) -> h.h_name) (Table.special_houses ())
 
-(* Game settings (the classes/game/sound/language tabs of the Scala Settings
-   dialog). The game tab holds the bot budget and seed from the old setup
-   screen. House choices are parchment checkboxes, like Scala. *)
-let settings_box = rect 76. 104. 680. 560.
-let gs_seed_field = rect 200. 372. 200. 34.
+let house_label (h : house) = if Assets.has_key h.h_key then Assets.text h.h_key else cap h.h_name
+
+(* What a side plays, for the character tab of the duel dialog: every ported
+   house when the set is empty or complete, otherwise the first three names
+   with an "and more" tail. *)
+let classes_summary names =
+  let houses =
+    List.filter_map (fun n -> try Some (Catalog.find_special n) with Failure _ -> None) names
+  in
+  let every = all_specials () in
+  let chosen n = List.exists (fun m -> Catalog.token m = Catalog.token n) names in
+  if names = [] || (every <> [] && List.for_all chosen every) then "all"
+  else
+    match List.map house_label houses with
+    | [] -> "all"
+    | labels ->
+        let head = List.filteri (fun i _ -> i < 3) labels in
+        let s = String.concat ", " head in
+        if List.length labels > List.length head then s ^ " and more" else s
+
+(* The campaign class and deal: every ported special house by display name,
+   and the two modes. The class is the house the player keeps for the whole
+   campaign; the mode is which basic houses it deals. *)
+let campaign_classes () =
+  Catalog.specials
+  |> List.map (fun (h : house) -> (h.h_key, house_label h))
+  |> List.sort (fun (_, a) (_, b) -> String.compare a b)
+
+(* The campaign difficulty: how long the bot thinks each move in a campaign
+   fight. Independent of the duel bot time. *)
+let campaign_difficulties () =
+  [ ("easy", "Easy"); ("normal", "Normal"); ("hard", "Hard") ]
 
 (* Toggle one house in a side's checked set, like the Scala checkboxes. *)
 let set_side gs which set =
@@ -422,26 +395,30 @@ let toggle_group gs which houses =
   in
   set_side gs which next
 
-let all_specials () = List.map (fun (h : house) -> h.h_name) (Table.special_houses ())
-
-(* Classes tab: two player columns, two house checkboxes per row, like Scala. *)
+(* Classes tab: two player columns, two house checkboxes per row, like Scala.
+   The Settings dialog and the duel dialog share the renderer, so the frame it
+   draws into is a parameter. *)
 let class_cols = 2
-let class_x0 = 100.
-let class_col_w = 304.
 let class_gap = 8.
-let class_item_w = (class_col_w -. class_gap) /. float class_cols
 let class_row_h = 26.
 let class_head_h = 32.
 let class_sep = 10.
-let class_x1 = class_x0 +. class_col_w +. 12.
-let class_y0 = 214.
-let class_y1 = 608.
-let class_bar = rect (class_x1 +. class_col_w +. 4.) class_y0 12. (class_y1 -. class_y0)
 
-let class_wheel =
-  rect class_x0 (class_y0 -. 18.) (class_x1 -. class_x0 +. class_col_w +. 20.) (class_y1 -. class_y0 +. 18.)
+type class_layout = { cl_x0 : float; cl_col_w : float; cl_y0 : float; cl_y1 : float }
 
-let class_view = rect class_x0 class_y0 (class_x1 -. class_x0 +. class_col_w) (class_y1 -. class_y0)
+let class_item_w cl = (cl.cl_col_w -. class_gap) /. float class_cols
+let class_x1 cl = cl.cl_x0 +. cl.cl_col_w +. 12.
+
+let class_view cl =
+  rect cl.cl_x0 cl.cl_y0 (class_x1 cl -. cl.cl_x0 +. cl.cl_col_w) (cl.cl_y1 -. cl.cl_y0)
+
+let class_bar cl = rect (class_x1 cl +. cl.cl_col_w +. 4.) cl.cl_y0 12. (cl.cl_y1 -. cl.cl_y0)
+
+let class_wheel cl =
+  rect cl.cl_x0 (cl.cl_y0 -. 18.)
+    (class_x1 cl -. cl.cl_x0 +. cl.cl_col_w +. 20.)
+    (cl.cl_y1 -. cl.cl_y0 +. 18.)
+
 let class_rows n = (n + class_cols - 1) / class_cols
 
 let class_content_h () =
@@ -453,19 +430,20 @@ let class_content_h () =
   in
   Float.max 0. (raw -. class_sep)
 
-let class_maxscroll () = Float.max 0. (class_content_h () -. (class_y1 -. class_y0))
+let class_maxscroll cl = Float.max 0. (class_content_h () -. (cl.cl_y1 -. cl.cl_y0))
 
-let class_scroll_by gs w =
-  gs.class_scroll <- Float.min (class_maxscroll ()) (Float.max 0. (gs.class_scroll -. (w *. 48.)))
+let class_scroll_by cl gs w =
+  gs.class_scroll <- Float.min (class_maxscroll cl) (Float.max 0. (gs.class_scroll -. (w *. 48.)))
 
-let class_clamp gs = gs.class_scroll <- Float.min (class_maxscroll ()) (Float.max 0. gs.class_scroll)
+let class_clamp cl gs = gs.class_scroll <- Float.min (class_maxscroll cl) (Float.max 0. gs.class_scroll)
 
 (* Drag the list itself to scroll. A press that moves past [slop] is a pan,
    so the checkbox under the pointer waits for mouse-up and stays put. *)
 let class_pan_slop = 5.
 
-let handle_class_pan gs =
-  let max = class_maxscroll () in
+let handle_class_pan cl gs =
+  let view = class_view cl in
+  let max = class_maxscroll cl in
   let down = R.is_mouse_button_down R.MouseButton.Left in
   let released = R.is_mouse_button_released R.MouseButton.Left in
   let _, my = mouse () in
@@ -474,7 +452,7 @@ let handle_class_pan gs =
      gs.class_panning <- false)
    else if max > 0. && not gs.class_drag then
      match gs.class_grab_y with
-     | None when down && inside class_view ->
+     | None when down && inside view ->
          gs.class_grab_y <- Some my;
          gs.class_grab_scroll <- gs.class_scroll;
          gs.class_panning <- false
@@ -485,40 +463,176 @@ let handle_class_pan gs =
            gs.class_scroll <- Float.min max (Float.max 0. (gs.class_grab_scroll -. dy));
            hovering := true)
      | None -> ());
-  if inside class_view then hovering := true
+  if inside view then hovering := true
 
-let draw_class_col gs which x0 =
+let draw_class_col cl gs which =
+  let view = class_view cl in
+  let x0 = if which = 0 then cl.cl_x0 else class_x1 cl in
+  let item_w = class_item_w cl in
   let set = if which = 0 then fst gs.specials else snd gs.specials in
   let sel h = List.exists (fun n -> Catalog.token n = Catalog.token h.h_name) set in
-  let y = ref (class_y0 -. gs.class_scroll) in
-  let seen (r : rect) = r.y +. r.h > class_y0 && r.y < class_y1 in
+  let y = ref (cl.cl_y0 -. gs.class_scroll) in
+  let seen (r : rect) = r.y +. r.h > cl.cl_y0 && r.y < cl.cl_y1 in
   List.iter
     (fun (author, houses) ->
-      let hr = rect x0 !y class_col_w class_head_h in
+      let hr = rect x0 !y cl.cl_col_w class_head_h in
       if seen hr then
-        checkbox ~size:22. ~box_s:16. ~release:true ~armed:(not gs.class_panning) ~clip:class_view
-          ~checked:(List.for_all sel houses) ~x:x0 ~y:!y ~max_w:class_col_w author (fun () ->
+        checkbox ~size:22. ~box_s:16. ~release:true ~armed:(not gs.class_panning) ~clip:view
+          ~checked:(List.for_all sel houses) ~x:x0 ~y:!y ~max_w:cl.cl_col_w author (fun () ->
             toggle_group gs which houses);
       y := !y +. class_head_h;
       List.iteri
         (fun k (h : house) ->
           let r =
             rect
-              (x0 +. (float (k mod class_cols) *. (class_item_w +. class_gap)))
+              (x0 +. (float (k mod class_cols) *. (item_w +. class_gap)))
               (!y +. (float (k / class_cols) *. class_row_h))
-              class_item_w class_row_h
+              item_w class_row_h
           in
           if seen r then
-            checkbox ~size:15. ~box_s:14. ~release:true ~armed:(not gs.class_panning) ~clip:class_view
+            checkbox ~size:15. ~box_s:14. ~release:true ~armed:(not gs.class_panning) ~clip:view
               ~checked:(sel h) ~x:r.x ~y:r.y ~max_w:r.w
               (if Assets.has_key h.h_key then Assets.text h.h_key else cap h.h_name)
               (fun () -> toggle_special gs which h.h_name))
         houses;
       y := !y +. (float (class_rows (List.length houses)) *. class_row_h);
-      let sr = rect x0 (!y +. 3.) class_col_w 1. in
+      let sr = rect x0 (!y +. 3.) cl.cl_col_w 1. in
       if seen sr then fill sr (rgba 140 107 41 140);
       y := !y +. class_sep)
     Table.house_groups
+
+(* A whole class panel: both side headers, the scrolling checkbox lists and
+   their scrollbar. *)
+let draw_class_panel ~box cl gs =
+  let side_head x0 which =
+    let aw = paper_btn_w ~size:16. "all" in
+    pbutton ~size:16.
+      (rect x0 (box.y +. 82.) aw 26.)
+      "all"
+      (fun () -> set_side gs which (all_specials ()));
+    pbutton ~size:16.
+      (rect (x0 +. aw +. 6.) (box.y +. 82.) (paper_btn_w ~size:16. "clear") 26.)
+      "clear"
+      (fun () -> set_side gs which [])
+  in
+  side_head cl.cl_x0 0;
+  side_head (class_x1 cl) 1;
+  handle_class_pan cl gs;
+  let view = class_view cl in
+  begin_clip view;
+  draw_class_col cl gs 0;
+  draw_class_col cl gs 1;
+  end_clip ();
+  let bar = class_bar cl in
+  let max = class_maxscroll cl in
+  if max > 0. then (
+    fill bar (rgba 140 107 41 90);
+    let th = Float.max 24. (view.h *. view.h /. class_content_h ()) in
+    let ty = view.y +. (gs.class_scroll /. max *. (view.h -. th)) in
+    let thumb = rect bar.x ty bar.w th in
+    fill ~round:0.06 thumb (rgba 122 90 40 255);
+    if inside bar then hovering := true;
+    if gs.class_panning then gs.class_drag <- false
+    else if R.is_mouse_button_down R.MouseButton.Left then (
+      if gs.class_drag || inside bar then (
+        gs.class_drag <- true;
+        gs.class_grab_y <- None;
+        hovering := true;
+        let _, my = mouse () in
+        let span = Float.max 1. (view.h -. th) in
+        let f = (my -. view.y -. (th /. 2.)) /. span in
+        gs.class_scroll <- Float.min max (Float.max 0. (f *. max))))
+    else gs.class_drag <- false)
+  else (
+    gs.class_drag <- false;
+    class_clamp cl gs)
+
+let settings_class_layout = { cl_x0 = 100.; cl_col_w = 304.; cl_y0 = 214.; cl_y1 = 608. }
+let duel_class_layout = { cl_x0 = 126.; cl_col_w = 280.; cl_y0 = 264.; cl_y1 = 494. }
+
+(* Duel setup (Scala DuelDialog): portraits pick the faces, and an AI
+   portrait brings its bot along. Dev mode can put a bot in seat one. *)
+let draw_duel lobby ~fight =
+  click_full (fun () -> close_dialog "duel" (fun () -> lobby.show_duel <- false));
+  let debug = debug_mode () in
+  let box = rect 106. 150. 620. (if debug then 440. else 400.) in
+  paper box;
+  on_click box (fun () -> ());
+  text_c ~font:paper_font ~size:26. ~color:ink box (box.y +. 16.) (Assets.text "button.duel");
+  ptabs ~x:(box.x +. 24.) ~y:(box.y +. 44.) ~w:(box.w -. 48.) ~selected:lobby.duel_tab
+    [ "lobby.players"; "settings.duelclasses" ]
+    (fun k -> lobby.duel_tab <- k);
+  let s0, s1 = lobby.duel.sides in
+  if (not debug) && match s0.seat with Table.Bot _ -> true | Table.Human -> false then (
+    s0.seat <- Table.Human;
+    s0.portrait <- clamp_portrait Table.Human s0.portrait);
+  (match s1.portrait with
+  | id when List.mem id ai_portrait_ids -> set_ai_side s1 id
+  | _ -> set_ai_side s1 (List.hd ai_portrait_ids));
+  let col_w = 280. in
+  let side ~x ~label ~(sd : duel_side) ~you ~names =
+    text_c ~font:paper_font ~size:22. ~color:ink (rect x (box.y +. 82.) col_w 0.) (box.y +. 82.) label;
+    let y = ref (box.y +. 112.) in
+    if you && debug then (
+      let hw = paper_btn_w ~size:16. "Human" and bw = paper_btn_w ~size:16. "Bot" in
+      let gap = 6. in
+      let x0 = x +. ((col_w -. hw -. gap -. bw) /. 2.) in
+      pbutton ~selected:(sd.seat = Table.Human) ~size:16. (rect x0 !y hw 26.) "Human" (fun () ->
+          sd.seat <- Table.Human;
+          sd.portrait <- clamp_portrait Table.Human sd.portrait);
+      pbutton
+        ~selected:(match sd.seat with Table.Bot _ -> true | Table.Human -> false)
+        ~size:16.
+        (rect (x0 +. hw +. gap) !y bw 26.)
+        "Bot"
+        (fun () ->
+          let id = if List.mem sd.portrait ai_portrait_ids then sd.portrait else List.hd ai_portrait_ids in
+          set_ai_side sd id);
+      y := !y +. 32.);
+    let ids, sub, on_pick =
+      match sd.seat with
+      | Table.Human -> (Table.player_portraits, "", fun v -> sd.portrait <- v)
+      | Table.Bot _ -> (ai_portrait_ids, ai_label sd.portrait, set_ai_side sd)
+    in
+    draw_portrait_chooser ~x ~y:!y ~size:120. ~col_w ~sub ~name_size:18. ~sub_size:16. sd.portrait ids on_pick;
+    (* The side's classes, right under the portrait name. *)
+    let below = !y +. 120. +. 8. +. 18. +. (if sub = "" then 0. else 4. +. 16.) +. 4. in
+    let lines = wrap ~font:paper_font 15. col_w (classes_summary names) in
+    List.iteri
+      (fun i l ->
+        text_c ~font:paper_font ~size:15. ~color:ink_soft (rect x 0. col_w 0.)
+          (below +. (float i *. 18.)) l)
+      lines;
+    match sd.seat with
+    | Table.Bot _ when debug ->
+        let size = 14. in
+        let dy = below +. (float (List.length lines) *. 18.) +. 6. in
+        List.iteri
+          (fun i l ->
+            text_c ~font:paper_font ~size ~color:ink_soft (rect x 0. col_w 0.)
+              (dy +. (float i *. (size +. 3.))) l)
+          (wrap ~font:paper_font size col_w (ai_description sd.portrait))
+    | Table.Bot _ | Table.Human -> ()
+  in
+  (if lobby.duel_tab = 0 then (
+     side ~x:126. ~label:(Assets.text "lobby.you") ~sd:s0 ~you:true ~names:(fst lobby.gs.specials);
+     side ~x:426. ~label:(Assets.text "lobby.opponent") ~sd:s1 ~you:false
+       ~names:(snd lobby.gs.specials))
+   else (* The same editable class grid as the Options duel-classes tab. *)
+     draw_class_panel ~box duel_class_layout lobby.gs);
+  paper_btn_row ~size:20. ~h:30.
+    ~cx:(box.x +. (box.w /. 2.))
+    ~y:(box.y +. box.h -. 48.)
+    [
+      (Assets.text "button.fight", fight);
+      (Assets.text "button.cancel", fun () -> close_dialog "duel" (fun () -> lobby.show_duel <- false));
+    ]
+
+(* Game settings (the classes/game/sound/language tabs of the Scala Settings
+   dialog). The game tab holds the bot budget and seed from the old setup
+   screen. House choices are parchment checkboxes, like Scala. *)
+let settings_box = rect 76. 104. 680. 560.
+let gs_seed_field = rect 200. 372. 200. 34.
 
 let set_budget gs ms on_budget =
   gs.budget_ms <- ms;
@@ -545,50 +659,10 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
   on_click box (fun () -> ());
   text_c ~font:paper_font ~size:26. ~color:ink box (box.y +. 14.) (Assets.text "settings.title");
   ptabs ~x:(box.x +. 24.) ~y:(box.y +. 46.) ~w:(box.w -. 48.) ~selected:gs.tab
-    [ "settings.duelclasses"; "Game"; "settings.sound"; "settings.lang" ] (fun k -> gs.tab <- k);
+    [ "settings.duelclasses"; "Game"; "campaign.title"; "settings.sound"; "settings.lang" ]
+    (fun k -> gs.tab <- k);
   (match gs.tab with
-  | 0 ->
-      let side_head x0 which =
-        let aw = paper_btn_w ~size:16. "all" in
-        pbutton ~size:16.
-          (rect x0 (box.y +. 82.) aw 26.)
-          "all"
-          (fun () -> set_side gs which (all_specials ()));
-        pbutton ~size:16.
-          (rect (x0 +. aw +. 6.) (box.y +. 82.) (paper_btn_w ~size:16. "clear") 26.)
-          "clear"
-          (fun () -> set_side gs which [])
-      in
-      side_head class_x0 0;
-      side_head class_x1 1;
-      handle_class_pan gs;
-      begin_clip class_view;
-      draw_class_col gs 0 class_x0;
-      draw_class_col gs 1 class_x1;
-      end_clip ();
-      let max = class_maxscroll () in
-      if max > 0. then (
-        fill class_bar (rgba 140 107 41 90);
-        let view_h = class_y1 -. class_y0 in
-        let th = Float.max 24. (view_h *. view_h /. class_content_h ()) in
-        let ty = class_y0 +. (gs.class_scroll /. max *. (view_h -. th)) in
-        let thumb = rect class_bar.x ty class_bar.w th in
-        fill ~round:0.06 thumb (rgba 122 90 40 255);
-        if inside class_bar then hovering := true;
-        if gs.class_panning then gs.class_drag <- false
-        else if R.is_mouse_button_down R.MouseButton.Left then (
-          if gs.class_drag || inside class_bar then (
-            gs.class_drag <- true;
-            gs.class_grab_y <- None;
-            hovering := true;
-            let _, my = mouse () in
-            let span = Float.max 1. (view_h -. th) in
-            let f = (my -. class_y0 -. (th /. 2.)) /. span in
-            gs.class_scroll <- Float.min max (Float.max 0. (f *. max))))
-        else gs.class_drag <- false)
-      else (
-        gs.class_drag <- false;
-        class_clamp gs)
+  | 0 -> draw_class_panel ~box settings_class_layout gs
   | 1 ->
       text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 96.) "Mode";
       let mx = ref (box.x +. 24.) in
@@ -601,7 +675,7 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
             (fun () -> set_mode gs m);
           mx := !mx +. w +. 6.)
         [ (Catalog.Standard, "Standard"); (Catalog.Classic, "Classic") ];
-      text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 174.) "Bot time per move";
+      text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 174.) "Duel bot time per move";
       let bx = ref (box.x +. 24.) in
       List.iter
         (fun ms ->
@@ -635,6 +709,37 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
           gs.debug <- not gs.debug;
           try Prefs.set_debug_mode (Prefs.load ()) gs.debug with _ -> ())
   | 2 ->
+      (* The campaign class and difficulty. Both used to sit on the campaign
+         map; the map's Settings button opens this tab. The campaign deal comes
+         from the Game tab's mode. *)
+      let prefs = Prefs.load () in
+      let row y tag state items selected on_pick =
+        let tag_w = text_w 18. tag in
+        text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (y +. 4.) tag;
+        pselect ~size:16. ~width:280. ~state ~x:(box.x +. 24. +. tag_w +. 16.) ~y ~items ~selected
+          ~on_pick
+      in
+      (* The difficulty is pills, like the bot time on the Game tab. *)
+      let pills y tag items selected on_pick =
+        let tag_w = text_w 18. tag in
+        text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (y +. 4.) tag;
+        let bx = ref (box.x +. 24. +. tag_w +. 16.) in
+        List.iter
+          (fun (v, label) ->
+            let w = paper_btn_w ~size:16. label in
+            pbutton ~selected:(v = selected) ~size:16. (rect !bx y w 28.) label (fun () -> on_pick v);
+            bx := !bx +. w +. 6.)
+          items
+      in
+      (* The pills are drawn before the class select: its open list has to
+         cover them, so the selector goes last. *)
+      pills (box.y +. 162.) "Difficulty" (campaign_difficulties ())
+        (Prefs.campaign_difficulty prefs)
+        (fun d -> Prefs.set_campaign_difficulty (Prefs.load ()) d);
+      row (box.y +. 120.) (Assets.text "campaign.class") gs.campaign_class_select
+        (campaign_classes ()) (Table.campaign_class_of (Prefs.campaign_class prefs))
+        (fun key -> Prefs.set_campaign_class (Prefs.load ()) key)
+  | 3 ->
       text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 220.)
         (Assets.text "sound.level");
       let minus_w = paper_btn_w ~size:18. "-" in

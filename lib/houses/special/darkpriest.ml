@@ -76,7 +76,7 @@ let evampire : card_effect =
   let houses =
     Slot.filled_adjacent (own_slot_of_env env) |> List.map (fun s -> (Slot.get s).card.c_card.house_index)
   in
-  if houses <> [] then Houses.incr_mana (player_of_env env).houses_update 1 houses
+  if houses <> [] then incr_mana_from (own_slot_of_env env) (player_of_env env) 1 houses
 
 let betray : card_effect =
  fun env ->

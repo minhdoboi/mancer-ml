@@ -40,6 +40,10 @@ dune exec ./bin/sync_assets.exe
 scripts/push_assets.sh "message"   # commit assets/, stage the submodule pointer
 ```
 
+Use `.tmp` folder for intermediate files. You can also use `assets/source/cards`
+which is not versionned, for cards source file before minification to keep a
+reference for modification.
+
 ## Card art (`assets/cards/`)
 
 Name the file after the **card key** the game looks up —

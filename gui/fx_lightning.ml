@@ -19,7 +19,7 @@ let frost = { glow = (0.25, 0.55, 1.); body = (0.7, 0.95, 1.); core = (0.92, 1.,
 let ball = { glow = (0.55, 0.3, 1.); body = (0.45, 0.8, 1.); core = (1., 0.97, 0.85); orb = true }
 let spark = { glow = (1., 0.82, 0.12); body = (1., 0.92, 0.28); core = (1., 0.98, 0.82); orb = false }
 
-(* Terror Strike: air's electric bolt, sunk into violet and dark. The glow is a
+(* Terror Shock: air's electric bolt, sunk into violet and dark. The glow is a
    near-black purple and the body a deep violet, so it reads as the same strike
    colour-drained rather than another bright blue flash. *)
 let fear_bolt =
