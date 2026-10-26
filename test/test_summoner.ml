@@ -74,6 +74,24 @@ let search_does_not_touch_input () =
   ignore (Summoner.execute (settings 150) ~pid:0 ~desc:g snap);
   Alcotest.(check string) "state unchanged" before (state_to_string snap)
 
+(* The bot at 10 life against a blargl (8 attack) in slot 3 has to block, or
+   die.  The race is lost in every line, so the race alone cannot rank the
+   moves; the life margin is what tells the blocking placement from the rest.
+   Without it the search tied and fell back on the cheapest card it had —
+   here on the wrong creature, the harmless goblin in slot 5. *)
+let blocks_the_attacker () =
+  let g, st = empty 5 in
+  let u = Updater.create st g in
+  place u 1 "fire.blargl" 3;
+  place u 1 "fire.goblin" 5;
+  let board = Updater.export u in
+  board.players.(0).ps_life <- 10;
+  board.players.(1).ps_life <- 60;
+  let cmd = Summoner.execute (settings 1000) ~pid:0 ~desc:g board in
+  match cmd with
+  | Some c -> Alcotest.(check int) "blocks slot 3" 3 (Option.value ~default:(-1) c.cmd_input)
+  | None -> Alcotest.(check bool) "plays a card" false true
+
 let tournament_id () =
   let _ : Game.mover = Tournament.mover ~stats_log:false ~budget:50 "summoner" in
   ()
@@ -87,6 +105,7 @@ let () =
           test_case "legal move" `Quick legal_on_fresh;
           test_case "pass when broke" `Quick pass_when_broke;
           test_case "lethal" `Quick takes_lethal;
+          test_case "blocks the attacker" `Quick blocks_the_attacker;
           test_case "input untouched" `Quick search_does_not_touch_input;
           test_case "tournament id" `Quick tournament_id;
         ] );

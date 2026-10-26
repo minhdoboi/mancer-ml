@@ -86,6 +86,7 @@ let initial_player_state ?(life = 60) (mana : int list) (d : player_desc) =
       | Some h -> h.phd_house.h_data
       | None -> No_player_data);
     ps_transitions = [];
+    ps_maluses = [];
   }
 
 let initial_game_state ?(mana0 = [ 2; 2; 2; 2 ]) ?(mana1 = [ 1; 1; 1; 1 ]) ?life (desc : game_desc) =

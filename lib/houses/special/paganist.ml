@@ -119,7 +119,8 @@ let terrorize : card_effect =
   if Option.is_some slot.value then Slot.destroy slot;
   let op = other_of_env env in
   Player.inflict op (spell_damage env 13);
-  Player.add_desc_mod op incr_basic_cost_mod
+  Player.add_desc_mod op incr_basic_cost_mod;
+  Player.add_malus op cost_malus 1
 
 let obliterate : card_effect =
  fun env ->

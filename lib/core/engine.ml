@@ -430,6 +430,26 @@ module Player = struct
     let rec drop = function [] -> [] | x :: xs when x == m -> xs | x :: xs -> x :: drop xs in
     p.pstate.ps_desc.desc_mods <- drop p.pstate.ps_desc.desc_mods
 
+  (* A malus is a named handicap the player carries, with an amount: the tax
+     on the cost of their cards is one point per cast. *)
+  let add_malus p key amount =
+    let maluses = p.pstate.ps_maluses in
+    match List.find_opt (fun m -> m.pm_key = key) maluses with
+    | Some m ->
+        p.pstate.ps_maluses <-
+          List.map (fun x -> if x == m then { m with pm_amount = m.pm_amount + amount } else x) maluses
+    | None -> p.pstate.ps_maluses <- maluses @ [ { pm_key = key; pm_amount = amount } ]
+
+  let remove_malus p key amount =
+    let maluses = p.pstate.ps_maluses in
+    match List.find_opt (fun m -> m.pm_key = key) maluses with
+    | Some m ->
+        let left = m.pm_amount - amount in
+        p.pstate.ps_maluses <-
+          (if left <= 0 then List.filter (fun x -> x != m) maluses
+           else List.map (fun x -> if x == m then { m with pm_amount = left } else x) maluses)
+    | None -> ()
+
   let set_data p d = p.set_data_hook d
 
   (* SingleTargetAttack / MultiTargetAttack (CardSpec.scala:230-264) *)
@@ -638,6 +658,7 @@ let copy_player_state (p : player_state) =
     ps_effects = p.ps_effects;
     ps_data = p.ps_data;
     ps_transitions = p.ps_transitions;
+    ps_maluses = p.ps_maluses;
   }
 
 let copy_game_state (s : game_state) = { players = Array.map copy_player_state s.players }

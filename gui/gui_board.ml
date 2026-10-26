@@ -1190,6 +1190,9 @@ let draw_label_plate ?font ~size ~color x y s =
   fill ~round:0.16 (rect (x -. pad_x) (y -. pad_y) (tw +. (pad_x *. 2.)) (size +. (pad_y *. 2.))) plate_ink;
   text ?font ~size ~color x y s
 
+(* A malus wears red, so the player reads the label as a handicap. *)
+let malus_color = rgba 236 112 112 255
+
 (* Meteomancer: the Called Element is a symbol beside the life total — a flame
    for Fire, a drop for Water, spirals for Air, a leaf for Earth. Mistwalker
    keeps the element from the other side, which reads a question mark. *)
@@ -1330,6 +1333,16 @@ let draw_player_bar ui pid =
   | Wolf_data d when d.wo_protection > 0 -> badge (Printf.sprintf "wolf armor %d" d.wo_protection)
   | Wind_state w when w.vortex -> badge "vortex x1.5"
   | _ -> ());
+  (* A malus the player carries: the tax on the cost of their cards. *)
+  let cost_tax = malus_amount p Common.cost_malus in
+  if cost_tax > 0 then (
+    draw_label_plate ~size:13. ~color:malus_color tx !line_y (Printf.sprintf "cost +%d" cost_tax);
+    line_y := !line_y +. 19.);
+  (* The Dark Monk taxes the Fire cards alone. *)
+  let fire_tax = malus_amount p Common.fire_cost_malus in
+  if fire_tax > 0 then (
+    draw_label_plate ~size:13. ~color:malus_color tx !line_y (Printf.sprintf "fire cost +%d" fire_tax);
+    line_y := !line_y +. 19.);
   if
     Array.exists
       (function Some (st : slot_state) -> st.card.c_card.key = "shaman.protector" | None -> false)

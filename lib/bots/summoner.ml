@@ -3,7 +3,13 @@
 
    Each pass rebuilds from scratch at depth 2, 3, … while budget remains. Only a
    fully-settled pass may overwrite the chosen command. Leaves are scored by
-   {!Heuris.of_state} (race) unless [heuris] is [lifemana]. *)
+   {!Heuris.of_state} (race) unless [heuris] is [lifemana].
+
+   The race is a verdict, not a margin: a decided fight is ±1 for every line,
+   so a position the bot is losing scores every root child alike and the search
+   falls back on an arbitrary move (the last one it surveyed — the cheapest
+   card). A leaf therefore carries two numbers: the race, and the life margin
+   that separates the lines the race cannot. *)
 
 open Sp
 
@@ -25,6 +31,24 @@ let now_ms () = int_of_float (Unix.gettimeofday () *. 1000.)
 let cmd_label = function None -> "pass" | Some c -> command_to_string c
 let max_pass_depth = 8
 
+(* A line's worth: the race verdict first, the life margin only when the race
+   cannot tell two lines apart. [compare_value] keeps the verdict dominant. *)
+type value = { race : float; margin : float }
+
+let compare_value a b =
+  let c = compare a.race b.race in
+  if c <> 0 then c else compare a.margin b.margin
+
+(* How much of its life the bot still has, relative to the position the move
+   started from.  The race says who wins the fight; this says what the line
+   costs the bot, and it is what separates the lines of a decided race — the
+   race is ±1 for every line there, so without it the search would rank
+   nothing and fall back on an arbitrary move. *)
+let life_margin ~bot_id ~start (state : game_state) =
+  let full = float_of_int start.players.(bot_id).ps_life in
+  let left = float_of_int state.players.(bot_id).ps_life in
+  if full <= 0. then 0. else max 0. (left /. full)
+
 type node = {
   id : int;
   from : game_state;
@@ -35,7 +59,7 @@ type node = {
   mutable expanded : int;
   mutable survey : int;
   mutable children : node list;
-  mutable value : float;
+  mutable value : value;
   mutable scored : bool;
   mutable num_sim : float;
   mutable wins : int;
@@ -81,7 +105,7 @@ let make ~desc state pid ended cmd =
       expanded = 0;
       survey = 0;
       children = [];
-      value = 0.;
+      value = { race = 0.; margin = 0. };
       scored = false;
       num_sim = 0.;
       wins = 0;
@@ -93,6 +117,9 @@ let make ~desc state pid ended cmd =
 
 let value_of n = n.value
 
+(* The race part alone: it decides whether a line is still worth a ply. *)
+let race_of n = (value_of n).race
+
 let rec pull ~bot_id n =
   match n.children with
   | [] -> ()
@@ -101,8 +128,15 @@ let rec pull ~bot_id n =
       let rec go v sims wins losses = function
         | [] -> (v, sims, wins, losses)
         | c :: rest ->
-            let better = if maximizing then c.value > v else c.value < v in
-            go (if better then c.value else v) (sims +. c.num_sim) (wins + c.wins) (losses + c.losses) rest
+            let better =
+              if maximizing then compare_value c.value v > 0 else compare_value c.value v < 0
+            in
+            go
+              (if better then c.value else v)
+              (sims +. c.num_sim)
+              (wins + c.wins)
+              (losses + c.losses)
+              rest
       in
       let hd = List.hd kids in
       let v, sims, wins, losses = go hd.value hd.num_sim hd.wins hd.losses (List.tl kids) in
@@ -113,11 +147,17 @@ let rec pull ~bot_id n =
       n.losses <- losses
 
 let rec score_leaf ~heuris ~start ~bot_id ~desc n parents =
-  let reward =
-    match n.ended with Some p -> if p = bot_id then 1. else -1. | None -> heuris n.from n.player_id
+  let value =
+    {
+      race =
+        (match n.ended with
+        | Some p -> if p = bot_id then 1. else -1.
+        | None -> heuris n.from n.player_id);
+      margin = life_margin ~bot_id ~start n.from;
+    }
   in
   n.scored <- true;
-  n.value <- reward;
+  n.value <- value;
   n.num_sim <- 1.;
   n.wins <- (if n.ended = Some bot_id then 1 else 0);
   n.losses <- (if Option.is_some n.ended && n.ended <> Some bot_id then 1 else 0);
@@ -125,8 +165,14 @@ let rec score_leaf ~heuris ~start ~bot_id ~desc n parents =
   ignore desc;
   ignore start
 
-let needs_answer ~bot_id n = n.pending <> [] && (not (is_leaf n)) && value_of n > -1.
-let max_by = Util.max_by
+(* A line the bot has already lost is not worth another ply. *)
+let needs_answer ~bot_id n = n.pending <> [] && (not (is_leaf n)) && race_of n > -1.
+
+(* The child with the best value; ties keep the first, like {!Util.max_by}. *)
+let best_child kids =
+  match kids with
+  | [] -> invalid_arg "Summoner.best_child: empty"
+  | x :: xs -> List.fold_left (fun a b -> if compare_value b.value a.value > 0 then b else a) x xs
 
 let expand ~desc parent =
   match parent.pending with
@@ -147,13 +193,13 @@ let should_open ~bot_id loc =
   if is_leaf n || n.pending = [] then false
   else if n.player_id = bot_id && List.exists (fun c -> c.ended = Some bot_id) n.children then false
   else if n.expanded = 0 then true
-  else if n.player_id <> bot_id then value_of n > -1.
+  else if n.player_id <> bot_id then race_of n > -1.
   else if n.expanded < n.survey then true
   else
     match n.children with
     | [] -> false
     | kids ->
-        let leader = max_by value_of kids in
+        let leader = best_child kids in
         leader.expanded >= 2 || leader.pending = []
 
 let contender ~bot_id loc =
@@ -165,11 +211,13 @@ let contender ~bot_id loc =
     else
       let floor =
         List.filter (fun t -> not (needs_answer ~bot_id t)) trees
-        |> List.fold_left (fun m t -> max m (value_of t)) (-1.1)
+        |> List.fold_left
+             (fun m t -> if compare_value (value_of t) m > 0 then value_of t else m)
+             { race = -1.1; margin = 0. }
       in
-      match List.filter (fun t -> value_of t >= floor) open_ with
+      match List.filter (fun t -> compare_value (value_of t) floor >= 0) open_ with
       | [] -> None
-      | live -> Some (max_by value_of live)
+      | live -> Some (best_child live)
 
 let rec focus ~bot_id ~heuris ~start ~desc ~max_depth loc =
   let n = loc.node in
@@ -195,10 +243,10 @@ let pick_best root =
       let rec go acc = function
         | [] -> acc.command
         | c :: rest ->
-            let dv = c.value -. acc.value in
+            let dv = compare_value c.value acc.value in
             let next =
-              if dv > 0. then c
-              else if dv < 0. then acc
+              if dv > 0 then c
+              else if dv < 0 then acc
               else if Option.is_some c.command && Option.is_none acc.command then c
               else acc
             in
@@ -239,6 +287,15 @@ let search_pass ~settings ~heuris ~start ~desc ~bot_id ~depth ~deadline =
       loop ();
       (root, pick_best root, all_scored root))
 
+(* A pass that ranks nothing says nothing.  It happens when every root child
+   ends alike: the race is decided in every line (the bot dies either way), so
+   the leaves tie and the pass can only pick an arbitrary move.  Such a pass
+   must not displace the choice of a shallower pass that did rank the moves. *)
+let ranks_moves root =
+  match root.children with
+  | [] -> false
+  | first :: rest -> List.exists (fun c -> compare_value c.value first.value <> 0) rest
+
 let execute settings ~pid ~desc start =
   let t0 = now_ms () in
   let deadline = t0 + settings.duration in
@@ -257,7 +314,7 @@ let execute settings ~pid ~desc start =
       let root, cmd, settled = search_pass ~settings ~heuris ~start ~desc ~bot_id ~depth:!depth ~deadline in
       last := Some root;
       if settled && Option.is_some cmd then (
-        best := cmd;
+        if Option.is_none !best || ranks_moves root then best := cmd;
         if List.for_all is_leaf root.children then deepening := false);
       if now_ms () >= deadline || !depth >= max_pass_depth then deepening := false else incr depth
     done;

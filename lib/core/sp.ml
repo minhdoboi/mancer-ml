@@ -311,7 +311,12 @@ and player_state = {
   mutable ps_effects : (phase * card_effect) list;
   mutable ps_data : player_data;
   mutable ps_transitions : transition list;
+  mutable ps_maluses : player_malus list;
 }
+
+(* A malus the player carries: a named handicap with an amount, like the tax
+   on the cost of their cards. *)
+and player_malus = { pm_key : string; pm_amount : int }
 
 and game_state = { players : player_state array }
 
@@ -501,6 +506,10 @@ let is_available cd (h : house_state) = cd.cd_cost <= h.mana + cd.cd_extra_mana 
 (* every card of every house, after the player's description mods *)
 let modded_cards (p : player_state) (h : player_house_desc) =
   List.fold_left (fun cards m -> m h cards) h.phd_cards p.ps_desc.desc_mods
+
+(* how much of a malus the player carries *)
+let malus_amount (p : player_state) key =
+  List.fold_left (fun n m -> if m.pm_key = key then n + m.pm_amount else n) 0 p.ps_maluses
 
 let is_disabled (p : player_state) =
   Array.for_all

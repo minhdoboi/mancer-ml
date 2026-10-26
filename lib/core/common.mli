@@ -136,6 +136,10 @@ val nearest_empty : int -> player_update -> int option
 val non_special : player_id -> game_state -> int list
 val countdown : int -> card_effect -> card_effect
 val ability : from_card:card -> to_card:card -> desc_mod
+val cost_malus : string
+(** The malus key of the tax on the cost of a player's cards. *)
+val fire_cost_malus : string
+(** The malus key of the tax on the cost of a player's Fire cards. *)
 val incr_basic_cost_mod : desc_mod
 val incr_fire_cost_mod : desc_mod
 val hide_basic_mod : desc_mod

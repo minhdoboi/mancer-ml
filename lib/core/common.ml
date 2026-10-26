@@ -294,6 +294,14 @@ let ability ~from_card ~to_card : desc_mod =
       cards
   else cards
 
+(* The malus key of the tax on the cost of a player's cards: one point per
+   copy of [incr_basic_cost_mod]. *)
+let cost_malus = "cost"
+
+(* The malus key of the tax on the cost of a player's Fire cards: one point
+   per copy of [incr_fire_cost_mod]. *)
+let fire_cost_malus = "fire_cost"
+
 let incr_basic_cost_mod : desc_mod =
  fun house cards ->
   if house.phd_house.h_index = special_house_index then cards

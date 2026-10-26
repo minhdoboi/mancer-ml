@@ -549,6 +549,15 @@ let shared_cost_mod_survives () =
   step u (fun () -> Slot.destroy (slot u 0 1));
   check_int "prophet's copy kept" 1 (copies ())
 
+(* The Dark Monk taxes the opponent's Fire cards while it lives *)
+let dark_monk_taxes_the_opponents_fire () =
+  let u = new_game ~special:Disciples.house () in
+  let tax () = malus_amount (player u 1).pstate Common.fire_cost_malus in
+  place u 0 "disciples.monk" 1;
+  check_int "one point of fire tax" 1 (tax ());
+  step u (fun () -> Slot.destroy (slot u 0 1));
+  check_int "the tax is gone with the monk" 0 (tax ())
+
 (* ------------------------------------------------------------------ rng *)
 
 (* Card randomness draws from the updater's rng, so the global Random (which
@@ -649,6 +658,7 @@ let () =
           test_case "prisoner death mana" `Quick prisoner_death_drains_highest_mana;
           test_case "liberator" `Quick liberator_enrages;
           test_case "shared cost mod" `Quick shared_cost_mod_survives;
+          test_case "dark monk tax" `Quick dark_monk_taxes_the_opponents_fire;
         ] );
       ("rng", [ test_case "cocoons use updater rng" `Quick cocoons_follow_updater_rng ]);
     ]

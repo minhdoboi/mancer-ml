@@ -158,6 +158,12 @@ module Player : sig
   (** Prepends [m], like Scala [insertDescMod]. *)
   val remove_desc_mod : player_update -> desc_mod -> unit
 
+  val add_malus : player_update -> string -> int -> unit
+  (** Puts a named handicap on the player, with an amount. *)
+
+  val remove_malus : player_update -> string -> int -> unit
+  (** Takes points off a malus; it goes when the amount reaches zero. *)
+
   val set_data : player_update -> player_data -> unit
   (** Goes through [set_data_hook], which houses may wrap (Scala's decorated [setData]). *)
 end

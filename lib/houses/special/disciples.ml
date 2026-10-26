@@ -82,6 +82,7 @@ let preacher_reaction () =
         let me = Reaction.bound_slot r in
         if me.num = slot.num then (
           Player.add_desc_mod me.slots.player incr_basic_cost_mod;
+          Player.add_malus me.slots.player cost_malus 1;
           give_hope me.slots.player));
     clean_up =
       (fun () ->
@@ -93,7 +94,8 @@ let preacher_reaction () =
                 remove_any_attack slot preacher_bonus
             | _ -> ())
           (get_prisoner_slot me.slots);
-        Player.remove_desc_mod me.slots.player incr_basic_cost_mod);
+        Player.remove_desc_mod me.slots.player incr_basic_cost_mod;
+        Player.remove_malus me.slots.player cost_malus 1);
   }
 
 (* filled in after dark_monk / false_prophet exist *)
@@ -105,6 +107,7 @@ let prophetize_full : card_effect =
   let p = player_of_env env in
   Houses.incr_mana p.houses_update 2 [ 0; 1; 2; 3 ];
   Player.add_desc_mod p incr_basic_cost_mod;
+  Player.add_malus p cost_malus 1;
   !prophet_ability env
 
 let scare : card_effect =
@@ -264,11 +267,14 @@ let dark_monk_reaction () =
     on_add =
       (fun slot ->
         let me = Reaction.bound_slot r in
-        if me.num = slot.num then Player.add_desc_mod (Player.other me.slots.player) incr_fire_cost_mod);
+        if me.num = slot.num then (
+          Player.add_desc_mod (Player.other me.slots.player) incr_fire_cost_mod;
+          Player.add_malus (Player.other me.slots.player) fire_cost_malus 1));
     on_my_remove =
       (fun _ ->
         let me = Reaction.bound_slot r in
-        Player.remove_desc_mod (Player.other me.slots.player) incr_fire_cost_mod);
+        Player.remove_desc_mod (Player.other me.slots.player) incr_fire_cost_mod;
+        Player.remove_malus (Player.other me.slots.player) fire_cost_malus 1);
   }
 
 let false_prophet_reaction () =
@@ -279,7 +285,8 @@ let false_prophet_reaction () =
     clean_up =
       (fun () ->
         let me = Reaction.bound_slot r in
-        Player.remove_desc_mod me.slots.player incr_basic_cost_mod);
+        Player.remove_desc_mod me.slots.player incr_basic_cost_mod;
+        Player.remove_malus me.slots.player cost_malus 1);
   }
 
 let lc_listener () =

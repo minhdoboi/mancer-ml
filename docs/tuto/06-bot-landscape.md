@@ -47,7 +47,7 @@ described in [document 2](02-game-view.md):
 | | 1. generator | 2. simulator | 3. evaluation | 4. controller |
 |---|---|---|---|---|
 | **greedy** | first of `available_commands` | — | — | none |
-| **summoner** | full `legal_commands` | `Game.simulate` | `Heuris.of_state` | best-first + iterative deepening |
+| **summoner** | full `legal_commands` | `Game.simulate` | `Heuris.of_state` + life margin | best-first + iterative deepening |
 | **strategist** | full, role-ordered | `Game.simulate` | `Heuris.of_state` + `synergy`, gamma-discounted | best-first + UCB bandit |
 | **lecturer** | full at the root, `base_moves` below | `Game.simulate` | `Oracle.Eval.score` after 4 passes | UCT / MCTS |
 | **oracle** | `Oracle.base_moves` | `Game.simulate` | `Oracle.Eval.score` after 4 passes | successive halving |
@@ -74,6 +74,18 @@ we stop now". `Heuris.score` asks "who wins the fight". `Heuris.blend` gives
 the long-term term weight only where the race is undecided, so a bot using it
 will happily take a bad trade when it is already winning. Which one is better
 for this game is an empirical question — measure it.
+
+The summoner adds a third number of its own, the **life margin**: the race is
+a verdict (`±1` once the forecast decides the fight), so in a position the bot
+is losing every line ties and the search falls back on an arbitrary move — in
+practice the cheapest card it holds, which is what made the duel bot look like
+it did not care about its life at all. The margin (how much life the line
+leaves the bot) breaks those ties, and a pass that ranks nothing no longer
+overwrites a pass that does. Document 2 §5 has the details; the Scala's
+`SummonerBot` has the same flaw, so this is a fix the port made on its own.
+Measured over 30 games per pairing at a 100 ms budget (seed 7): against
+`oracle` 0/30 before and 5/30 after, against `lecturer` 1/30 before and 6/30
+after.
 
 ## 2. The difficulty ladder
 

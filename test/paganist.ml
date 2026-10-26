@@ -132,6 +132,16 @@ let terrorize_taxes_the_basic_houses () =
   step u (fun () -> Player.apply_effects (player u 1) On_turn);
   check_int "still one more" (List.hd before + 1) (cost_of u 1 0 "fire.goblin")
 
+let terrorize_leaves_a_cost_malus_on_the_opponent () =
+  let u = new_full_game () in
+  let tax () = malus_amount (player u 1).pstate Common.cost_malus in
+  place u 1 "fire.drake" 2;
+  play u 0 "paganist.terrorize" ~input:(Some 2) ~cost:5;
+  check_int "one point of tax" 1 (tax ());
+  place u 1 "fire.drake" 3;
+  play u 0 "paganist.terrorize" ~input:(Some 3) ~cost:5;
+  check_int "two points of tax" 2 (tax ())
+
 (* ----------------------------------------------------------------- moloch *)
 
 let moloch_consumes_its_host () =
@@ -235,6 +245,7 @@ let () =
           test_case "offering" `Quick final_offering_pays_for_the_top_three;
           test_case "contract" `Quick unholy_contract_scales_down_with_cost;
           test_case "terrorize" `Quick terrorize_taxes_the_basic_houses;
+          test_case "terrorize malus" `Quick terrorize_leaves_a_cost_malus_on_the_opponent;
           test_case "moloch host" `Quick moloch_consumes_its_host;
           test_case "moloch heal" `Quick moloch_heals_everyone;
           test_case "moloch attack" `Quick moloch_attack_hits_everyone;

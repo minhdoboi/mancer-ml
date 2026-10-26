@@ -297,6 +297,37 @@ when `race ≥ 0`. A race score of `−0.6` with a long-term score of `+0.9` ble
 to `−0.6 + 0.4·0.9 = −0.24`, still negative — the resource advantage cannot
 outvote a losing fight until the fight is nearly even.
 
+#### A verdict, not a margin
+
+`race` is a verdict: once the forecast kills somebody it is `±1` and stops
+saying anything else. A position the bot is losing therefore scores `−1` for
+*every* line, and a search that ranks leaves by the race alone sees a field of
+equal values — it cannot tell the blocking placement from the one that walks
+into the attacker, and falls back on an arbitrary move (the last one it
+surveyed, which is the cheapest card it holds). The same happens to the
+Scala's `SummonerBot`, which is why the port inherited the behaviour.
+
+Summoner therefore scores a leaf with two numbers, in this order
+(`lib/bots/summoner.ml`):
+
+```ocaml
+type value = { race : float; margin : float }   (* the race decides; the margin breaks ties *)
+
+let life_margin ~bot_id ~start state =
+  let full = float_of_int start.players.(bot_id).ps_life in
+  let left = float_of_int state.players.(bot_id).ps_life in
+  if full <= 0. then 0. else max 0. (left /. full)
+```
+
+The margin is how much of its life the bot still has, relative to the position
+the move started from: the race says who wins the fight, the margin says what
+the line *costs* the bot. A line that blocks and keeps the bot at full life
+beats a line that takes eight, even though both are lost races. A line where
+the bot is already dead has no margin left (`0`), which is what makes the deep
+passes of a hopeless position rank nothing — and a pass that ranks nothing
+does not get to overwrite the choice of a shallower pass that did
+(`ranks_moves`, `summoner.ml`).
+
 #### The long-term term, term by term
 
 ```ocaml
