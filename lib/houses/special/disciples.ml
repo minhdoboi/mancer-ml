@@ -179,6 +179,16 @@ let madden : card_effect =
 let falcon : card_effect =
  fun env ->
   Updater.focus env.env_updater env.env_selected env.env_player true;
+  (* the falconer sends its bird over the foe row: the visual shows the same
+     round trip the card describes, one stoop at each foe creature *)
+  emit env.env_updater
+    (Ev_ability
+       {
+         kind = "disciples.falconer";
+         player = env.env_player;
+         num = env.env_selected;
+         target = None;
+       });
   Slots.foreach (other_of_env env).slots_update (fun slot ->
       if slot.num <> env.env_selected then
         Slot.inflict slot (ability_damage env (abs (slot.num - env.env_selected))))

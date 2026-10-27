@@ -5,18 +5,6 @@ open Sp
 open Engine
 open Common
 
-(* Shadow Dancer: while a creature faces her she strikes twice.  The two blows
-   are separate beats, so the board shows two lunges and two hits of 3
-   instead of one lunge and a single hit of 6.  [blows] counts the blows that
-   already landed, so the first one gets 0. *)
-let dancer_strike blows target d player =
-  let op = other_player player in
-  let filled n = Option.is_some op.slots_update.slot_updates.(n).value in
-  let blocked = List.exists filled target in
-  ignore (single_target_attack target d player);
-  (* the second blow follows only while the lane is still blocked *)
-  blows = 0 && blocked && List.exists filled target
-
 let dark_archer_attack target d player =
   if single_target_attack target d player then
     Player.inflict (other_player player) (mk_damage ~is_ability:true 3 d.context)
@@ -108,8 +96,9 @@ let cards =
     creature ~key:"rogue.thief" ~attack:(attack 3) ~life:18 ~description:"rogue.thief.description"
       ~effects:(effects [ (On_turn, energy_steal) ])
       ();
+    (* Shadow Dancer: while a creature faces her she strikes twice *)
     creature ~key:"rogue.dancer" ~attack:(attack 3) ~life:26 ~description:"rogue.dancer.description"
-      ~run_attack:(custom_strikes_run_attack dancer_strike)
+      ~run_attack:(custom_strikes_run_attack opposed_extra_attack)
       ();
     creature ~key:"rogue.fighter" ~attack:(attack 3) ~life:31 ~description:"rogue.fighter.description"
       ~new_reaction:fighter_reaction ();

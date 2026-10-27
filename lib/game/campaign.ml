@@ -64,6 +64,46 @@ let play_bot = function
   | ("summoner" | "strategist" | "diviner" | "oracle" | "lecturer" | "greedy") as id -> id
   | _ -> "lecturer"
 
+(* The hard difficulty plays the campaign at full strength: every fight starts
+   with the full life and the diviner takes the whole day chapter. The easy
+   difficulty gives the player a little more life on the day. *)
+let hard_difficulty = "hard"
+let hard_life = 60
+let easy_difficulty = "easy"
+let easy_bonus = 5
+let easy_bonus_big = 10
+
+(* These five fights are the hard part of the day, so the easy bonus is twice
+   as big there. *)
+let easy_bonus_big_nodes = [ "entomologist"; "meteomancer"; "disciples"; "emotion"; "seasons" ]
+
+(* The wind is the day's last fight: the easy bonus skips it, so that one
+   stays the day's test. *)
+let easy_bonus_skip = "wind"
+
+let is_hard difficulty = String.lowercase_ascii (String.trim difficulty) = hard_difficulty
+let is_easy difficulty = String.lowercase_ascii (String.trim difficulty) = easy_difficulty
+
+(* The bot a node names at a given difficulty: the diviner plays every day
+   node on hard, the node's own bot otherwise. *)
+let node_bot ~difficulty (n : node) (f : fight) =
+  if is_hard difficulty && n.chapter = Day then "diviner" else f.bot_id
+
+(* The bot that plays a node: [node_bot] through [play_bot]. *)
+let fight_bot ~difficulty n f = play_bot (node_bot ~difficulty n f)
+
+(* The starting life of a fight at a given difficulty: the full life on hard,
+   the node's own life otherwise. *)
+let fight_life ~difficulty (f : fight) = if is_hard difficulty then Some hard_life else f.life
+
+(* The extra life the player gets at a node: the easy bonus on the day
+   chapter, except against the wind, and twice as big on the day's hardest
+   fights. *)
+let player_life_bonus ~difficulty (n : node) =
+  if not (is_easy difficulty) || n.chapter <> Day || n.id = easy_bonus_skip then 0
+  else if List.mem n.id easy_bonus_big_nodes then easy_bonus_big
+  else easy_bonus
+
 (* The map itself (nodes, positions, unlocks, edges) lives in [campaign_map.json]
    and is embedded at build time as [Campaign_map_data.json]. Dev mode can
    re-read the file from disk with [reload]. *)

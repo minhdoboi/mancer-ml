@@ -107,13 +107,20 @@ let tower_reaction () =
   let r = Reaction.default () in
   {
     r with
-    on_limbo =
-      (fun entering ->
-        let me = Reaction.bound_slot r in
-        let idx = (Slot.get entering).card.c_card.house_index in
-        incr_mana_from me me.slots.player 1 [ idx ];
-        incr_mana_from me (other_player me.slots.player) (-1) [ idx ];
-        focus_slot me);
+      on_limbo =
+        (fun entering ->
+          let me = Reaction.bound_slot r in
+          (* The creature that entered Limbo may already be gone: a keeper's
+             own reaction can kill it again in the same broadcast (an
+             opponent's Retaliator hits it back).  There is no house to tax
+             then, but the Tower must not read the empty slot. *)
+          (match entering.value with
+           | Some st ->
+               let idx = st.card.c_card.house_index in
+               incr_mana_from me me.slots.player 1 [ idx ];
+               incr_mana_from me (other_player me.slots.player) (-1) [ idx ]
+           | None -> ());
+          focus_slot me);
   }
 
 let soul_reaction () =
@@ -172,11 +179,16 @@ let limbo_listener () =
                 match slot.value with
                 | None -> ()
                 | Some st ->
-                    if (is_card !baron_ref st.card.c_card || not (is_effect d)) && not (is_no_limbo st.data)
+                    if is_limbo_state st.data then
+                      (* Already in Limbo: its death waits for the end of the
+                         owner's turn, so more damage changes nothing and the
+                         "enters Limbo" reactions must not fire twice. *)
+                      ()
+                    else if (is_card !baron_ref st.card.c_card || not (is_effect d))
+                            && not (is_no_limbo st.data)
                     then (
-                      let was_limbo = is_limbo_state st.data in
                       set_limbo slot;
-                      if is_card !baron_ref st.card.c_card && not was_limbo then add_attack slot double_attack)
+                      if is_card !baron_ref st.card.c_card then add_attack slot double_attack)
                     else old_delayed d);
             let old_over = slot.overridable_destroy in
             slot.overridable_destroy <-

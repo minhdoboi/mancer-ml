@@ -62,6 +62,9 @@ let rgb r g b a = R.Color.create (byte r) (byte g) (byte b) (byte a)
 let _fade_a a fade = a *. fade
 let circle x y rad c = if rad *. !scale > 0.4 then R.draw_circle_v (v x y) (rad *. !scale) c
 
+(* A hollow circle: the impact ring that opens where something struck. *)
+let ring x y rad c = if rad *. !scale > 0.4 then R.draw_circle_lines_v (v x y) (rad *. !scale) c
+
 let ellipse x y rx ry c =
   if rx *. !scale > 0.4 && ry *. !scale > 0.4 then R.draw_ellipse_v (v x y) (rx *. !scale) (ry *. !scale) c
 

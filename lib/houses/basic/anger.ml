@@ -56,7 +56,7 @@ let cards =
       ~new_reaction:(bonus_reaction "chainbreaker" ~cond:(fun pos num -> abs (pos - num) = 1) ~plus:2)
       ();
     spell ~key:"anger.wave" ~description:"anger.wave.description"
-      ~effects:(effects [ (Direct, damage_creatures ~is_spell:true 8) ])
+      ~effects:(effects [ (Direct, damage_creatures ~is_spell:true 9) ])
       ();
     creature ~key:"anger.gorilla" ~attack:(attack 6) ~life:20 ~description:"anger.gorilla.description"
       ~new_reaction:(bonus_reaction "gorilla" ~cond:( <> ) ~plus:1)

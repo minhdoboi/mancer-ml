@@ -191,6 +191,19 @@ let single_target_attack target d (p : player_update) =
       if List.length hits < List.length target then Player.inflict (other_player p) d);
   List.exists (fun n -> Option.is_none slots.(n).value) existing
 
+(* A creature that strikes twice while a creature faces it (the Shadow Dancer,
+   the Battlemage charging knight — Scala's OpposedExtraAttack and
+   ChargeAttack).  The two blows are separate beats, so the board shows two
+   lunges and two hits instead of one lunge and a single hit of double.
+   [blows] counts the blows that already landed, so the first one gets 0. *)
+let opposed_extra_attack blows target d (p : player_update) =
+  let op = other_player p in
+  let filled n = Option.is_some op.slots_update.slot_updates.(n).value in
+  let blocked = List.exists filled target in
+  ignore (single_target_attack target d p);
+  (* the second blow follows only while the lane is still blocked *)
+  blows = 0 && blocked && List.exists filled target
+
 (* DamageAttack.damageCreatureAndGet: damage dealt to the opposite creature only (0 if the slot is empty) *)
 let damage_creature_and_get num d (p : player_update) =
   let slot = (other_player p).slots_update.slot_updates.(num) in

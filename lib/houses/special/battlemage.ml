@@ -37,13 +37,6 @@ let sergeant_bonus =
 
 let cavalier_source = Attack_state_func (fun a p -> a + List.length (Slots.get_open p.slots_update))
 
-let charge_attack target d player =
-  let op = other_player player in
-  let filled n = Option.is_some op.slots_update.slot_updates.(n).value in
-  let blocked = List.exists filled target in
-  ignore (single_target_attack target d player);
-  if blocked && List.exists filled target then ignore (single_target_attack target d player)
-
 (* ------------------------------------------------------------------- spells *)
 
 let taunt : card_effect =
@@ -222,8 +215,9 @@ let cards =
       ~new_reaction:rune_reaction ();
     creature ~key:"battlemage.sergeant" ~attack:(attack 4) ~life:23
       ~description:"battlemage.sergeant.description" ~new_reaction:sergeant_reaction ();
+    (* Charging knight: while a creature faces him he strikes twice *)
     creature ~key:"battlemage.knight" ~attack:(attack 4) ~life:28 ~description:"battlemage.knight.description"
-      ~run_attack:(custom_run_attack charge_attack) ();
+      ~run_attack:(custom_strikes_run_attack opposed_extra_attack) ();
     fieldmage;
     cavalier;
     spell ~key:"battlemage.warcry" ~description:"battlemage.warcry.description"

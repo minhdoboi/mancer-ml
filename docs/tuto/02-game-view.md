@@ -328,6 +328,48 @@ passes of a hopeless position rank nothing — and a pass that ranks nothing
 does not get to overwrite the choice of a shallower pass that did
 (`ranks_moves`, `summoner.ml`).
 
+#### The same flaw, in the Lecturer
+
+The Lecturer has the same shape of bug, for the same reason, one level down.
+Its leaf is a verdict too, only the verdict comes from the engine instead of
+the race forecast: a line that ends the game is `±1`, and a line that does not
+is scored by `Oracle.Eval.score`. In a position the bot is losing, the random
+rollout kills the bot in *every* line — measured on a board where the bot is
+at 8 life against a blargl, 274 of 275 leaves were terminal — so every root
+child ties and the search ranks nothing.
+
+What it falls back on is the visit count, which is noise. The consequence is
+the behaviour you can see on the board: the bot stops trying, drops a creature
+in a free slot and dies, while the placement that would have blocked the
+attacker was legal the whole time. Before the fix, that bot blocked the lethal
+attacker in 2 searches out of 12; after it, in 12 out of 12
+(`test/test_lecturer.ml`, "blocks the lethal attacker").
+
+The Lecturer ranks the same way the Summoner does, with the same two numbers:
+
+```ocaml
+let value n = mean n +. (!Params.life_weight *. n.margin)   (* the score decides; the margin breaks ties *)
+```
+
+Two details make it work, and both are about *where* the margin is read:
+
+- **One ply, not the whole projection.** The margin answers "does this line
+  keep me alive this turn". A longer horizon answers a different question,
+  and in a lost game the answer is "no" either way: the bot dies a ply later
+  in every line, the margin reads `0` everywhere, and the search is blind
+  again — which is exactly what the first version of the fix did. It failed
+  the test above.
+- **The line the tree walked, not the rollout.** The margin is measured on
+  the position the root move produced, after the opponent's answer. The
+  rollout plays random moves for both sides, and in a decided game it kills
+  the bot before anything can be read off the result — a margin read there is
+  zero in every line too.
+
+The margin is deterministic, so it separates the lines even where the noisy
+score cannot. It is also the reason the move that gets played is the best
+*value* and not the most visited one: with the leaves tied, the visit count
+is noise, and ranking by it is what made the bot play arbitrary moves.
+
 #### The long-term term, term by term
 
 ```ocaml

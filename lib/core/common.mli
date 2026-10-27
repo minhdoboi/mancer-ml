@@ -111,6 +111,12 @@ val remove_attack : attack_source -> card_effect
 val single_target_attack : int list -> damage -> player_update -> bool
 (** Scala [SingleTargetAttack.attack]: the normal attack, true if it killed a creature. *)
 
+val opposed_extra_attack : int -> int list -> damage -> player_update -> bool
+(** A creature that strikes twice while a creature faces it (the Shadow Dancer,
+    the Battlemage charging knight).  [blows] counts the blows that already
+    landed, so the first one gets 0; the function returns true when another
+    blow follows.  Every blow is animated on its own. *)
+
 val damage_creature_and_get : int -> damage -> player_update -> int
 (** Scala [damageCreatureAndGet]: hits the opposite creature only, 0 if empty. *)
 

@@ -414,6 +414,11 @@ let hand_card_rect ui pid col k =
   let cards_y = if pid = opponent then opp_hand_y0 else hand_y in
   rect cx (oy ui (cards_y +. (float k *. (card_h +. card_gap)))) card_w card_h
 
+(* The hand as the board draws it: every card keeps the row it was dealt at,
+   so a card a house took away (Seasons spends a special card for good) does
+   not leave the column it was played from. *)
+let hand_of ui pid = Table.hand_rows ui.table pid
+
 let find_hand_rect ui pid (card : card) =
   let rec cols i = function
     | [] -> None
@@ -425,7 +430,7 @@ let find_hand_rect ui pid (card : card) =
         in
         rows 0
   in
-  cols 0 (Table.hand ui.table pid)
+  cols 0 (hand_of ui pid)
 
 let slot_hidden ui pid num =
   let now = R.get_time () in
@@ -555,7 +560,7 @@ let fx_layout ui : Fx.layout =
         Option.map (fun (st : slot_state) -> st.card.c_card.key) (view ui).players.(pid).ps_slots.(n));
     house_cards =
       (fun pid idx ->
-        let hand = Table.hand ui.table pid in
+        let hand = hand_of ui pid in
         match List.find_index (fun hd -> hd.phd_house.h_index = idx) hand with
         | None -> []
         | Some col ->
@@ -591,9 +596,9 @@ let run_fx ui recipe =
    comes out of the matching house/deck column, so the Pegasus card visibly
    rides out of the Blacksmith deck instead of appearing from off-screen. *)
 let summon_deck_rect ui player (card : card) =
-  match List.find_index (fun hd -> hd.phd_house.h_index = card.house_index) (Table.hand ui.table player) with
+  match List.find_index (fun hd -> hd.phd_house.h_index = card.house_index) (hand_of ui player) with
   | Some col ->
-      let hd = List.nth (Table.hand ui.table player) col in
+      let hd = List.nth (hand_of ui player) col in
       let k = max 0 (min (n_hand_rows - 1) (Array.length hd.phd_cards - 1)) in
       hand_card_rect ui player col k
   | None -> rect 0. (vh -. 600.) card_w card_h
@@ -800,7 +805,7 @@ let peek_smoke_card ui =
               if inside r && card_playable ui owner cd hd && selected <> Some cd.cd_card.key && input_ok ui
               then found := Some r)
           hd.phd_cards)
-      (Table.hand ui.table owner);
+      (hand_of ui owner);
     !found
 
 let is_silenced (st : slot_state) = Common.is_bridled st
@@ -1527,7 +1532,7 @@ let draw_hand_at ui pid ~cards_y ~header_y =
                 if pid = opponent then ui.hover_opp <- true);
               if active then on_click r (fun () -> pick_card ui cd hd)))
         hd.phd_cards)
-    (Table.hand ui.table pid)
+    (hand_of ui pid)
 
 (* Scala DamageComponent: green "+X" or red "-X" rising 20 px in 1 s *)
 let draw_pops ui =

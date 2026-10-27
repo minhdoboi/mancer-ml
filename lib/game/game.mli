@@ -14,12 +14,17 @@ val empty_special : house
 val make_player_desc : ?special:house -> house -> player_desc
 (** One basic house plus a special (defaults to {!empty_special}). *)
 
+val default_life : int
+(** The life a player starts with when the fight sets none: 60. *)
+
 val initial_player_state : ?life:int -> int list -> player_desc -> player_state
 (** [initial_player_state mana desc]: four mana values get a special of 2 appended; five values are used
-    as-is. [life] defaults to 60. Raises [Invalid_argument] for any other length. *)
+    as-is. [life] defaults to {!default_life}. Raises [Invalid_argument] for any other length. *)
 
-val initial_game_state : ?mana0:int list -> ?mana1:int list -> ?life:int -> game_desc -> game_state
-(** [life] is applied to both players, like a campaign [Fight.life]; default 60. *)
+val initial_game_state :
+  ?mana0:int list -> ?mana1:int list -> ?life:int -> ?owner_life:int -> ?opponent_life:int -> game_desc -> game_state
+(** [life] is applied to both players, like a campaign [Fight.life]; default {!default_life}. [owner_life] and
+    [opponent_life] give one side its own life and win over [life]. *)
 
 (** {1 Bot} *)
 

@@ -103,6 +103,9 @@ matchup. Lecturer is a UCT tree search; tune with
 
 ### House tournament
 
+There's a tournament feature, to check house balance, but it's not very reliable
+due to the gaming style of the bots.
+
 `--mode houses` compares houses. `--special` takes a list of houses; every
 pair of them plays, `--games` games per pair, and within a pairing the house
 at seat 0 alternates every game while the bots alternate every other one — so
@@ -315,5 +318,5 @@ A rules change shows up as an expect diff: review it, then `dune promote`.
 Migration was done with multiple models Opus,Sonnet,Grok. The art was mostly
 generated with Grok Imagine.
 
-At the end to avoid spending too much money, I used more Deepseek, Minimax
-and Meta Muse Image, depending on the tasks.
+At the end to avoid spending too much money, I used more Deepseek, Minimax, Flux
+or Meta Muse Image, depending on the tasks.

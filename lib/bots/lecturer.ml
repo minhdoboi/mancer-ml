@@ -12,6 +12,13 @@
      couple of placements per card). The root keeps every legal command.
    - Depth is capped by [max_depth] (Scala: 2) and the move with the most
      visits wins (Scala: best average reward).
+   - A life margin, like the Summoner's. The score is a verdict in a decided
+     position: the rollout kills the bot in every line, every leaf says -1 and
+     the root children tie, so the search ranked nothing and fell back on the
+     visit count, which is noise. The margin says what the line costs the bot
+     — the life it has left after the opponent's answer — and it separates the
+     lines the score cannot. The move that gets played is the best value, not
+     the most visited one: in a decided position the visit count is noise.
 
    The engine is deterministic for the ported houses, so a node keeps the
    state its move produced and there are no chance nodes (Scala added up to 4
@@ -36,6 +43,7 @@ module Params = struct
   let rollout_plies = ref 6
   let project_plies = ref 4
   let pass_weight = ref 0.5
+  let life_weight = ref 0.1
 end
 
 let apply_overrides spec =
@@ -47,6 +55,7 @@ let apply_overrides spec =
     | "rolloutPlies" -> Params.rollout_plies := int_of_string v
     | "projectPlies" -> Params.project_plies := int_of_string v
     | "passWeight" -> Params.pass_weight := float_of_string v
+    | "lifeWeight" -> Params.life_weight := float_of_string v
     | other -> Printf.printf "lecturer: unknown option %s\n%!" other
   in
   spec |> String.split_on_char ','
@@ -70,16 +79,34 @@ type node = {
   depth : int;
   mutable children : node array option;
   mutable visits : float;
-  mutable reward : float;
+  mutable reward : float;  (** the score, summed over the visits *)
+  margin : float;  (** the life margin of the line: what it costs the bot *)
 }
 
 type stats = { mutable sims : int; mutable iterations : int; mutable wins : int; mutable losses : int }
 
 let mean n = if n.visits > 0.0 then n.reward /. n.visits else 0.0
+
+(* The value the search ranks by: the score first, the life margin to break
+   the ties the score cannot.  The score is a verdict in a decided position —
+   the bot dies in every line, every leaf says -1, and the root children tie —
+   so without the margin the search falls back on the visit count, which is
+   noise, and plays an arbitrary move.  The summoner ranks the same way: the
+   race decides, the life margin separates the lines the race cannot. *)
+let value n = mean n +. (!Params.life_weight *. n.margin)
 let signed ~bot_id v pid = if pid = bot_id then v else -.v
 
 (* Terminal reward from the bot's side. *)
 let terminal ~bot_id winner = if winner = bot_id then 1.0 else -1.0
+
+(* How much of its life the bot still has, relative to the position the search
+   started from.  The score says how the position looks; this says what the
+   line costs the bot, and it is what separates the lines of a decided game —
+   the summoner calls it the life margin. *)
+let life_margin ~bot_id ~root (state : game_state) =
+  let full = float_of_int root.players.(bot_id).ps_life in
+  let left = float_of_int state.players.(bot_id).ps_life in
+  if full <= 0. then 0. else max 0. (left /. full)
 
 let simulate ~desc ~stats state pid cmd =
   stats.sims <- stats.sims + 1;
@@ -103,6 +130,24 @@ let leaf ~desc ~stats ~bot_id ~root (s : Game.sim) =
       | Some w -> terminal ~bot_id w
       | None -> Oracle.Eval.score ~projected:!st ~before:root ~bot_id)
 
+(* The margin of a line: the life the bot has left once the opponent has
+   answered it.  One ply, not the whole projection: the question the margin
+   answers is "does this line keep me alive this turn", and a longer horizon
+   answers a different one — the bot dies a ply later in every line of a lost
+   game, and the margin would read zero everywhere.
+
+   It is measured on the line the tree walked, not on the random continuation
+   the rollout plays: a random continuation kills the bot in a decided game,
+   and a margin read there is zero in every line. *)
+let margin_of ~desc ~stats ~bot_id ~root (s : Game.sim) =
+  let st = ref s.state and pid = ref s.next and ended = ref s.ended in
+  if Option.is_none !ended then (
+    let s = simulate ~desc ~stats !st !pid None in
+    st := s.state;
+    pid := s.next;
+    ended := s.ended);
+  life_margin ~bot_id ~root !st
+
 let expand ~desc ~stats ~bot_id ~root (parent : node) =
   let pid = parent.next in
   let moves =
@@ -116,6 +161,9 @@ let expand ~desc ~stats ~bot_id ~root (parent : node) =
       | Some w -> terminal ~bot_id w
       | None -> Oracle.Eval.score ~projected:s.state ~before:root ~bot_id
     in
+    (* The margin is what the root move costs: only the root's children are
+       priced, the search below the root works on the score alone. *)
+    let margin = if parent.depth = 0 then margin_of ~desc ~stats ~bot_id ~root s else 0.0 in
     let pv = !Params.prior_visits in
     {
       move;
@@ -127,6 +175,7 @@ let expand ~desc ~stats ~bot_id ~root (parent : node) =
       children = None;
       visits = pv;
       reward = pv *. signed ~bot_id prior pid;
+      margin;
     }
   in
   let cs = Array.of_list (List.map child moves) in
@@ -134,7 +183,7 @@ let expand ~desc ~stats ~bot_id ~root (parent : node) =
   cs
 
 let uct parent_visits (c : node) =
-  mean c +. (!Params.exploration *. sqrt (log (max 1.0 parent_visits) /. c.visits))
+  value c +. (!Params.exploration *. sqrt (log (max 1.0 parent_visits) /. c.visits))
 
 let select (parent : node) cs =
   let best = ref cs.(0) and best_v = ref neg_infinity in
@@ -211,6 +260,7 @@ let make_root ~pid state =
     children = None;
     visits = 0.0;
     reward = 0.0;
+    margin = 0.0;
   }
 
 let search_with_stats settings ~pid ~desc start =
@@ -238,6 +288,18 @@ let root_children root =
   | None -> []
   | Some cs -> Array.to_list cs |> List.map (fun c -> (c.move, int_of_float c.visits, mean c))
 
+(* [(move, visits, score mean, value)] for each root move: the value is the
+   score plus the life margin, the number the search ranks by. *)
+let root_values root =
+  match root.children with
+  | None -> []
+  | Some cs ->
+      Array.to_list cs |> List.map (fun c -> (c.move, int_of_float c.visits, mean c, value c))
+
+(* The move the search plays: the one that wins outright, else the best value.
+   The visit count used to decide, but in a decided position every line scores
+   alike and the visits are noise — the value is the signal.  The margin is
+   deterministic, so it separates the lines even where the score cannot. *)
 let best_child root =
   match root.children with
   | None | Some [||] -> None
@@ -247,8 +309,11 @@ let best_child root =
       | None ->
           Some
             (Array.fold_left
-               (fun a c -> if c.visits > a.visits || (c.visits = a.visits && mean c > mean a) then c else a)
+               (fun a c ->
+                 if value c > value a || (value c = value a && c.visits > a.visits) then c else a)
                cs.(0) cs))
+
+let best_move root = Option.bind (best_child root) (fun c -> c.move)
 
 let execute settings ~pid ~desc start =
   if is_disabled start.players.(pid) then None
@@ -267,9 +332,9 @@ let execute settings ~pid ~desc start =
             settings.duration (mean best) best.visits (cmd_label best.move);
         if settings.logging || Option.is_some (Sys.getenv_opt "LECTURER_DEBUG") then (
           print_endline (state_to_string start);
-          root_children root
-          |> List.sort (fun (_, a, _) (_, b, _) -> compare b a)
-          |> List.map (fun (m, n, v) -> Printf.sprintf "%s n=%d mean=%.3f" (cmd_label m) n v)
+          root_values root
+          |> List.sort (fun (_, _, _, a) (_, _, _, b) -> compare b a)
+          |> List.map (fun (m, n, v, w) -> Printf.sprintf "%s n=%d mean=%.3f value=%.3f" (cmd_label m) n v w)
           |> String.concat " | " |> Printf.printf "  root: %s\n%!");
         best.move
 

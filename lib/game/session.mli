@@ -18,12 +18,15 @@ val create :
   ?max_turns:int ->
   ?starting:player_id ->
   ?life:int ->
+  ?owner_life:int ->
+  ?opponent_life:int ->
   ?on_event:(game_event -> unit) ->
   game_desc ->
   t
 (** Deals the opening state, runs [On_start] effects and announces the first player to move ([starting],
-    default [owner]). [life] is applied to both players when set. [max_turns] caps the number of moves
-    (default unlimited); [rng] is as in {!Engine.Updater.create}. *)
+    default [owner]). [life] is applied to both players when set; [owner_life] and [opponent_life] give one
+    side its own life and win over [life]. [max_turns] caps the number of moves (default unlimited); [rng]
+    is as in {!Engine.Updater.create}. *)
 
 val status : t -> status
 (** [Over] once a player is dead ([reason = "ended"]) or [max_turns] moves were played

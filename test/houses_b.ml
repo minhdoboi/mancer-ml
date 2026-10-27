@@ -6,6 +6,7 @@ open Engine
 open Support
 
 let check_int = Alcotest.(check int)
+let check_ints = Alcotest.(check (list int))
 let check_bool = Alcotest.(check bool)
 let check_string = Alcotest.(check string)
 let ctx pid = { ctx_player = pid; ctx_card = None; ctx_selected = 0 }
@@ -250,6 +251,22 @@ let knight_charges_twice () =
   step u (fun () -> Player.run_slots (player u 0));
   check_int "two hits" (a - 8) (life_at u 1 0)
 
+(* The charge is two beats of their own: two lunges and two hits of 4, not one
+   lunge and a single hit of 8. *)
+let knight_charges_in_two_beats () =
+  let u = new_game ~special:Battlemage.house () in
+  place u 0 "battlemage.knight" 0;
+  place u 1 "fire.dragon" 0;
+  let lunges = ref 0 and steps = ref [] in
+  Updater.listen u (fun e ->
+      match e with
+      | Ev_run_slot { num = 0; player = 0 } -> incr lunges
+      | Ev_refresh _ -> steps := life_at u 1 0 :: !steps
+      | _ -> ());
+  step u (fun () -> Player.run_slots (player u 0));
+  check_int "two lunges" 2 !lunges;
+  check_ints "the dragon falls in two steps" [ 37; 33 ] (List.rev !steps)
+
 let knight_one_hit_on_empty () =
   let u = new_game ~special:Battlemage.house () in
   place u 0 "battlemage.knight" 0;
@@ -490,6 +507,7 @@ let () =
           test_case "field mage once" `Quick field_mage_not_twice;
           test_case "sergeant" `Quick sergeant_charges_neighbours;
           test_case "knight" `Quick knight_charges_twice;
+          test_case "knight beats" `Quick knight_charges_in_two_beats;
           test_case "knight empty" `Quick knight_one_hit_on_empty;
           test_case "cavalier" `Quick cavalier_counts_gaps;
           test_case "cavalier ban" `Quick cavalier_bans_apocalypse;

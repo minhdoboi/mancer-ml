@@ -49,7 +49,7 @@ described in [document 2](02-game-view.md):
 | **greedy** | first of `available_commands` | — | — | none |
 | **summoner** | full `legal_commands` | `Game.simulate` | `Heuris.of_state` + life margin | best-first + iterative deepening |
 | **strategist** | full, role-ordered | `Game.simulate` | `Heuris.of_state` + `synergy`, gamma-discounted | best-first + UCB bandit |
-| **lecturer** | full at the root, `base_moves` below | `Game.simulate` | `Oracle.Eval.score` after 4 passes | UCT / MCTS |
+| **lecturer** | full at the root, `base_moves` below | `Game.simulate` | `Oracle.Eval.score` after 4 passes + life margin | UCT / MCTS |
 | **oracle** | `Oracle.base_moves` | `Game.simulate` | `Oracle.Eval.score` after 4 passes | successive halving |
 | **diviner** | `Oracle.base_moves` | `Game.simulate`, one engine per world | `Oracle.Eval.score` per world | successive halving × worlds |
 
@@ -81,11 +81,27 @@ is losing every line ties and the search falls back on an arbitrary move — in
 practice the cheapest card it holds, which is what made the duel bot look like
 it did not care about its life at all. The margin (how much life the line
 leaves the bot) breaks those ties, and a pass that ranks nothing no longer
-overwrites a pass that does. Document 2 §5 has the details; the Scala's
-`SummonerBot` has the same flaw, so this is a fix the port made on its own.
-Measured over 30 games per pairing at a 100 ms budget (seed 7): against
+overwrites the choice of a pass that does. Document 2 §5 has the details; the
+Scala's `SummonerBot` has the same flaw, so this is a fix the port made on its
+own. Measured over 30 games per pairing at a 100 ms budget (seed 7): against
 `oracle` 0/30 before and 5/30 after, against `lecturer` 1/30 before and 6/30
 after.
+
+The lecturer had the same flaw, for the same reason: its leaf is a verdict
+too, only the verdict comes from the engine — a line that ends the game is
+`±1`. In a position the bot is losing, the random rollout kills the bot in
+every line, every root child ties, and the search falls back on the visit
+count, which is noise. The symptom is a bot that stops trying: it drops a
+creature in a free slot and dies, while the blocking placement was legal all
+along. The lecturer therefore scores a root move with a **life margin** too
+(how much life the line leaves the bot after the opponent's answer) and plays
+the best value rather than the most visited one. On the board of
+`test/test_lecturer.ml` — a bot at 8 life against a blargl, with a deck of
+two creatures and no spell — the blocking move came out of 2 searches out of
+12 before the fix and 12 out of 12 after. The win rate did not move: over 100
+games per pairing (100 ms, seed 7) the bot won 346 games before the change
+and 336 after, inside the noise of a 500-game sample (§5 has the arithmetic).
+The change buys behaviour, not Elo.
 
 ## 2. The difficulty ladder
 
@@ -122,7 +138,7 @@ small sample: re-measure before reordering the levels.
 
 | bot | env var | keys |
 |---|---|---|
-| lecturer | `LECTURER_OPTS` | `exploration` 0.7, `maxDepth` 4, `priorVisits` 2.0, `rolloutPlies` 6, `projectPlies` 4, `passWeight` 0.5 |
+| lecturer | `LECTURER_OPTS` | `exploration` 0.7, `maxDepth` 4, `priorVisits` 2.0, `rolloutPlies` 6, `projectPlies` 4, `passWeight` 0.5, `lifeWeight` 0.1 |
 | oracle | `ORACLE_OPTS` | 8 search + 9 evaluation keys, see [document 4](04-oracle.md) |
 | diviner | `DIVINER_OPTS` | `beliefCount` 3, `riskAversion` 0.35, `firstRoundSamples` 1 |
 | summoner | `SUMMONER_OPTS` | **parses nothing** — `apply_overrides` only echoes the string (`summoner.ml:19-23`) |

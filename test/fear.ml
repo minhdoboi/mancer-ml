@@ -37,7 +37,7 @@ let ghost_boosts_spells () =
   place u 1 "anger.boar" 1;
   place u 0 "fear.ghost" 0;
   play u 0 "anger.wave" ~input:None ~cost:6;
-  check_int "8 + 1 spell damage" 17 (life_at u 1 1)
+  check_int "9 + 1 spell damage" 16 (life_at u 1 1)
 
 let harpy_five_fear () =
   let u = new_game ~mana:[ 4; 4; 6; 4 ] ~house:Fear.house () in

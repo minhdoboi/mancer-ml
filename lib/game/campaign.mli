@@ -61,6 +61,30 @@ val play_bot : string -> string
 (** The Tournament bot that plays a campaign [bot_id]. Summoner, strategist and diviner play as themselves.
     Unported kinds fall back (gambler/apprentice and unknown → lecturer), matching Scala [GameBot.byId]. *)
 
+val hard_difficulty : string
+val hard_life : int
+(** The hard difficulty: every campaign fight starts with the full 60 life. *)
+
+val easy_difficulty : string
+val easy_bonus : int
+val easy_bonus_big : int
+(** The easy difficulty: the player gets 5 more life on the day chapter, and 10 on its hardest fights. *)
+
+val node_bot : difficulty:string -> node -> fight -> string
+(** The bot a node names at the given difficulty: the diviner plays every day node on {!hard_difficulty},
+    the node's own [bot_id] otherwise. *)
+
+val fight_bot : difficulty:string -> node -> fight -> string
+(** The Tournament bot that plays a node: {!node_bot} through {!play_bot}. *)
+
+val fight_life : difficulty:string -> fight -> int option
+(** The starting life of a fight at the given difficulty: {!hard_life} on {!hard_difficulty}, the node's own
+    life otherwise. *)
+
+val player_life_bonus : difficulty:string -> node -> int
+(** The extra life the player gets at a node: {!easy_bonus} on the day chapter at {!easy_difficulty} (and
+    {!easy_bonus_big} on its hardest fights), except against the wind; 0 otherwise. *)
+
 val chapter_of : string list -> chapter
 
 val day_progress : string list -> string list

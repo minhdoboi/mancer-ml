@@ -18,6 +18,7 @@ module Params : sig
   val rollout_plies : int ref
   val project_plies : int ref
   val pass_weight : float ref
+  val life_weight : float ref
 end
 
 type node
@@ -28,6 +29,17 @@ val search : settings -> pid:player_id -> desc:game_desc -> game_state -> node
 
 val root_children : node -> (command option * int * float) list
 (** [(move, visits, mean)] for each root move, mean from the bot's side. *)
+
+val root_values : node -> (command option * int * float * float) list
+(** [(move, visits, score mean, value)] for each root move; the value is the
+    score plus the life margin. *)
+
+val best_child : node -> node option
+(** The root child the search would play: the one that wins outright, else the
+    best value (the score plus the life margin). *)
+
+val best_move : node -> command option
+(** The move [best_child] would play. *)
 
 val execute : settings -> pid:player_id -> desc:game_desc -> game_state -> command option
 

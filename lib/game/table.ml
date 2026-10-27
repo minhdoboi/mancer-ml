@@ -14,6 +14,7 @@ type setup = {
   max_turns : int;
   starting : player_id;
   life : int option;
+  player_life_bonus : int;  (** Extra life for the human side, as the easy campaign gives. *)
   mode : Catalog.mode;  (** Which basic houses are dealt: standard (anger) or classic (fire). *)
 }
 
@@ -26,6 +27,7 @@ let default_setup =
     max_turns = 300;
     starting = owner;
     life = None;
+    player_life_bonus = 0;
     mode = Catalog.Standard;
   }
 
@@ -55,6 +57,8 @@ let player_portraits =
     "khan-jure";
     "scowl-master";
     "nox-tyro";
+    "lotus";
+    "ma-ji";
   ]
 
 type opponent = { opp_bot : string; opp_kind : string; opp_portrait : string; opp_level : int }
@@ -151,19 +155,21 @@ let special_houses () =
 (* The campaign mode is the duel mode from the Game tab: a campaign is dealt
    from the same basics a duel is. *)
 
-let campaign_setup ?(budget_ms = Prefs.campaign_difficulty_ms (Prefs.load ())) ?seed ?mode
-    ~player_special (n : Campaign.node) =
+let campaign_setup ?(budget_ms = Prefs.campaign_difficulty_ms (Prefs.load ()))
+    ?(difficulty = Prefs.campaign_difficulty (Prefs.load ())) ?seed ?mode ~player_special
+    (n : Campaign.node) =
   match n.Campaign.fight with
   | None -> failwith ("campaign node has no fight: " ^ n.id)
   | Some f ->
       {
         default_setup with
-        seats = (Human, Bot (Campaign.play_bot f.bot_id));
+        seats = (Human, Bot (Campaign.fight_bot ~difficulty n f));
         specials = (player_special, f.house_key);
         budget_ms;
         seed;
         starting = Campaign.starter_player n.id;
-        life = f.life;
+        life = Campaign.fight_life ~difficulty f;
+        player_life_bonus = Campaign.player_life_bonus ~difficulty n;
         mode = Option.value mode ~default:(Catalog.mode_of_string (Prefs.setup_mode (Prefs.load ())));
       }
 
@@ -207,10 +213,24 @@ let movers_of setup =
   in
   [| mover (fst setup.seats); mover (snd setup.seats) |]
 
+(* The seat the human sits in, if any: the life bonus follows the human, not
+   the seat. *)
+let human_pid = function (Human, _) -> Some owner | (_, Human) -> Some opponent | _ -> None
+
+(* The life each side starts with: the setup's life for both of them, plus the
+   player's bonus on the human's side. *)
+let lives_of setup =
+  let base = Option.value setup.life ~default:Game.default_life in
+  match human_pid setup.seats with
+  | Some p when p = owner -> (base + setup.player_life_bonus, base)
+  | Some _ -> (base, base + setup.player_life_bonus)
+  | None -> (base, base)
+
 let open_session ?on_event setup ~seed ~desc ~mana ~rng_seed =
+  let owner_life, opponent_life = lives_of setup in
   let session =
     Session.create desc ~mana0:mana.(0) ~mana1:mana.(1) ~rng:(Dice.make rng_seed) ~max_turns:setup.max_turns
-      ~starting:setup.starting ?life:setup.life ?on_event
+      ~starting:setup.starting ~owner_life ~opponent_life ?on_event
   in
   { setup; seed; session; movers = movers_of setup; mana; rng_seed }
 
@@ -246,6 +266,59 @@ let seed t = t.seed
 let seat t pid = if pid = owner then fst t.setup.seats else snd t.setup.seats
 let to_move t = match Session.status t.session with To_move pid -> Some pid | Over _ -> None
 let hand t pid = Game.player_houses pid (Session.desc t.session) (Session.state t.session)
+
+(* The deck as it was dealt.  A house can spend a card for good (Seasons: its
+   specials may be used once apiece) and the engine then takes the card out of
+   the deck; the rows of the hand come from the dealt deck, or a card the
+   opponent played would leave the column it was played from. *)
+let dealt_hand t pid = Array.to_list (Session.desc t.session).gd_players.(pid).pd_houses
+
+(* The cards of one house in the rows the hand draws them: the dealt deck
+   gives the row of every card, the live deck the cost of a card that is
+   still in play. *)
+let house_rows (live : player_house_desc) (dealt : player_house_desc) =
+  let live_of key = Array.find_opt (fun l -> l.cd_card.key = key) live.phd_cards in
+  let in_dealt key = Array.exists (fun d -> d.cd_card.key = key) dealt.phd_cards in
+  (* The cards the deck gained: one that replaces another (the Dark Monk for
+     the False Prophet). *)
+  let gained = Array.to_list live.phd_cards |> List.filter (fun l -> not (in_dealt l.cd_card.key)) in
+  (* A card that replaces another takes its row: the Dark Monk in the deck
+     says the False Prophet was played.  A card that is simply gone keeps its
+     row, disabled, so the board still shows what the opponent played. *)
+  let rec rows gained = function
+    | [] -> []
+    | d :: rest ->
+        let cd, gained =
+          match live_of d.cd_card.key with
+          | Some l -> (l, gained)
+          | None -> (
+              match gained with
+              | g :: gs -> (g, gs)
+              | [] -> ({ d with cd_enabled = false }, gained))
+        in
+        cd :: rows gained rest
+  in
+  let rows = rows gained (Array.to_list dealt.phd_cards) in
+  (* A card the deck gained and that replaced nothing has no row of its own:
+     it goes last. *)
+  let extra =
+    Array.to_list live.phd_cards
+    |> List.filter (fun l -> not (List.exists (fun r -> r.cd_card.key = l.cd_card.key) rows))
+  in
+  Array.of_list (rows @ extra)
+
+(* The hand as a board draws it: every card keeps the row it was dealt at,
+   even the ones the houses took away. *)
+let hand_rows t pid =
+  let dealt = dealt_hand t pid in
+  List.map
+    (fun (live : player_house_desc) ->
+      match
+        List.find_opt (fun (d : player_house_desc) -> d.phd_house.h_index = live.phd_house.h_index) dealt
+      with
+      | Some d -> { live with phd_cards = house_rows live d }
+      | None -> live)
+    (hand t pid)
 
 let playable t cd h =
   match to_move t with

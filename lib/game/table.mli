@@ -16,6 +16,7 @@ type setup = {
   max_turns : int;
   starting : player_id;  (** Who takes the first turn; default [owner]. *)
   life : int option;  (** Both players' starting life; [None] is 60. *)
+  player_life_bonus : int;  (** Extra life for the human side, as the easy campaign gives. *)
   mode : Catalog.mode;  (** Standard (anger) or classic (fire) basic houses. *)
 }
 
@@ -62,9 +63,13 @@ val resolve_special : string list -> string
 type t
 
 val campaign_setup :
-  ?budget_ms:int -> ?seed:int -> ?mode:Catalog.mode -> player_special:string -> Campaign.node -> setup
+  ?budget_ms:int -> ?difficulty:string -> ?seed:int -> ?mode:Catalog.mode -> player_special:string ->
+  Campaign.node -> setup
 (** Human vs the node's bot, player's special vs the fight house, with the node's starter and life. The
-    mode defaults to the Game tab's mode ({!Prefs.setup_mode}). *)
+    mode defaults to the Game tab's mode ({!Prefs.setup_mode}). [difficulty] is the campaign difficulty
+    ({!Prefs.campaign_difficulty}): on hard every fight starts at the full 60 life and the diviner plays
+    the day chapter; on easy the player gets 5 more life on the day chapter (10 on its hardest fights),
+    except against the wind. *)
 
 val campaign_class : unit -> string
 (** The house key of the player's campaign class: the special house the map's class selector stores, or the
@@ -94,6 +99,21 @@ val to_move : t -> player_id option
 
 val hand : t -> player_id -> player_house_desc list
 (** {!Game.player_houses} on the live board. *)
+
+val dealt_hand : t -> player_id -> player_house_desc list
+(** The deck as it was dealt, before the houses changed it. *)
+
+val house_rows : player_house_desc -> player_house_desc -> card_desc array
+(** The cards of one house in the rows the hand draws them: the dealt house
+    gives the row of every card, the live house the cost of a card that is
+    still in play.  A card that replaces another takes its row (the Dark
+    Monk says the False Prophet was played); a card that is gone keeps its
+    row, disabled. *)
+
+val hand_rows : t -> player_id -> player_house_desc list
+(** The hand as a board draws it: every card keeps the row it was dealt at,
+    even the ones a house took away (Seasons spends a special card for good).
+    A card that is gone is disabled, so it cannot be played. *)
 
 val playable : t -> card_desc -> player_house_desc -> bool
 (** The player to move can pay for and play this card now. *)

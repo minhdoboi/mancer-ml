@@ -92,11 +92,11 @@ let normal_creature_waits_a_turn () =
   step u (fun () -> Player.run_slots (player u 0));
   check_int "werewolf does not attack yet" 60 (player_life u 1)
 
-let scorching_breath_eight () =
+let scorching_breath_nine () =
   let u = new_game ~mana0:6 ~house:Anger.house () in
   place u 1 "fire.dragon" 1;
   play u 0 "anger.wave" ~input:None ~cost:6;
-  check_int "dragon 41 - 8" 33 (life_at u 1 1)
+  check_int "dragon 41 - 9" 32 (life_at u 1 1)
 
 let scorching_voice_18_10 () =
   let u = new_game ~mana0:20 ~house:Anger.house () in
@@ -133,7 +133,7 @@ let incarnation_boosts_spells () =
   place u 0 "anger.dragon" 0;
   place u 1 "fire.dragon" 1;
   play u 0 "anger.wave" ~input:None ~cost:6;
-  check_int "8 * 1.5 = 12" (41 - 12) (life_at u 1 1)
+  check_int "9 * 1.5 = 14" (41 - 14) (life_at u 1 1)
 
 let outburst_scales_with_anger () =
   let u = new_game ~mana0:11 ~house:Anger.house () in
@@ -163,7 +163,7 @@ let () =
           Alcotest.test_case "wild boar" `Quick boar_mass_damage;
           Alcotest.test_case "oni" `Quick oni_attacks_on_summon;
           Alcotest.test_case "summoning sickness" `Quick normal_creature_waits_a_turn;
-          Alcotest.test_case "scorching breath" `Quick scorching_breath_eight;
+          Alcotest.test_case "scorching breath" `Quick scorching_breath_nine;
           Alcotest.test_case "scorching voice" `Quick scorching_voice_18_10;
           Alcotest.test_case "nemesis" `Quick nemesis_attack_for_mana;
           Alcotest.test_case "nemesis hits on summon" `Quick nemesis_hits_on_summon;

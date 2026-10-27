@@ -331,6 +331,125 @@ let spawn_bats ~from_ ~to_ ~start =
             circle (px +. (fx *. 1.4)) (py +. (fy *. 1.4)) 0.9 (rgb 0.7 0.12 0.12 (appear *. 0.7)))
         done)
 
+(* ---------------------------------------------------------------- the falcon *)
+
+(* The Falconer's own bird.  It leaves the falconer's stone, flies one lap of
+   an ellipse over the foe row, stooping at every foe creature, and comes back
+   to the falconer. *)
+let falcon_duration = 1.5
+
+(* A grey falcon: two swept wings and a body.  The wings beat, and their tips
+   trail behind, the way a falcon stoops. *)
+let draw_falcon px py ang beat alpha =
+  let fx = cos ang and fy = sin ang in
+  let lx = -.fy and ly = fx in
+  let up = (beat +. 1.) /. 2. in
+  let span = 9. +. (8. *. up) in
+  let grey = 0.42 +. (0.24 *. up) in
+  let wing_c = rgb grey (grey +. 0.02) (grey +. 0.05) alpha in
+  let wing side =
+    (* a long thin wing, its point swept back over the tail *)
+    let tx = px -. (fx *. (span *. 0.9)) +. (lx *. span *. side)
+    and ty = py -. (fy *. (span *. 0.9)) +. (ly *. span *. side) in
+    tri (px +. (fx *. 3.)) (py +. (fy *. 3.)) (px -. (fx *. 5.)) (py -. (fy *. 5.)) tx ty wing_c
+  in
+  wing 1.;
+  wing (-1.);
+  (* the body, the head and the yellow beak *)
+  circle px py 3.4 (rgb 0.58 0.59 0.63 alpha);
+  let hx = px +. (fx *. 4.4) and hy = py +. (fy *. 4.4) in
+  circle hx hy 2.3 (rgb 0.5 0.51 0.55 alpha);
+  tri (hx +. (fx *. 1.5) +. (lx *. 0.9)) (hy +. (fy *. 1.5) +. (ly *. 0.9))
+    (hx +. (fx *. 1.5) -. (lx *. 0.9)) (hy +. (fy *. 1.5) -. (ly *. 0.9))
+    (hx +. (fx *. 4.2)) (hy +. (fy *. 4.2)) (rgb 0.95 0.78 0.18 alpha)
+
+let spawn_falcon ~from_ ~foe_x ~foe_y ~foe_span ~(targets : spot array) ~start =
+  (* The bird leaves the falconer and flies one lap of an ellipse centred on
+     the foe row and wide enough to cover every foe slot: out to the side,
+     over the row, and back down to the falconer, which sits on the ellipse. *)
+  let home = from_ in
+  let down = home.y > foe_y in
+  (* wide enough to reach every foe slot, and to keep the falconer on it *)
+  let rx = Float.max (foe_span +. 40.) (Float.abs (home.x -. foe_x) /. 0.8) in
+  let u = (home.x -. foe_x) /. rx in
+  let lift = Float.sqrt (1. -. (u *. u)) in
+  let ry = ((Float.abs (home.y -. foe_y) /. 2.) +. 12.) /. lift in
+  let cy = home.y -. (if down then ry *. lift else -.ry *. lift) in
+  (* the angle of the falconer on the ellipse: the bird starts there *)
+  let t0 = if down then atan2 lift u else (atan2 (-.lift) u) +. (2. *. Float.pi) in
+  let steps = 240 in
+  let step = 2. *. Float.pi /. float steps in
+  let pos t = (foe_x +. (rx *. cos t), cy +. (ry *. sin t)) in
+  (* the length of the lap, so the bird keeps one speed all the way round *)
+  let ts = Array.init (steps + 1) (fun i -> t0 +. (float i *. step)) in
+  let cum = Array.make (steps + 1) 0. in
+  for i = 1 to steps do
+    let (x0, y0) = pos ts.(i - 1) and (x1, y1) = pos ts.(i) in
+    cum.(i) <- cum.(i - 1) +. hypot (x1 -. x0) (y1 -. y0)
+  done;
+  let total = Float.max 1. cum.(steps) in
+  let t_at s =
+    let s = Float.max 0. (Float.min total s) in
+    let i = ref 0 in
+    while !i < steps && cum.(!i + 1) < s do
+      incr i
+    done;
+    let seg = cum.(!i + 1) -. cum.(!i) in
+    let u = if seg <= 0. then 0. else (s -. cum.(!i)) /. seg in
+    ts.(!i) +. (u *. step)
+  in
+  let at age =
+    let s = total *. Float.max 0. (Float.min 1. (age /. falcon_duration)) in
+    pos (t_at s)
+  in
+  (* where on the lap the bird crosses a foe card: that is where it stoops *)
+  let crossing (t : spot) =
+    let u = (t.x -. foe_x) /. rx in
+    if Float.abs u >= 1. then None
+    else
+      let ang = if down then (2. *. Float.pi) -. acos u else (2. *. Float.pi) +. acos u in
+      Some ((ang -. t0) /. (2. *. Float.pi))
+  in
+  let hits = Array.map crossing targets in
+  mk ~start ~duration:falcon_duration (fun ~age ->
+      let fade = Float.min 1. ((falcon_duration -. age) /. 0.18) in
+      if fade > 0.02 then (
+        let (px, py) = at age in
+        let (qx, qy) = at (age +. 0.03) in
+        let ang = atan2 (qy -. py) (qx -. px) in
+        (* the air it disturbs behind it *)
+        additive (fun () ->
+            for k = 1 to 5 do
+              let t = age -. (float k *. 0.032) in
+              if t > 0. then (
+                let (tx, ty) = at t in
+                circle tx ty
+                  (2.2 -. (float k *. 0.3))
+                  (rgb 0.72 0.74 0.78 (fade *. (0.22 -. (float k *. 0.035)))))
+            done);
+        (* the mark of each stoop: a ring opening on the card it hit *)
+        Array.iteri
+          (fun i t ->
+            match hits.(i) with
+            | None -> ()
+            | Some p ->
+                let hit = age -. (p *. falcon_duration) in
+                if hit >= 0. && hit < 0.45 then (
+                  let k = hit /. 0.45 in
+                  ring t.x t.y (5. +. (30. *. k)) (rgb 0.9 0.91 0.94 (fade *. 0.55 *. (1. -. k)));
+                  circle t.x t.y (4. +. (14. *. k)) (rgb 0.6 0.62 0.67 (fade *. 0.3 *. (1. -. k)));
+                  for f = 0 to 5 do
+                    let a = (float f *. 1.05) +. (age *. 3.) in
+                    let d = 6. +. (22. *. k) in
+                    circle
+                      (t.x +. (cos a *. d))
+                      (t.y +. (sin a *. d))
+                      1.2
+                      (rgb 0.8 0.82 0.86 (fade *. 0.5 *. (1. -. k)))
+                  done))
+          targets;
+        draw_falcon px py ang (sin (age *. 19.)) fade))
+
 let spawn_harvest ~from_ ~to_ ~souls ~start =
   let duration = 0.95 in
   let wisps = min 8 (3 + souls - 1) in

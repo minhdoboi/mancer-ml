@@ -314,6 +314,37 @@ let baron_saves_the_player () =
   step u (fun () -> Player.apply_effects (player u 0) On_end_turn);
   check_bool "dies after the turn" true (u.ended = Some 1)
 
+(* A keeper can die in the very broadcast that announces its Limbo state: its
+   own reaction hits the opponent, the opponent's Retaliator hits it back.
+   The death still waits for the end of the turn, and the Tower of Sins must
+   not read the emptied slot (it used to raise "empty slot 0"). *)
+let keeper_dies_only_at_the_end_of_the_turn () =
+  let u = new_game ~special:Limbo.house () in
+  place u 0 "limbo.hell" 0;
+  place u 0 "limbo.tower" 1;
+  place u 1 "antimancer.4.name" 0;
+  kill u 0 0;
+  check_bool "still on the board" true (not (is_empty u 0 0));
+  check_int "0 life" 0 (life_at u 0 0);
+  check_bool "in limbo" true
+    (match (slot u 0 0).value with Some st -> st.data = Limbo_state | None -> false);
+  step u (fun () -> Player.apply_effects (player u 0) On_end_turn);
+  check_bool "dies at the end of the turn" true (is_empty u 0 0)
+
+(* A creature already in Limbo does not enter it again: the reactions of the
+   house fire once, not once per blow. *)
+let limbo_state_is_entered_once () =
+  let u = new_game ~special:Limbo.house () in
+  place u 0 "limbo.tower" 0;
+  place u 0 "fire.goblin" 1;
+  let before = mana u 0 0 in
+  kill u 0 1;
+  let after = mana u 0 0 in
+  check_int "the tower taxes the house" (before + 1) after;
+  hit u 0 1 5;
+  check_int "no second tax" after (mana u 0 0);
+  check_bool "still in limbo" true (not (is_empty u 0 1))
+
 (* ------------------------------------------------------------------ rogue *)
 
 let sneak_open_and_blocked () =
@@ -491,6 +522,8 @@ let () =
           test_case "nether" `Quick nether_pays_per_creature;
           test_case "redemption" `Quick redemption_rebuilds;
           test_case "baron save" `Quick baron_saves_the_player;
+          test_case "keeper dies at the end of the turn" `Quick keeper_dies_only_at_the_end_of_the_turn;
+          test_case "limbo is entered once" `Quick limbo_state_is_entered_once;
         ] );
       ( "rogue",
         [

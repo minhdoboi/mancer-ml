@@ -331,7 +331,10 @@ let () =
     let p = Prefs.load () in
     (* The player keeps the campaign class all the way through. *)
     let player_special = Table.campaign_class () in
-    let setup = Table.campaign_setup ~budget_ms:(Prefs.campaign_difficulty_ms p) ~player_special node in
+    let setup =
+      Table.campaign_setup ~budget_ms:(Prefs.campaign_difficulty_ms p)
+        ~difficulty:(Prefs.campaign_difficulty p) ~player_special node
+    in
     let you = Prefs.player_portrait p in
     let opp = match node.Campaign.fight with Some f -> f.portrait_id | None -> "summoner" in
     match new_game ~campaign:(Some node) setup (you, opp) with

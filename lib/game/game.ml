@@ -67,7 +67,9 @@ let special_effects (d : player_desc) =
   | Some h -> h.phd_house.h_effects
   | None -> []
 
-let initial_player_state ?(life = 60) (mana : int list) (d : player_desc) =
+let default_life = 60
+
+let initial_player_state ?(life = default_life) (mana : int list) (d : player_desc) =
   let mana =
     match mana with
     | [ _; _; _; _ ] -> mana @ [ 2 ]
@@ -89,12 +91,17 @@ let initial_player_state ?(life = 60) (mana : int list) (d : player_desc) =
     ps_maluses = [];
   }
 
-let initial_game_state ?(mana0 = [ 2; 2; 2; 2 ]) ?(mana1 = [ 1; 1; 1; 1 ]) ?life (desc : game_desc) =
+(* [life] is the life both sides start with; [owner_life] and [opponent_life]
+   give one side its own life, as the easy campaign does for the player. *)
+let initial_game_state ?(mana0 = [ 2; 2; 2; 2 ]) ?(mana1 = [ 1; 1; 1; 1 ]) ?life ?owner_life ?opponent_life
+    (desc : game_desc) =
+  let life0 = match owner_life with Some l -> l | None -> Option.value life ~default:default_life in
+  let life1 = match opponent_life with Some l -> l | None -> Option.value life ~default:default_life in
   {
     players =
       [|
-        initial_player_state ?life mana0 desc.gd_players.(0);
-        initial_player_state ?life mana1 desc.gd_players.(1);
+        initial_player_state ~life:life0 mana0 desc.gd_players.(0);
+        initial_player_state ~life:life1 mana1 desc.gd_players.(1);
       |];
   }
 

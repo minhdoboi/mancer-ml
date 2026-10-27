@@ -611,7 +611,10 @@ let new_campaign () = { i = 0; message = "" }
 let campaign_fight node =
   let p = Prefs.load () in
   let player_special = Table.campaign_class () in
-  let setup = Table.campaign_setup ~budget_ms:(Prefs.campaign_difficulty_ms p) ~player_special node in
+  let setup =
+    Table.campaign_setup ~budget_ms:(Prefs.campaign_difficulty_ms p)
+      ~difficulty:(Prefs.campaign_difficulty p) ~player_special node
+  in
   new_game ~campaign:(Some node) setup
 
 (* The campaign class: the house the player keeps all the way through. *)

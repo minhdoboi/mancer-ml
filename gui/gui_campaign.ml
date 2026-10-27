@@ -77,14 +77,23 @@ let mage_line (n : Campaign.node) =
   match n.fight with
   | None -> Assets.text ("campaign." ^ n.id ^ ".name")
   | Some f ->
+      (* The hard difficulty gives every fight the full life and hands the day
+         chapter to the diviner; the easy one gives the player a little more
+         life on the day. *)
+      let difficulty = Prefs.campaign_difficulty (Prefs.load ()) in
       let mage =
         Assets.format (Assets.text "campaign.mage")
-          [ Assets.text f.house_key; Assets.text ("campaign.role." ^ f.bot_id) ]
+          [
+            Assets.text f.house_key;
+            Assets.text ("campaign.role." ^ Campaign.node_bot ~difficulty n f);
+          ]
       in
-      let life = match f.life with Some n -> n | None -> 60 in
+      let life = Option.value (Campaign.fight_life ~difficulty f) ~default:Game.default_life in
+      let bonus = Campaign.player_life_bonus ~difficulty n in
       Assets.text ("campaign." ^ n.id ^ ".name")
       ^ " (" ^ mage ^ ")   "
       ^ Assets.format (Assets.text "campaign.life") [ string_of_int life ]
+      ^ (if bonus = 0 then "" else " (+" ^ string_of_int bonus ^ ")")
 
 let end_line ~node_id ~bot_id ~won =
   Assets.text (Campaign.end_message_key ~node_id ~bot_id ~won ~has_key:Assets.has_key)

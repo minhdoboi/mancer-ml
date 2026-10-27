@@ -558,6 +558,19 @@ let dark_monk_taxes_the_opponents_fire () =
   step u (fun () -> Slot.destroy (slot u 0 1));
   check_int "the tax is gone with the monk" 0 (tax ())
 
+(* The Falconer sends its bird over the foe row: the board flies it from the
+   event, so the card has to announce one *)
+let falconer_sends_its_bird () =
+  let u = new_game ~special:Disciples.house () in
+  place u 0 "disciples.falconer" 2;
+  let events = ref [] in
+  Updater.listen u (fun e -> events := e :: !events);
+  step u (fun () -> Player.apply_effects (player u 0) On_turn);
+  check_bool "the bird is announced" true
+    (List.mem
+       (Ev_ability { kind = "disciples.falconer"; player = 0; num = 2; target = None })
+       !events)
+
 (* ------------------------------------------------------------------ rng *)
 
 (* Card randomness draws from the updater's rng, so the global Random (which
@@ -659,6 +672,7 @@ let () =
           test_case "liberator" `Quick liberator_enrages;
           test_case "shared cost mod" `Quick shared_cost_mod_survives;
           test_case "dark monk tax" `Quick dark_monk_taxes_the_opponents_fire;
+          test_case "falconer sends its bird" `Quick falconer_sends_its_bird;
         ] );
       ("rng", [ test_case "cocoons use updater rng" `Quick cocoons_follow_updater_rng ]);
     ]

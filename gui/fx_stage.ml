@@ -722,6 +722,23 @@ let for_ability layout ~kind ~player ~num ~target =
       Some
         (recipe ~duration:0.95 ~blocking:false (fun ~start ->
              spawn_harvest ~from_:(layout.slot_center dead_p slot) ~to_:(layout.life player) ~souls:1 ~start))
+  | "disciples.falconer" ->
+      (* The Falconer sends its bird over the foe row and back: it stoops at
+         every foe creature, which is exactly who the card hurts. *)
+      let foe = other player in
+      let foes =
+        layout.occupied foe |> List.sort compare |> List.map (layout.slot_center foe) |> Array.of_list
+      in
+      let row = slots_of foe layout.slot_center in
+      let foe_x = Array.fold_left (fun a s -> a +. s.x) 0. row /. float (Array.length row) in
+      let foe_y = row.(0).y in
+      let left = Array.fold_left (fun a s -> Float.min a s.x) row.(0).x row in
+      let right = Array.fold_left (fun a s -> Float.max a s.x) row.(0).x row in
+      let foe_span = (right -. left) /. 2. in
+      Some
+        (recipe ~duration:falcon_duration ~blocking:true (fun ~start ->
+             spawn_falcon ~from_:(layout.slot_center player num) ~foe_x ~foe_y ~foe_span ~targets:foes
+               ~start))
   | "meteomancer.storm" ->
       (* Astral Storm: arcs lash out of the storm card at every foe creature
          and the last one breaks on the foe themselves *)
@@ -818,6 +835,7 @@ let demo_names =
     "grenade";
     "astralstorm";
     "quake";
+    "falcon";
   ]
 
 let spawn_demo layout name =
@@ -987,4 +1005,14 @@ let spawn_demo layout name =
       let centers = slots_of opponent layout.slot_center in
       let floors = slots_of opponent layout.slot_floor in
       go (spawn_quake ~centers ~floors ~foe_pid:opponent ~start:now)
+  | "falcon" ->
+      (* the Disciples' Falconer: its bird turns over the foe row and home *)
+      let targets = Array.of_list (List.map (layout.slot_center opponent) (layout.occupied opponent)) in
+      let row = slots_of opponent layout.slot_center in
+      let foe_x = Array.fold_left (fun a s -> a +. s.x) 0. row /. float (Array.length row) in
+      let foe_y = row.(0).y in
+      let left = Array.fold_left (fun a s -> Float.min a s.x) row.(0).x row in
+      let right = Array.fold_left (fun a s -> Float.max a s.x) row.(0).x row in
+      let foe_span = (right -. left) /. 2. in
+      go (spawn_falcon ~from_:own.(2) ~foe_x ~foe_y ~foe_span ~targets ~start:now)
   | _ -> ()

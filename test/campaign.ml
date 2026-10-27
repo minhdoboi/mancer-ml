@@ -401,6 +401,66 @@ let play_bot_map () =
   Alcotest.(check string) "lecturer" "lecturer" (Campaign.play_bot "lecturer");
   Alcotest.(check string) "oracle" "oracle" (Campaign.play_bot "oracle")
 
+(* The hard difficulty plays the whole campaign at full life, with the
+   diviner taking the day chapter. Every other difficulty keeps the map. *)
+let hard_difficulty () =
+  let fight id = match (Campaign.node id).fight with Some f -> f | None -> assert false in
+  let entomologist = Campaign.node "entomologist" in
+  let wind = Campaign.node "wind" in
+  let zen = Campaign.node "zen" in
+  (* Life: always the full 60 on hard. *)
+  Alcotest.(check (option int))
+    "entomologist hard" (Some 60)
+    (Campaign.fight_life ~difficulty:"hard" (fight "entomologist"));
+  Alcotest.(check (option int))
+    "wind hard" (Some 60) (Campaign.fight_life ~difficulty:"hard" (fight "wind"));
+  Alcotest.(check (option int))
+    "entomologist normal" (Some 30)
+    (Campaign.fight_life ~difficulty:"normal" (fight "entomologist"));
+  Alcotest.(check (option int))
+    "entomologist easy" (Some 30)
+    (Campaign.fight_life ~difficulty:"easy" (fight "entomologist"));
+  Alcotest.(check (option int)) "wind normal" None (Campaign.fight_life ~difficulty:"normal" (fight "wind"));
+  (* The bot: the diviner plays every day node on hard, the night chapter
+     keeps its own bots. *)
+  Alcotest.(check string)
+    "entomologist hard" "diviner"
+    (Campaign.node_bot ~difficulty:"hard" entomologist (fight "entomologist"));
+  Alcotest.(check string)
+    "entomologist hard plays" "diviner"
+    (Campaign.fight_bot ~difficulty:"hard" entomologist (fight "entomologist"));
+  Alcotest.(check string)
+    "wind hard" "diviner" (Campaign.node_bot ~difficulty:"hard" wind (fight "wind"));
+  Alcotest.(check string)
+    "night keeps its bot" "lecturer" (Campaign.node_bot ~difficulty:"hard" zen (fight "zen"));
+  Alcotest.(check string)
+    "entomologist normal" "summoner"
+    (Campaign.node_bot ~difficulty:"normal" entomologist (fight "entomologist"));
+  Alcotest.(check string)
+    "entomologist normal plays" "summoner"
+    (Campaign.fight_bot ~difficulty:"normal" entomologist (fight "entomologist"))
+
+(* The easy difficulty gives the player a little more life on the day
+   chapter, but not against the wind, and twice as much on the day's hardest
+   fights. *)
+let easy_difficulty () =
+  let entomologist = Campaign.node "entomologist" in
+  let zen = Campaign.node "zen" in
+  let bonus id = Campaign.player_life_bonus ~difficulty:"easy" (Campaign.node id) in
+  Alcotest.(check int) "entomologist easy" 10 (bonus "entomologist");
+  Alcotest.(check int) "meteomancer easy" 10 (bonus "meteomancer");
+  Alcotest.(check int) "disciples easy" 10 (bonus "disciples");
+  Alcotest.(check int) "emotion easy" 10 (bonus "emotion");
+  Alcotest.(check int) "seasons easy" 10 (bonus "seasons");
+  Alcotest.(check int) "other day easy" 5 (bonus "junk");
+  Alcotest.(check int) "wind easy" 0 (bonus "wind");
+  Alcotest.(check int) "night easy" 0
+    (Campaign.player_life_bonus ~difficulty:"easy" zen);
+  Alcotest.(check int) "entomologist normal" 0
+    (Campaign.player_life_bonus ~difficulty:"normal" entomologist);
+  Alcotest.(check int) "entomologist hard" 0
+    (Campaign.player_life_bonus ~difficulty:"hard" entomologist)
+
 let () =
   Alcotest.run "campaign"
     [
@@ -436,5 +496,7 @@ let () =
           Alcotest.test_case "i18n" `Quick i18n_keys;
           Alcotest.test_case "i18n font" `Quick i18n_font_coverage;
           Alcotest.test_case "play bot" `Quick play_bot_map;
+          Alcotest.test_case "hard difficulty" `Quick hard_difficulty;
+          Alcotest.test_case "easy difficulty" `Quick easy_difficulty;
         ] );
     ]
