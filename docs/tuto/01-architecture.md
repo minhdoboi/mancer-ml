@@ -337,11 +337,11 @@ total in their stats line — that number is the real cost meter, not wall clock
 Table.bot_command t                                 (lib/game/table.ml:250)
   |-- check is_disabled -> None (pass) without asking the bot
   |-- t.movers.(pid)  built by movers_of            (table.ml:179)
-  |     `-- Tournament.mover ~budget id             (tournament.ml:420)
-  |           `-- Tournament.bot_kind id            (tournament.ml:372)
+  |     `-- Tournament.mover ~budget id             (tournament.ml:686)
+  |           `-- Tournament.bot_kind id            (tournament.ml:639)
   |                 "greedy" | "summoner" | "strategist" | "lecturer"
   |                 | "oracle" | "diviner"   (also "gambler"/"apprentice" -> lecturer)
-  |                 `-- make_mover kind budget     (tournament.ml:386)
+  |                 `-- make_mover kind budget     (tournament.ml:652)
   |                       `-- settings.duration <- budget_ms;  Bot.mover settings
   |
   `-- Bot.mover settings u pid = execute settings ~pid ~desc:u.desc u.state
@@ -388,7 +388,7 @@ its cards and no legal deck exists.
 
 `Table` sits above `Session` for the front ends (seats, seeded deals, bot
 dispatch, legal targets, saves); `Tournament` deliberately does **not** use it
-and goes straight from `Shuffle` to `Session.play_game` (`tournament.ml:436`),
+and goes straight from `Shuffle` to `Session.play_game` (`tournament.ml:706`),
 so a headless tournament never pays for UI bookkeeping.
 
 ## 9. Quick reference
@@ -397,7 +397,7 @@ so a headless tournament never pays for UI bookkeeping.
 |---|---|
 | Where do I add a card's behaviour? | `lib/houses/<house>.ml`, using the effect DSL at `lib/core/engine.ml:723-793` |
 | Where do I add a card's types? | `lib/core/sp.ml` |
-| Where do I add a bot? | `lib/bots/<name>.ml` + an arm in `Tournament.bot_kind` (`tournament.ml:372`) + `bot_ids` (`:384`) + an `ai.<name>` i18n key |
+| Where do I add a bot? | `lib/bots/<name>.ml` + an arm in `Tournament.bot_kind` (`tournament.ml:639`) + `bot_ids` (`:650`) + an `ai.<name>` i18n key |
 | How does a bot see the board? | `u.state`, a plain `game_state` |
 | How does a bot try a move? | `Game.simulate desc state pid cmd` |
 | How does a bot enumerate moves? | `Game.legal_commands`, or `Oracle.base_moves` for the pruned set |

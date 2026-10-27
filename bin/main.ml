@@ -5,9 +5,10 @@ open Mancer
 let () =
   Printexc.record_backtrace true;
   let usage =
-    "main.exe [--games N] [--bots greedy,summoner,strategist,lecturer,oracle,diviner] [--budget MS] \
-     [--maxTurns N]\n\
-    \          [--out DIR] [--resume DIR] [--seed N] [--special HOUSE] [--mode play|summary] [--dir DIR] [-v]"
+    "main.exe [--mode bots|houses|summary] [--games N] \
+     [--bots greedy,summoner,strategist,lecturer,oracle,diviner] [--budget MS] [--maxTurns N]\n\
+     \          [--out DIR] [--resume DIR] [--seed N] [--special HOUSE] [--opponent-special HOUSES] \
+     [--dir DIR] [-v]"
   in
   (* Tournament.parse already reads the flags; Arg is only here so unknown
      tokens still produce a usage line. *)
@@ -25,8 +26,11 @@ let () =
          ("--maxTurns", Arg.Int ignore, "N (default 300)");
          ("--out", Arg.String ignore, "DIR (default tournament-results/<timestamp>)");
          ("--resume", Arg.String ignore, "DIR continue a previous run");
-         ("--special", Arg.String ignore, "HOUSE special house for both players (default Troopers)");
-         ("--mode", Arg.String ignore, "play|summary (default play)");
+         ("--special", Arg.String ignore, "HOUSES the house both seats play (bots), or a list of houses (houses)");
+         ( "--opponent-special",
+           Arg.String ignore,
+           "HOUSES comma-separated houses the house tournament compares, each of them once" );
+         ("--mode", Arg.String ignore, "bots|houses|summary (default bots)");
          ("--dir", Arg.String ignore, "DIR summary input");
          ("--include", Arg.String ignore, "specials");
          ("--exclude", Arg.String ignore, "specials");

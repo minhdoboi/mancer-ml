@@ -190,9 +190,68 @@ dune exec ./bin/main.exe -- --bots greedy,summoner,strategist,lecturer,oracle,di
 # house matchups: both seats take the special
 dune exec ./bin/main.exe -- --bots greedy,oracle --games 10 --special zen --seed 1
 
+# the house tournament: the houses play each other, the diviner is the instrument
+dune exec ./bin/main.exe -- --mode houses --special zen,wind,darksider \
+  --bots diviner --games 12 --seed 1
+
 # replay a run's card and Elo tables without playing
 dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<timestamp>
 ```
+
+**Deux tournois.** `--mode bots` (par défaut) classe les bots : les deux
+places prennent `--special`, donc le bilan d'un bot mesure le bot. `--mode
+houses` classe les maisons : elles font un round robin entre elles et les bots
+ne sont que l'instrument qui les joue. Faire les deux dans une même partie
+noterait un bot selon les maisons qu'il a tirées au sort, ce qui ne mesure ni
+l'un ni l'autre — c'est pourquoi ce sont deux modes, et non un mode avec une
+option.
+
+`--special` prend une liste de maisons et chaque paire joue, `--games` parties
+par paire ; `--opponent-special` ajoute des adversaires à cette liste. Dans un
+appariement de maisons, la maison en place 0 alterne à chaque partie et les
+bots une partie sur deux : sur quatre parties, chaque maison a donc rencontré
+chaque bot depuis chaque place. `summary.json` gagne alors une table `houses` :
+
+```json
+"houses": {
+  "zen":  {"games": 12, "wins": 7, "losses": 4, "draws": 1, "rate": 0.625, "elo": 1516.0},
+  "dudes": {"games": 12, "wins": 3, "losses": 8, "draws": 1, "rate": 0.292, "elo": 1485.3}
+}
+```
+
+et une `houseMatrix` avec le score de chaque paire, dans les deux sens,
+imprimée comme un tableau dont les maisons sont en lignes et en colonnes :
+
+```text
+house matrix (row against column):
+zen        wind       darksider
+zen        -          2-0        1-1
+wind       0-2        -          3-0
+darksider  1-1        0-3        -
+```
+
+Une partie est créditée à la maison de la place qui l'a gagnée : la table se lit
+« comment cette maison s'est sortie quand elle a été jouée », et l'Elo les
+classe. Le journal suit la même règle — il nomme les maisons et la maison
+gagnante, pas le bot qui l'a jouée :
+
+```text
+game 1: zen vs wind -> zen in 23 turns
+game 3: zen vs darksider -> darksider in 24 turns
+```
+
+Avec deux bots, il faut quatre parties par appariement pour annuler aussi la
+différence entre les bots et pas seulement la place : la maison en place 0
+alterne à chaque partie, les bots une partie sur deux. Quand les deux places prennent la même maison, la seconde est nommée
+`zen2` (place 2), et `--include`/`--exclude` reconnaissent le nom de la maison
+avec ou sans le suffixe. Le même artifice sépare un match miroir en `diviner`
+et `diviner2`, c'est-à-dire l'avantage du premier joueur — la seule chose
+qu'un match miroir puisse mesurer. À lire comme un test de fumée : le calcul de
+« How many games a claim needs » s'applique aussi à ces taux.
+
+Les clés des maisons sont les noms du jeu, qui ne sont pas toujours ceux des
+modules : `Troopers`, `Dudes` et `reaper` (Soul Reaper, aussi accepté sous
+`soulreaper`).
 
 **Résumé des deux sous-sections suivantes.** L'Elo n'est pas un taux de
 victoire : +70 Elo valent environ 60 % de victoires, +170 environ 73 %. Et un
@@ -210,7 +269,7 @@ facilement — à tort — comme un taux de victoire.
 ra' = ra +. (16.0 *. (sa -. (1.0 /. (1.0 +. (10. ** ((rb -. ra) /. 400.0))))))
 ```
 
-`tournament.ml:115-116`, soit `R' = R + K·(S − E)` avec `K = 16`,
+`tournament.ml:166-167`, soit `R' = R + K·(S − E)` avec `K = 16`,
 `S ∈ {1, ½, 0}` et
 
 ```text
@@ -295,7 +354,7 @@ suivre) :
 1. **Fixer `--seed`.** La graine pilote les donnes et les dés. La même graine
    donne les mêmes decks aux deux bots, ce qui retire la chance liée aux decks
    de la comparaison. L'ordre des sièges alterne à chaque partie
-   (`ordered_pair`, `tournament.ml:368`).
+   (`ordered_pair`, `tournament.ml:635`).
 2. **Utiliser `--games`, pas 1.** Vingt parties au minimum : un échantillon de
    6 parties noie régulièrement un vrai changement de ±5 % dans le bruit.
 3. **Ne changer qu'une chose.** En particulier : ne pas retoucher `Eval` et le
@@ -359,7 +418,7 @@ chose à moindre coût.
   `settings` entre des threads serait un bug.
 - **Le commentaire de doc de `Tournament.mover` est périmé.** Il dit que
   `[apprentice]` est greedy ; le code associe `"apprentice"` et `"gambler"` à
-  `Lecturer` (`tournament.ml:374,378`), et `bot_ids` (`:384`) ne les liste pas.
+  `Lecturer` (`tournament.ml:641,645`), et `bot_ids` (`:650`) ne les liste pas.
 - **`Heuris.mana_lead` est exportée et jamais appelée.**
 - **Ne pas comparer sur une seule graine.** Voir §5.
 - **Le plateau est visible de tous.** Avant de conclure qu'un bot joue

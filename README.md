@@ -69,10 +69,21 @@ to finish.
 ## Tournament
 
 `bin/main.exe` shuffles legal decks, plays the requested bots, and writes
-`game-NNN.json` plus `summary.json` (W/L/D and Elo, K=16) under
-`tournament-results/<timestamp>/`. Default is greedy vs greedy. `--budget`
-is the search bots' milliseconds per move (default 1000). `--special`
-picks the special house for both players.
+`game-NNN.json` plus `summary.json` under `tournament-results/<timestamp>/`.
+Default is greedy vs greedy. `--budget` is the search bots' milliseconds per
+move (default 1000).
+
+Two tournaments share the driver, and they measure different things:
+
+- `--mode bots` (the default) ranks the **bots**. Every seat plays
+  `--special`, the seat order alternates, and `summary.json` holds the bots'
+  W/L/D and Elo.
+- `--mode houses` ranks the **houses**. They play a round robin against each
+  other, with the bots as the instrument, and the Elo in the `houses` table
+  is the houses' rating.
+
+Mixing them would rate a bot by the houses it happened to draw, which
+measures neither.
 
 ```sh
 dune exec ./bin/main.exe           # 20 greedy-vs-greedy games
@@ -89,6 +100,70 @@ win counts are not a balance signal. Oracle vs greedy is.
 `--bots greedy,summoner,strategist,lecturer,oracle,diviner` is the full
 matchup. Lecturer is a UCT tree search; tune with
 `LECTURER_OPTS=exploration=0.7,maxDepth=4,...`.
+
+### House tournament
+
+`--mode houses` compares houses. `--special` takes a list of houses; every
+pair of them plays, `--games` games per pair, and within a pairing the house
+at seat 0 alternates every game while the bots alternate every other one — so
+every house meets every bot from every seat and the rating measures the house,
+not the seat or the bot.
+
+```sh
+# zen, wind and darksider play each other, 2 games per pair
+dune exec ./bin/main.exe -- --mode houses --special zen,wind,darksider \
+  --bots diviner --games 2 --budget 200
+
+# a house and its challengers: --opponent-special adds to the list
+dune exec ./bin/main.exe -- --mode houses --special zen \
+  --opponent-special dudes,junk,trappers --bots diviner --games 20 --budget 200
+```
+
+The summary carries a `houses` table (the rating) and a `houseMatrix` (the
+score of every pair, both ways). Printed, the matrix reads:
+
+```text
+house matrix (row against column):
+zen        wind       darksider
+zen        -          2-0        1-1
+wind       0-2        -          3-0
+darksider  1-1        0-3        -
+```
+
+The log names the subject of the tournament: the bots in the bot tournament,
+the houses in the house tournament, where the winner is the house of the
+winning seat.
+
+```text
+game 1: zen vs wind -> zen in 23 turns
+game 3: zen vs darksider -> darksider in 24 turns
+```
+
+A game counts for the house of the seat that won it. `--include` and
+`--exclude` match on the house name; when both seats play the same house the
+second is labelled `zen2`, so the two stay apart.
+
+With two bots, give a pairing at least four games: the house at seat 0
+alternates every game (so the seat cancels over the round robin) but the bots
+cross only every other game, and four games are what it takes for both.
+
+House keys are the game names, not always the module names: `--special
+Troopers`, `--special Dudes`, `--special reaper` (Soul Reaper also answers
+to `soulreaper`).
+
+```
+dune exec ./bin/main.exe -- --mode houses --special seasons,darksider,sower,dreamweaver,wind,elementalist --games 5 --bots diviner --budget=200
+```
+
+|              | seasons    |   darksider  |   sower   |   dreamweaver |  wind |   elementalist
+|--------------|------------|--------------|-----------|---------------|-------|---------------
+| seasons      | -          |   4-1        |   5-0     |   4-1         |  5-0  |   4-1
+| darksider    | 1-4        |   -          |   4-1     |   1-4         |  2-3  |   1-4
+| sower        | 0-5        |   1-4        |   -       |   2-3         |  3-2  |   2-3
+| dreamweaver  | 1-4        |   4-1        |   3-2     |   -           |  5-0  |   3-2
+| wind         | 0-5        |   3-2        |   2-3     |   0-5         |  -    |   0-5
+| elementalist | 1-4        |   4-1        |   3-2     |   2-3         |  5-0  |   -
+
 
 ## Limitations
 
@@ -234,3 +309,11 @@ A rules change shows up as an expect diff: review it, then `dune promote`.
 - [House port mismatches](docs/tech/house-port-mismatches.md)
 - [Spell-effect port plan](docs/tech/effects-port-plan.md)
 - [Packaging for Linux, macOS, Windows](docs/tech/packaging.md)
+
+## Credits
+
+Migration was done with multiple models Opus,Sonnet,Grok. The art was mostly
+generated with Grok Imagine.
+
+At the end to avoid spending too much money, I used more Deepseek, Minimax
+and Meta Muse Image, depending on the tasks.

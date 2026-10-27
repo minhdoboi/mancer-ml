@@ -463,7 +463,7 @@ let mover settings u pid = execute settings ~pid ~desc:u.desc u.state
 ```
 
 Then register it: add `"mybot"` to `Tournament.bot_kind` and `bot_ids`
-(`lib/game/tournament.ml:372,384`), give it a `case` in `make_mover`
+(`lib/game/tournament.ml:639,650`), give it a `case` in `make_mover`
 (`:386`), add `ai.mybot=Mybot ({0})` to the five `assets/i18n/*.properties`
 files, and — if it should show in the duel lobby — a row in
 `Table.duel_opponents` (`lib/game/table.ml:58`).

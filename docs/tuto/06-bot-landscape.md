@@ -189,9 +189,67 @@ dune exec ./bin/main.exe -- --bots greedy,summoner,strategist,lecturer,oracle,di
 # house matchups: both seats take the special
 dune exec ./bin/main.exe -- --bots greedy,oracle --games 10 --special zen --seed 1
 
+# the house tournament: the houses play each other, the diviner is the instrument
+dune exec ./bin/main.exe -- --mode houses --special zen,wind,darksider \
+  --bots diviner --games 12 --seed 1
+
 # replay a run's card and Elo tables without playing
 dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<timestamp>
 ```
+
+**Two tournaments.** `--mode bots` (the default) ranks the bots: every seat
+plays `--special`, so a bot's record measures the bot. `--mode houses` ranks
+the houses: they play a round robin against each other and the bots are only
+the instrument that plays them. Running both at once would rate a bot by the
+houses it happened to draw, which measures neither — that is why they are
+separate modes and not one mode with a flag.
+
+`--special` takes a list of houses and every pair of them plays, `--games`
+games per pair; `--opponent-special` adds challengers to that list. Inside a
+pairing the house at seat 0 alternates every game and the bots every other
+one, so over four games every house has met every bot from every seat.
+`summary.json` then carries a `houses` table:
+
+```json
+"houses": {
+  "zen":  {"games": 12, "wins": 7, "losses": 4, "draws": 1, "rate": 0.625, "elo": 1516.0},
+  "dudes": {"games": 12, "wins": 3, "losses": 8, "draws": 1, "rate": 0.292, "elo": 1485.3}
+}
+```
+
+and a `houseMatrix` with the score of every pair, both ways, printed as a
+table with the houses in rows and columns:
+
+```text
+house matrix (row against column):
+zen        wind       darksider
+zen        -          2-0        1-1
+wind       0-2        -          3-0
+darksider  1-1        0-3        -
+```
+
+A game is credited to the house of the seat that won it, so the table reads
+"how did this house do when it was played", and the Elo ranks them. The log
+follows the same rule — it names the houses and the winning house, not the
+bot that played it:
+
+```text
+game 1: zen vs wind -> zen in 23 turns
+game 3: zen vs darksider -> darksider in 24 turns
+```
+
+With two bots the crossing needs four games per pairing to cancel the bot
+difference as well as the seat: the house at seat 0 alternates every game,
+the bots every other one. When both
+seats play the same house the second one is labelled `zen2` (seat 2), and
+`--include`/`--exclude` match on the house name either way. The same trick
+splits a self-play of one bot into `diviner` and `diviner2`, which is the
+first-player advantage — the only thing a mirror match can measure. Read the
+rates as a smoke test: the arithmetic in "How many games a claim needs"
+applies to them as well.
+
+House keys are the game's own names, which are not always the module names:
+`Troopers`, `Dudes` and `reaper` (Soul Reaper, also accepted as `soulreaper`).
 
 **Short version of the next two subsections.** Elo is not a win rate: +70 Elo
 is about 60% wins, +170 is about 73%. And a result from 20 games can be off by
@@ -209,7 +267,7 @@ misread as a win rate.
 ra' = ra +. (16.0 *. (sa -. (1.0 /. (1.0 +. (10. ** ((rb -. ra) /. 400.0))))))
 ```
 
-`tournament.ml:115-116`, i.e. `R' = R + K·(S − E)` with `K = 16`,
+`tournament.ml:166-167`, i.e. `R' = R + K·(S − E)` with `K = 16`,
 `S ∈ {1, ½, 0}` and
 
 ```text
@@ -288,7 +346,7 @@ The method, because bot-vs-bot results are noisy (the checklist to follow):
 1. **Fix `--seed`.** The seed drives the deals and the dice. The same seed
    gives the same decks for both bots, which removes deck luck from the
    comparison. Seat order alternates per game (`ordered_pair`,
-   `tournament.ml:368`).
+   `tournament.ml:635`).
 2. **Use `--games`, not 1.** Twenty games at least. A 6-game sample routinely
    puts a genuine ±5% change inside the noise.
 3. **Change one thing.** Especially: do not retune `Eval` and the controller in
@@ -347,7 +405,7 @@ occasionally take the second-best move makes the bot more robust, and the
   threads would be a bug.
 - **`Tournament.mover`'s doc comment is stale.** It says `[apprentice]` is
   greedy; the code maps `"apprentice"` and `"gambler"` to `Lecturer`
-  (`tournament.ml:374,378`), and `bot_ids` (`:384`) does not list them.
+  (`tournament.ml:641,645`), and `bot_ids` (`:650`) does not list them.
 - **`Heuris.mana_lead` is exported and never called.**
 - **Do not compare on a single seed.** See §5.
 - **The board is visible to everything.** Before you conclude that a bot plays

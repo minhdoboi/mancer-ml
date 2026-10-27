@@ -168,11 +168,18 @@ let find_card cat name =
   | Some c -> c
   | None -> failwith ("unknown card " ^ name)
 
+(* A house whose key differs from the name the game shows: Soul Reaper's key
+   is "reaper" (its cards are "reaper.*"), so accept the module name too. *)
+let special_aliases = [ ("soulreaper", Soulreaper.house) ]
+
 let find_special name =
   let n = token name in
   match List.find_opt (fun (h : house) -> token h.h_name = n || token h.h_key = n) specials with
   | Some h -> h
-  | None ->
-      failwith
-        (Printf.sprintf "unknown special house %s (known: %s)" name
-           (String.concat ", " (List.map (fun (h : house) -> h.h_key) specials)))
+  | None -> (
+      match List.find_opt (fun (alias, (h : house)) -> token alias = n) special_aliases with
+      | Some (_, h) -> h
+      | None ->
+          failwith
+            (Printf.sprintf "unknown special house %s (known: %s)" name
+               (String.concat ", " (List.map (fun (h : house) -> h.h_key) specials))))
