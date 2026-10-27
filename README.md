@@ -122,26 +122,6 @@ dune exec ./bin/main.exe -- --mode houses --special zen \
   --opponent-special dudes,junk,trappers --bots diviner --games 20 --budget 200
 ```
 
-The summary carries a `houses` table (the rating) and a `houseMatrix` (the
-score of every pair, both ways). Printed, the matrix reads:
-
-```text
-house matrix (row against column):
-zen        wind       darksider
-zen        -          2-0        1-1
-wind       0-2        -          3-0
-darksider  1-1        0-3        -
-```
-
-The log names the subject of the tournament: the bots in the bot tournament,
-the houses in the house tournament, where the winner is the house of the
-winning seat.
-
-```text
-game 1: zen vs wind -> zen in 23 turns
-game 3: zen vs darksider -> darksider in 24 turns
-```
-
 A game counts for the house of the seat that won it. `--include` and
 `--exclude` match on the house name; when both seats play the same house the
 second is labelled `zen2`, so the two stay apart.
@@ -166,6 +146,18 @@ dune exec ./bin/main.exe -- --mode houses --special seasons,darksider,sower,drea
 | dreamweaver  | 1-4        |   4-1        |   3-2     |   -           |  5-0  |   3-2
 | wind         | 0-5        |   3-2        |   2-3     |   0-5         |  -    |   0-5
 | elementalist | 1-4        |   4-1        |   3-2     |   2-3         |  5-0  |   -
+
+```
+dune exec ./bin/main.exe -- --mode houses --special paganist,highpriest,seasons,Troopers,antimancer --games 3 --bots diviner --budget=200
+```
+
+|             | paganist  |  highpriest |  seasons  |   Troopers  |  antimancer
+|-------------|-----------|-------------|-----------|-------------|------------
+| paganist    | -         |  2-1        |  2-1      |   2-1       |  2-1
+| highpriest  | 1-2       |  -          |  1-2      |   1-2       |  3-0
+| seasons     | 1-2       |  2-1        |  -        |   2-1       |  3-0
+| Troopers    | 1-2       |  2-1        |  1-2      |   -         |  2-1
+| antimancer  | 1-2       |  0-3        |  0-3      |   1-2       |  -
 
 
 ## Limitations
@@ -315,8 +307,9 @@ A rules change shows up as an expect diff: review it, then `dune promote`.
 
 ## Credits
 
-Migration was done with multiple models Opus,Sonnet,Grok. The art was mostly
-generated with Grok Imagine.
-
-At the end to avoid spending too much money, I used more Deepseek, Minimax, Flux
-or Meta Muse Image, depending on the tasks.
+* The custom house design comes from the spectromancer suggestions forum.
+* Migration was done with multiple models Opus,Sonnet,Grok. The art was mostly
+generated with Grok Imagine. At the end to avoid spending too much money,
+I used more Deepseek, Minimax, Flux or Meta Muse Image, depending on the tasks.
+A simple dev setup can be pi harness with Deepseek or GLM (via a router like edenai)
+and Flux (bfl).
