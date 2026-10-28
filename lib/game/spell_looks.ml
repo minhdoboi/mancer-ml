@@ -87,6 +87,7 @@ let looks =
     ("blacksmith.mithrilshield", look Ring Own_target 0.5 0.8 1. ());
     ("blacksmith.wizardshat", look Rise Own_target 0.7 0.6 1. ());
     ("blacksmith.cloakanddagger", look Shadow Own_target 0.45 0.35 0.55 ());
+    ("beastlord.ritual", look Rise Own_slots 0.5 0.85 0.4 ());
   ]
 
 let custom =
@@ -154,6 +155,7 @@ let custom =
     "trappers.rose";
     "trappers.undergroundpoison";
     "trappers.roots";
+    "beastlord.poison";
   ]
 
 (* Spells whose visual is not a cast overlay at all. Eclipse darkens the whole

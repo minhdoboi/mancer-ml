@@ -632,6 +632,7 @@ module Reaction = struct
       on_my_remove = ignore;
       on_my_death = ignore;
       on_summon = ignore;
+      on_reveal = ignore;
       on_spawn_over =
         (fun s ->
           Slot.destroy s;

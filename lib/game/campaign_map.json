@@ -218,13 +218,28 @@
       }
     },
     {
+      "id": "beastlord",
+      "chapter": "day",
+      "x": 0.97,
+      "y": 0.42,
+      "after": [
+        "trappers"
+      ],
+      "fight": {
+        "house_key": "beastlord",
+        "bot_id": "oracle",
+        "portrait_id": "beastlord",
+        "life": 30
+      }
+    },
+    {
       "id": "fairy_knight",
       "chapter": "day",
       "x": 0.93,
       "y": 0.53,
       "after_any": [
         "otter",
-        "trappers"
+        "beastlord"
       ],
       "fight": {
         "house_key": "fairy",
@@ -889,6 +904,10 @@
     },
     {
       "from": "trappers",
+      "to": "beastlord"
+    },
+    {
+      "from": "beastlord",
       "to": "fairy_knight"
     },
     {

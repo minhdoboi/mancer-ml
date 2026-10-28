@@ -136,6 +136,7 @@ let house_groups =
       ("Zannoland", [ "paganist" ]);
       ("bZanno", [ "blacksmith" ]);
       ("zhupons", [ "trappers" ]);
+      ("Fail", [ "beastlord" ]);
     ]
 
 let group_of_house key =

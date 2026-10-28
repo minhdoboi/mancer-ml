@@ -91,8 +91,12 @@ let meteomancer_path () =
   check_bool "no otter after trappers" true (has_not (done_ @ [ "seasons"; "trappers" ]) "otter");
   check_bool "fairy after otter" true
     (has (done_ @ [ "emotion"; "sower"; "otter" ]) "fairy_knight");
-  check_bool "fairy after trappers" true
-    (has (done_ @ [ "seasons"; "trappers" ]) "fairy_knight");
+  check_bool "beastlord after trappers" true
+    (has (done_ @ [ "seasons"; "trappers" ]) "beastlord");
+  check_bool "fairy after beastlord" true
+    (has (done_ @ [ "seasons"; "trappers"; "beastlord" ]) "fairy_knight");
+  check_bool "no fairy after trappers" true
+    (has_not (done_ @ [ "seasons"; "trappers" ]) "fairy_knight");
   check_bool "no fairy before otter" true (has_not (done_ @ [ "emotion"; "sower" ]) "fairy_knight");
   check_bool "no trappers via otter" true
     (has_not (done_ @ [ "emotion"; "sower"; "otter" ]) "trappers");

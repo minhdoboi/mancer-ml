@@ -181,6 +181,11 @@
  (libraries mancer support alcotest))
 
 (test
+ (name beastlord)
+ (modules beastlord)
+ (libraries mancer support alcotest))
+
+(test
  (name update)
  (modules update)
  (libraries mancer alcotest))

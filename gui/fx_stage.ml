@@ -496,6 +496,13 @@ let for_spell layout (c : command) =
           in
           recipe ~duration:1.8 ~blocking:true (fun ~start -> spawn_lavender_nectar ~target:t ~house ~start))
         target
+  | "beastlord.poison" ->
+      (* the dart flies from the card to the creature it targets, not to the portrait *)
+      Option.map
+        (fun t ->
+          recipe ~duration:poison_dart_duration ~blocking:true (fun ~start ->
+              spawn_poison_dart ~from_:source ~target:t ~start))
+        target
   | "trappers.rose" ->
       (* the stems need both ends of the creature: the card they drink from and
          the ground they come up through *)
@@ -827,6 +834,7 @@ let demo_names =
     "excalibur";
     "gauntlet";
     "rose";
+    "poison_dart";
     "underground";
     "fusion";
     "ghosts";
@@ -977,6 +985,7 @@ let spawn_demo layout name =
   | "excalibur" -> go (spawn_excalibur ~wielder:own.(2) ~through:foe.(2) ~start:now)
   | "gauntlet" -> go (spawn_gauntlet ~wielder:own.(2) ~foe ~foe_pid:opponent ~start:now)
   | "rose" -> go (spawn_underworld_rose ~source:own.(2) ~target:foe.(2) ~start:now)
+  | "poison_dart" -> go (spawn_poison_dart ~from_:own.(2) ~target:foe.(2) ~start:now)
   | "underground" ->
       let foes =
         Array.of_list

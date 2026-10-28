@@ -3956,6 +3956,54 @@ let spawn_underground_poison ~target ~floor ~foes ~start =
    puffs follow one another so the smoke keeps coming for a moment. *)
 let roots_smoke_duration = 1.2
 
+(* Poison Dart: the caster's hand flicks a small poisoned dart that flies on a
+   flat line from the card to the creature it targets, trailing venom, and the
+   strike bursts in a green splash on the target. *)
+let poison_dart_duration = 0.9
+
+let spawn_poison_dart ~from_ ~target ~start =
+  let duration = poison_dart_duration in
+  let fly = 0.3 in
+  let dx = target.x -. from_.x and dy = target.y -. from_.y in
+  let px u = from_.x +. (dx *. u) in
+  let py u = from_.y +. (dy *. u) -. (18. *. 4. *. u *. (1. -. u)) in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.25) in
+      if fade > 0.02 then
+        additive (fun () ->
+            (* a small glow at the hand while the dart is nocked *)
+            if age < 0.08 then circle from_.x from_.y 9. (rgb 0.45 0.75 0.2 (fade *. 0.2));
+            let u = clamp01 (age /. fly) in
+            if u < 1. then (
+              (* the dart: a dark short shaft with a venom-green head, trailing motes *)
+              let sx = px u and sy = py u in
+              let vx = px (Float.min 1. (u +. 0.04)) -. sx and vy = py (Float.min 1. (u +. 0.04)) -. sy in
+              let vl = Float.max 0.001 (hypot vx vy) in
+              let tx = vx /. vl and ty = vy /. vl in
+              for k = 1 to 4 do
+                let tu = Float.max 0. (u -. (float k *. 0.06)) in
+                circle (px tu) (py tu) (2.6 -. (float k *. 0.45))
+                  (rgb 0.55 0.85 0.25 (fade *. 0.4 *. (1. -. (float k /. 5.))))
+              done;
+              line (sx -. (tx *. 8.)) (sy -. (ty *. 8.)) sx sy 1.8 (rgb 0.2 0.26 0.1 (fade *. 0.85));
+              circle (sx +. (tx *. 2.)) (sy +. (ty *. 2.)) 2.6 (rgb 0.65 0.95 0.3 fade))
+            else (
+              (* impact: a venom splash soaking into the creature, then rising fumes *)
+              let hit = clamp01 ((age -. fly) /. 0.45) in
+              ellipse target.x (target.y +. 34.) (10. +. (hit *. 26.)) (3. +. (hit *. 7.))
+                (rgb 0.3 0.55 0.1 ((1. -. hit) *. fade *. 0.55));
+              circle target.x target.y (6. +. (hit *. 20.)) (rgb 0.55 0.85 0.25 ((1. -. hit) *. fade *. 0.5));
+              for k = 0 to 5 do
+                let born = fly +. (float k *. 0.04) in
+                let a = age -. born in
+                let life = 0.5 +. (noise k 3 2 *. 0.25) in
+                if a > 0. && a < life then (
+                  let uu = a /. life in
+                  let x = target.x +. ((noise k 1 4 -. 0.5) *. 30.) +. (sin ((a *. 6.) +. float k) *. 3.) in
+                  let y = target.y -. (uu *. 42.) in
+                  circle x y (2. +. ((1. -. uu) *. 2.)) (rgb 0.65 0.95 0.3 ((1. -. uu) *. fade *. 0.8)))
+              done)))
+
 let spawn_roots_smoke ~floors ~start =
   let duration = roots_smoke_duration in
   mk ~start ~duration (fun ~age ->

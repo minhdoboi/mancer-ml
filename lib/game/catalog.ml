@@ -78,6 +78,7 @@ let specials =
     Kahjivir.house;
     Blacksmith.house;
     Trappers.house;
+    Beastlord.house;
   ]
 
 let all = standard_basics @ [ Fire.house; Water.house; Air.house; Earth.house ] @ specials
@@ -131,10 +132,12 @@ let init () =
       Kahjivir.house;
       Blacksmith.house;
       Trappers.house;
+      Beastlord.house;
     ];
   Game.init_cards ~cost_fn:Antimancer.cost_fn Antimancer.house;
   Game.init_cards ~cost_fn:Colors.cost_fn Colors.house;
-  Game.init_cards ~cost_fn:Trappers.cost_fn Trappers.house
+  Game.init_cards ~cost_fn:Trappers.cost_fn Trappers.house;
+  Game.init_cards ~cost_fn:Beastlord.cost_fn Beastlord.house
 
 let create houses = { houses }
 let default () = create all

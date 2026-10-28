@@ -1337,6 +1337,9 @@ let draw_player_bar ui pid =
   | Shadowmage_data d when d.eclipse_shield > 0 -> badge (Printf.sprintf "eclipse %d" d.eclipse_shield)
   | Wolf_data d when d.wo_protection > 0 -> badge (Printf.sprintf "wolf armor %d" d.wo_protection)
   | Wind_state w when w.vortex -> badge "vortex x1.5"
+  (* BeastLord: the cards the player has revealed (played), shown as long as
+     the class carries them, zero included. *)
+  | Beast_data d -> badge (Printf.sprintf "revealed %d" (List.length d.bd_revealed))
   | _ -> ());
   (* A malus the player carries: the tax on the cost of their cards. *)
   let cost_tax = malus_amount p Common.cost_malus in

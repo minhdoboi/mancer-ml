@@ -146,6 +146,10 @@ and wolf_state = {
 (* High Priest: unique opponent cards seen, and own turns counted *)
 and priest_data = { hp_revealed : (int * int) list; hp_turn : int }
 
+(* Beastlords: the distinct cards the player has revealed (played), as
+   (house_index, card_index) identities, oldest first. *)
+and beast_data = { bd_revealed : (int * int) list }
+
 (* Kinetician: ChangeTarget id plus Call of the Fittest cost mods *)
 and kinetic_data = { ki_target : int option; ki_halves : (int * desc_mod) list }
 
@@ -171,6 +175,8 @@ and player_data =
   | Wolf_data of wolf_state
   | Priest_data of priest_data
   | Kinetic_data of kinetic_data
+  (* Beastlords: revealed cards *)
+  | Beast_data of beast_data
 
 and input_spec =
   | No_input
@@ -368,6 +374,9 @@ and reaction = {
   on_my_remove : dead option -> unit;
   on_my_death : dead -> unit;
   on_summon : summon_event -> unit;
+  (* Beastlords: a new card was revealed (played) by this creature's owner; the
+     command's card is the freshly revealed one. Default is a no-op. *)
+  on_reveal : card -> unit;
   (* called on the new creature's reaction when summoned over an occupied
      slot; the default destroys the occupant (CardSpec.scala:212) *)
   on_spawn_over : slot_update -> slot_mod option;
