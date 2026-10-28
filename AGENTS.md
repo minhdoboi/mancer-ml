@@ -26,10 +26,9 @@ language in the submodule (`assets/i18n/<lang>.properties`), the page's own
 strings from the `grimoire.*` keys of the same bundle — so a new language
 needs its bundle and nothing else.
 
-Art style is the same as the Scala repo's `AGENTS.md`. **The media lives here**,
-in the [mancer-assets](https://github.com/minhdoboi/mancer-assets) submodule
-(`assets/`), and it is committed **in the shape the game reads it**: a card's
-picture is `assets/cards/<card key>.jpg`, a board is
+**The media lives here**, in the [mancer-assets](https://github.com/minhdoboi/mancer-assets)
+submodule (`assets/`), and it is committed **in the shape the game reads it**:
+a card's picture is `assets/cards/<card key>.jpg`, a board is
 `assets/backgrounds/<house key>.jpg`, and so on. No other checkout is involved,
 and there is no second copy of a file to keep in step with the first.
 
@@ -47,6 +46,41 @@ scripts/push_assets.sh "message"   # commit assets/, stage the submodule pointer
 Use `.tmp` folder for intermediate files. You can also use `assets/source/cards`
 which is not versionned, for cards source file before minification to keep a
 reference for modification.
+
+## Adding a special class (special house)
+
+A "class" in the lobby is a special house. Worked examples to copy:
+`lib/houses/special/trappers.ml` (simple) and `beastlord.ml` (adds a
+player-data reaction hook). Checklist, in order:
+
+1. **House module** `lib/houses/special/<key>.{ml,mli}` — cards, `house`, and
+   usually a `cost_fn`. Two hard rules the card list depends on:
+   - **List cards in ascending-cost order.** The deck builder and card list
+     assume index order == cost order; sorting after the fact breaks the dealt
+     deck and the test's quarter picks.
+   - **Costs come from `cost_fn i` (index-based), not `c.cost`.** A special
+     house with no `cost_fn` gets the default `i + 1`. For ties at the same
+     cost, cheaper-feeling cards go first. Register it in `Catalog.init`:
+     `Game.init_cards ~cost_fn:<Mod>.cost_fn <Mod>.house`.
+2. **Registration** — `Catalog.specials` and `Catalog.init` (both lists, keep
+   them in the same place); `Table.house_groups` (`("author", ["key"])`); pick
+   a free `h_house_id`.
+3. **i18n** — house + card strings (`<key>=`, `<key>.<card>=`, descriptions)
+   in **all five** bundles `assets/i18n/{en,es,fr,ru,vi}.properties`.
+4. **Tests** — `test/support/support.ml` (add to `all_houses` and
+   `init_all_houses`, with `~cost_fn` if any) and a `(test (name <key>) ...)`
+   stanza in `test/dune`. Remember the dealt special deck is one card per
+   quarter of the list (`Game.special_pick`): with 8 cards that's indices
+   0, 2, 4, 6 — write the test's expectations against those cards.
+5. **Art** — `assets/cards/<key>.<card>.jpg` (sizes/rules below),
+   `assets/backgrounds/<key>.jpg`, then `sync_assets` (it lists any missing
+   art) and `cardlist`.
+6. **Campaign** (optional) — a node in `lib/game/campaign_map.json`
+   (`{id, chapter, x, y, after|after_any, fight:{house_key, bot_id,
+   portrait_id, life}}`, plus edges), the fight's `portrait_id` in
+   `Campaign.campaign_portraits`, and `campaign.<node>.name/message/win/lose`
+   in all five bundles. `test/campaign.ml` checks portraits and unlock paths —
+   update its `*_path` assertions if you rewire edges.
 
 ## Card art (`assets/cards/`)
 
