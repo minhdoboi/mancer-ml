@@ -40,8 +40,8 @@ let hotspot_hits_opponent_board () =
   place u 1 "anger.werewolf" 2;
   place u 0 "anger.hotspot" 3;
   step u (fun () -> Player.apply_effects (player u 0) Direct);
-  check_int "dragon 41 - 4" 37 (life_at u 1 0);
-  check_int "werewolf 16 - 4" 12 (life_at u 1 2)
+  check_int "dragon 41 - 5" 36 (life_at u 1 0);
+  check_int "werewolf 16 - 5" 11 (life_at u 1 2)
 
 let sentinel_grows_anger () =
   let u = new_game ~house:Anger.house () in

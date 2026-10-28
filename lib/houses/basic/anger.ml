@@ -44,7 +44,7 @@ let cards =
       ~effects:(effects [ (On_turn, troll_rage) ])
       ();
     creature ~key:"anger.hotspot" ~attack:(attack 0) ~life:5 ~description:"anger.hotspot.description"
-      ~effects:(effects [ (Direct, damage_creatures ~is_ability:true 4) ])
+      ~effects:(effects [ (Direct, damage_creatures ~is_ability:true 5) ])
       ();
     creature ~key:"anger.sentinel" ~attack:(attack 3) ~life:13 ~description:"anger.sentinel.description"
       ~new_reaction:(mana_growth_reaction ~owner:true ~amount:1 ~house_indexes:[ 0 ])
