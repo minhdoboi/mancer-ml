@@ -277,6 +277,8 @@ let card_sound_name (c : card) =
   | "fear.spirit" -> "lightnin"
   | "fear.invasion" -> "onslaughtofsouls"
   | "fear.fear" -> "twister"
+  (* no clip of its own: the smith's blow borrows the gauntlet's heavy impact *)
+  | "barbarians.dwarvenhammer" -> "barguliangauntlet"
   | _ -> Assets.english_card_name c |> String.lowercase_ascii |> String.split_on_char ' ' |> String.concat ""
 
 let play_card_sound (c : card) = play_sound ~volume:0.9 (card_sound_name c)

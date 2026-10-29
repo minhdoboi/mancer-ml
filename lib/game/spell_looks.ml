@@ -141,6 +141,7 @@ let custom =
     "blacksmith.mithrilbow";
     "blacksmith.excalibur";
     "blacksmith.barguliangauntlet";
+    "barbarians.dwarvenhammer";
     "elementalist.frost";
     "darkpriest.BlackMass.name";
     "battlemage.warcry";

@@ -59,7 +59,11 @@ let look_recipe layout (c : command) look =
       spawn_style look ~own ~foe ~own_life ~foe_life ~target ~start)
 
 (* Seconds after a spell's effect starts that its sound should begin, for spells whose impact comes late. *)
-let sound_delay key = match key with "NuclearMissile" -> missile_fall | _ -> 0.
+let sound_delay key =
+  match key with
+  | "NuclearMissile" -> missile_fall
+  | "barbarians.dwarvenhammer" -> dwarven_hammer_swing (* the clang lands with the head *)
+  | _ -> 0.
 
 let for_spell layout (c : command) =
   let player = c.cmd_player in
@@ -658,6 +662,16 @@ let for_spell layout (c : command) =
       Some
         (recipe ~duration:excalibur_duration ~blocking:true (fun ~start ->
              spawn_excalibur ~wielder ~through ~start))
+  | "barbarians.dwarvenhammer" ->
+      (* a spectral hammer is forged in the air above the chosen creature and
+         driven straight down onto it like a smith's blow, and the creature
+         itself trembles under it *)
+      Option.bind c.cmd_input (fun n ->
+          Option.map
+            (fun tp ->
+              recipe ~duration:dwarven_hammer_duration ~blocking:true (fun ~start ->
+                  spawn_dwarven_hammer ~target:(layout.slot_center tp n) ~pid:tp ~num:n ~start))
+            (Table.target_side c))
   | _ -> Option.map (look_recipe layout c) (Spell_looks.get c.cmd_card.key)
 
 (* Contextual mana: arcs from a creature to the house labels it moved. *)
@@ -833,6 +847,7 @@ let demo_names =
     "bow";
     "excalibur";
     "gauntlet";
+    "hammer";
     "rose";
     "poison_dart";
     "underground";
@@ -984,6 +999,7 @@ let spawn_demo layout name =
   | "bow" -> go (spawn_mithril_bow ~from_p:own.(2) ~to_p:foe.(2) ~start:now)
   | "excalibur" -> go (spawn_excalibur ~wielder:own.(2) ~through:foe.(2) ~start:now)
   | "gauntlet" -> go (spawn_gauntlet ~wielder:own.(2) ~foe ~foe_pid:opponent ~start:now)
+  | "hammer" -> go (spawn_dwarven_hammer ~target:foe.(2) ~pid:opponent ~num:2 ~start:now)
   | "rose" -> go (spawn_underworld_rose ~source:own.(2) ~target:foe.(2) ~start:now)
   | "poison_dart" -> go (spawn_poison_dart ~from_:own.(2) ~target:foe.(2) ~start:now)
   | "underground" ->

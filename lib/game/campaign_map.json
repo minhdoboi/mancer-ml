@@ -276,6 +276,21 @@
       }
     },
     {
+      "id": "barbarians",
+      "chapter": "day",
+      "x": 0.86,
+      "y": 0.77,
+      "after": [
+        "dreamweaver"
+      ],
+      "fight": {
+        "house_key": "barbarians",
+        "bot_id": "oracle",
+        "portrait_id": "barbarians",
+        "life": 40
+      }
+    },
+    {
       "id": "dudes",
       "chapter": "day",
       "x": 0.45,
@@ -382,7 +397,7 @@
       "x": 0.75,
       "y": 0.8,
       "after_any": [
-        "dreamweaver",
+        "barbarians",
         "lightstave",
         "powermancer",
         "quantumancer"
@@ -936,7 +951,7 @@
     },
     {
       "from": "dreamweaver",
-      "to": "mountainking"
+      "to": "barbarians"
     },
     {
       "from": "ram",
@@ -1093,6 +1108,10 @@
     {
       "from": "rogue",
       "to": "fishman"
+    },
+    {
+      "from": "barbarians",
+      "to": "mountainking"
     },
     {
       "from": "fishman",

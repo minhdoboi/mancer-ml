@@ -49,8 +49,14 @@ let mountain_approaches () =
   check_bool "quantumancer" true
     (has [ "entomologist"; "disciples"; "junk"; "spiritshaman"; "paganist"; "quantumancer" ]
        "mountainking");
-  check_bool "dreamweaver" true
-    (has [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver" ] "mountainking");
+  check_bool "dreamweaver needs barbarians first" true
+    (has_not [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver" ] "mountainking");
+  check_bool "barbarians after dreamweaver" true
+    (has [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver" ] "barbarians");
+  check_bool "army after barbarians" true
+    (has
+       [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver"; "barbarians" ]
+       "mountainking");
   check_bool "lightstave" true
     (has [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "lightstave" ] "mountainking");
   check_bool "powermancer" true
@@ -110,8 +116,12 @@ let meteomancer_path () =
   check_bool "dreamweaver" true (has (faerie @ [ "ram" ]) "dreamweaver");
   check_bool "lightstave" true (has (faerie @ [ "ram" ]) "lightstave");
   check_bool "no king from ram alone" true (has_not (faerie @ [ "ram" ]) "mountainking");
-  check_bool "king after dreamweaver" true
-    (has (faerie @ [ "ram"; "dreamweaver" ]) "mountainking");
+  check_bool "barbarians after dreamweaver" true
+    (has (faerie @ [ "ram"; "dreamweaver" ]) "barbarians");
+  check_bool "no king from dreamweaver alone" true
+    (has_not (faerie @ [ "ram"; "dreamweaver" ]) "mountainking");
+  check_bool "king after barbarians" true
+    (has (faerie @ [ "ram"; "dreamweaver"; "barbarians" ]) "mountainking");
   check_bool "king after lightstave" true
     (has (faerie @ [ "ram"; "lightstave" ]) "mountainking");
   check_bool "ram meeting" true (not (Campaign.is_fight (Campaign.node "ram")))
@@ -331,6 +341,39 @@ let lightstave_node () =
   check_bool "house resolves" true
     (Option.is_some (Campaign.house_of (Catalog.init (); Catalog.specials) "lightstave"))
 
+let barbarians_node () =
+  let n = Campaign.node "barbarians" in
+  check_bool "is a fight" true (Campaign.is_fight n);
+  check_bool "day chapter" true (n.chapter = Campaign.Day);
+  (match n.fight with
+  | Some f ->
+      Alcotest.(check string) "house" "barbarians" f.house_key;
+      Alcotest.(check string) "portrait" "barbarians" f.portrait_id;
+      Alcotest.(check (option int)) "life" (Some 40) f.life
+  | None -> Alcotest.fail "barbarians has no fight");
+  check_bool "portrait registered" true (List.mem "barbarians" Campaign.campaign_portraits);
+  check_bool "house resolves" true
+    (Option.is_some (Campaign.house_of (Catalog.init (); Catalog.specials) "barbarians"));
+  check_bool "between dreamweaver and the king" true
+    (has
+       [ "entomologist"; "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "ram"; "dreamweaver" ]
+       "barbarians");
+  check_bool "opens the king" true
+    (has
+       [
+         "entomologist";
+         "meteomancer";
+         "emotion";
+         "sower";
+         "otter";
+         "fairy_knight";
+         "ram";
+         "dreamweaver";
+         "barbarians";
+       ]
+       "mountainking");
+  check_bool "not a night node" true (has_not [ "wind" ] "barbarians")
+
 let i18n_keys () =
   let langs = [ "en"; "fr"; "es"; "ru"; "vi" ] in
   let bots =
@@ -502,6 +545,7 @@ let () =
           Alcotest.test_case "dudes path" `Quick dudes_path;
           Alcotest.test_case "junk to king" `Quick junk_to_king;
           Alcotest.test_case "lightstave" `Quick lightstave_node;
+          Alcotest.test_case "barbarians" `Quick barbarians_node;
           Alcotest.test_case "early life" `Quick early_life;
         ] );
       ( "night",

@@ -302,4 +302,5 @@ let campaign_portraits =
     "limbo";
     "highpriest";
     "soulbinder";
+    "barbarians";
   ]

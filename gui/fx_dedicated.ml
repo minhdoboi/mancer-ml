@@ -1041,6 +1041,135 @@ let spawn_gauntlet ~wielder ~foe ~foe_pid ~start =
               foe)
         )
 
+(* Dwarven Hammer: a smith's blow, not a burst. A spectral hammer is forged in
+   the air above the target -- runes drawing in, embers feeding it, like
+   Excalibur's forge -- then driven straight down onto the creature like a
+   hammer onto an anvil. The strike flashes, throws a shockwave and sparks, and
+   the creature itself trembles (the coward's shake) while the hammer hangs
+   above it and long after the blow. *)
+let dwarven_hammer_duration = 1.9
+let dwarven_hammer_swing = 0.72 (* when the head lands *)
+
+let spawn_dwarven_hammer ~target ~pid ~num ~start =
+  let duration = dwarven_hammer_duration in
+  (* the creature shudders from the moment the head comes for it, like the coward *)
+  add_shake pid num ~start:(start +. (dwarven_hammer_swing -. 0.12)) ~duration:(duration -. dwarven_hammer_swing)
+    ~strength:1.35;
+  (* the hammer hangs head-up over the creature, further than a card is tall *)
+  let hang = 86. in
+  let rise u = target.y -. hang -. (26. *. sin (u *. Float.pi)) in
+  (* one dwarven hammer, seen as the board sees its cards: a heavy square face
+     leading the blow, cheeks tapering back to the eye, a wrapped grip, a pommel
+     ring. Drawn along the swing axis -- straight down -- broad side across it. *)
+  let hammer cx cy s alpha =
+    let at u o = (cx +. (o *. s), cy +. (u *. s)) in
+    let off o = (o *. s, 0.) in
+    let poly p q r c = tri (fst p) (snd p) (fst q) (snd q) (fst r) (snd r) c in
+    let quad p q r st c = poly p q r c; poly p r st c in
+    let dot p r c = circle (fst p) (snd p) r c in
+    let add2 (x1, y1) (dx, dy) = (x1 +. dx, y1 +. dy) in
+    (* the striking face: a square slab, face-first into the blow *)
+    let f0 = at 26. 17. and f1 = at 26. (-.17.) and f2 = at 15. (-.19.) and f3 = at 15. 19. in
+    quad f0 f1 f2 f3 (rgb 0.62 0.6 0.66 (alpha *. 0.92));
+    (* the bright face itself, the only thing the eye should hold *)
+    let g0 = add2 (at 27. 0.) (off 13.) and g1 = add2 (at 27. 0.) (off (-.13.)) in
+    line (fst g0) (snd g0) (fst g1) (snd g1) (3.4 *. s) (rgb 1. 0.93 0.72 (alpha *. 0.95));
+    (* cheeks tapering back to the eye *)
+    let c0 = at 15. 19. and c1 = at 15. (-.19.) and c2 = at (-6.) (-.13.) and c3 = at (-6.) 13. in
+    quad c0 c1 c2 c3 (rgb 0.44 0.42 0.5 (alpha *. 0.9));
+    (* a band of gold where head meets haft *)
+    let b0 = at (-6.) 14. and b1 = at (-6.) (-.14.) and b2 = at (-10.) (-.15.) and b3 = at (-10.) 15. in
+    quad b0 b1 b2 b3 (rgb 0.9 0.72 0.3 (alpha *. 0.9));
+    (* the haft: a leather-wrapped grip running back past the pommel end *)
+    let h0 = at (-10.) 4.5 and h1 = at (-10.) (-.4.5) and h2 = at (-46.) (-.3.5) and h3 = at (-46.) 3.5 in
+    quad h0 h1 h2 h3 (rgb 0.34 0.22 0.12 (alpha *. 0.92));
+    for k = 0 to 4 do
+      let t = -13. -. (float k *. 6.5) in
+      let w0 = at t 4.2 and w1 = at t (-.4.2) in
+      line (fst w0) (snd w0) (fst w1) (snd w1) (1.1 *. s) (rgb 0.58 0.44 0.26 (alpha *. 0.6))
+    done;
+    (* the pommel ring *)
+    let pm = at (-48.) 0. in
+    dot pm (5. *. s) (rgb 0.9 0.74 0.36 (alpha *. 0.9));
+    dot pm (2.2 *. s) (rgb 1. 0.9 0.6 (alpha *. 0.95))
+  in
+  mk ~start ~duration (fun ~age ->
+      let age = Float.max 0. age in
+      let fade = Float.min 1. ((duration -. age) /. 0.3) in
+      (* forge: the head assembles above the target, then the whole hammer drops *)
+      let forge = 0.4 in
+      let forged = clamp01 (age /. forge) in
+      let swing_t = clamp01 ((age -. forge) /. (dwarven_hammer_swing -. forge)) in
+      (* the head gathers far up, hangs a beat, then falls like a hammer: slow
+         at first, then all at once *)
+      let drop =
+        if age < forge then 0.
+        else if swing_t < 0.45 then (swing_t /. 0.45) *. 0.18
+        else 0.18 +. (0.82 *. ((swing_t -. 0.45) /. 0.55) ** 2.2)
+      in
+      let head_y = target.y -. (hang *. (1. -. drop)) in
+      let struck = age >= dwarven_hammer_swing in
+      let since = age -. dwarven_hammer_swing in
+      (* the hammer fades where it hit, hanging a beat on the anvil first *)
+      let head_a = fade *. (if struck then Float.max 0. (1. -. (since /. 0.5)) else 1.) in
+      let shock = since /. 0.45 in
+      if fade > 0.02 then (
+        additive (fun () ->
+            (* the forge: embers spiral in while the head assembles *)
+            if age < forge +. 0.1 then (
+              let hx = target.x and hy = rise swing_t in
+              circle hx hy (30. *. forged) (rgb 1. 0.55 0.15 (fade *. 0.14 *. forged));
+              for k = 0 to 11 do
+                let n = noise k 5 21 in
+                let r = 52. *. (1. -. (n *. 0.55 *. forged)) +. 16. in
+                let ang = (n *. 6.28) +. (age *. 2.6) in
+                circle (hx +. (cos ang *. r)) (hy +. (sin ang *. r *. 0.6)) (1.6 +. n)
+                  (rgb 1. 0.66 0.24 (fade *. 0.5 *. forged))
+              done);
+            (* the hammer itself, held up and then driven down *)
+            if head_a > 0.02 then (
+              (* heat stands off the head while it hangs, dying on the anvil *)
+              if not struck then circle target.x head_y (24. +. (14. *. forged)) (rgb 1. 0.5 0.14 (fade *. 0.1));
+              hammer target.x head_y (0.5 +. (0.5 *. forged)) head_a);
+            (* the blow: a white flash on the creature, then rings out along the ground *)
+            if struck && shock < 1. then (
+              let k = ease_out shock in
+              let g = (1. -. k) *. fade in
+              circle target.x target.y (8. +. (k *. 46.)) (rgb 1. 0.72 0.28 (g *. 0.5));
+              circle target.x target.y (3. +. (k *. 16.)) (rgb 1. 0.96 0.8 (g *. 0.85));
+              ring target.x target.y (14. +. (k *. 58.)) (rgb 1. 0.82 0.45 (g *. 0.55));
+              ring target.x target.y (8. +. (k *. 36.)) (rgb 1. 0.94 0.7 (g *. 0.75));
+              (* an anvil's cross of impact light, squashed onto the ground *)
+              let arm = (26. +. (k *. 44.)) *. (1. -. (0.4 *. k)) in
+              line (target.x -. arm) target.y (target.x +. arm) target.y (5. *. (1. -. k) +. 1.)
+                (rgb 1. 0.9 0.6 (g *. 0.9));
+              (* sparks thrown off the strike, mostly sideways *)
+              for s2 = 0 to 9 do
+                let n = noise s2 7 13 in
+                let ang = if n > 0.5 then -.0.5 -. (n *. 0.7) else 3.6 +. (n *. 0.7) in
+                let r0 = 14. +. (k *. 60. *. (0.5 +. n)) in
+                let r1 = r0 +. (16. *. (1. -. k)) in
+                line (target.x +. (cos ang *. r0)) (target.y +. (sin ang *. r0 *. 0.7))
+                  (target.x +. (cos ang *. r1)) (target.y +. (sin ang *. r1 *. 0.7))
+                  2.2 (rgb 1. 0.78 0.34 (g *. 0.8))
+              done);
+            (* the smith's glow on the whole card while the hammer hangs *)
+            if not struck then (
+              let u = clamp01 (age /. dwarven_hammer_swing) in
+              circle target.x target.y (30. +. (u *. 12.)) (rgb 1. 0.62 0.2 (fade *. (0.06 +. (0.1 *. u))))));
+        (* grit knocked out of the ground under the card, the quake's dust *)
+        if struck then
+          for k = 0 to 7 do
+            let n = noise k 9 11 in
+            let u = clamp01 (since /. (0.5 +. (n *. 0.2))) in
+            if u > 0. && u < 1. && since < 0.9 then
+              circle
+                (target.x +. ((n -. 0.5) *. 76.))
+                (target.y +. 30. -. (u *. 14.))
+                (1.6 +. (n *. 2.6) +. (u *. 2.))
+                (rgb 0.55 0.45 0.34 (fade *. (1. -. u) *. 0.4))
+          done))
+
 (* Shadowcaster scythe: a big blade sweeps across the foe's row, cutting every
    lane, and ends on the foe's portrait. *)
 let spawn_scythe ~foe ~foe_life ~start =

@@ -128,12 +128,16 @@ let file_token s =
     s;
   Buffer.contents b
 
+(* The card key first: that is the file the game ships. The English (or
+   translated) name is only a fallback for the legacy art saved under it, and
+   it must not win over a key, or a card would pick up the picture of another
+   card that happens to share its name (both "Goliath"s). *)
 let image_names primary translated =
   let display = text translated in
   [ primary; display; String.lowercase_ascii display; file_token display; file_token primary ]
   |> List.map String.trim
   |> List.filter (fun n -> n <> "")
-  |> List.sort_uniq String.compare
+  |> List.fold_left (fun seen n -> if List.mem n seen then seen else seen @ [ n ]) []
 
 let first_image dir names =
   first_file (List.concat_map (fun name -> List.map (fun ext -> path [ dir; name ^ ext ]) images) names)
