@@ -53,6 +53,7 @@ val creature :
   card
 
 val spell :
+  ?is_aura:bool ->
   key:string ->
   description:string ->
   ?desc_args:(game_state -> player_id -> string list) ->
@@ -122,6 +123,10 @@ val damage_creature_and_get : int -> damage -> player_update -> int
 
 val damage_and_get : int -> damage -> player_update -> int
 (** Scala [DamageAttack.damageAndGet]: hits the opposite slot (or the player), returns the damage done. *)
+
+val after_death : player_update -> (dead -> unit) -> unit
+(** Run [f] after every death on [target]'s side; the hook is chained, not
+    replaced. *)
 
 val init_owner_death : player_update -> unit
 (** Scala [OwnerDeathEventListener.init]: when one of [p]'s creatures dies, its other special creatures get

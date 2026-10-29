@@ -869,6 +869,48 @@ let draw_blacksmith_marks r st =
             | Some t -> image_at t (box fr (3. +. (float i *. (side +. 1.)), 7., side, side) s)))
       marks
 
+(* Lightstaves: an Aura is shown as a coloured outline around its target and
+   a small badge with the turns it has left.  The same badge sits on the greyed
+   out card in hand, so the player can read the duration without hovering. *)
+let auras_on_slot (state : game_state) slot_id =
+  Array.to_list state.players
+  |> List.concat_map (fun p -> Lightstave.auras p)
+  |> List.filter (fun (a : aura_state) -> a.au_target = slot_id)
+
+let aura_badge r i (a : aura_state) =
+  let rgba_for a =
+    let cr, cg, cb, _ = Lightstave.aura_color a.au_key in
+    let alpha = if a.au_remaining <= 1 then 150 else 232 in
+    rgba cr cg cb alpha
+  in
+  let side = 14. in
+  let x = r.x +. 5. +. (float i *. (side +. 2.)) in
+  let y = r.y +. 5. in
+  fill ~round:0.5 (rect x y side side) (rgba 8 10 14 180);
+  fill ~round:0.5 (rect (x +. 1.) (y +. 1.) (side -. 2.) (side -. 2.)) (rgba_for a);
+  text ~font:bold ~size:10. ~color:(rgba 12 14 18 255)
+    (x +. 3.5) (y +. 2.)
+    (string_of_int a.au_remaining)
+
+let draw_aura_outline r auras =
+  match auras with
+  | [] -> ()
+  | a :: _ ->
+      let cr, cg, cb, _ = Lightstave.aura_color a.au_key in
+      outline ~round:0.08 ~thick:2.5 r (rgba cr cg cb 230);
+      List.iteri (fun i a -> aura_badge r i a) auras
+
+let draw_hand_aura_count r (a : aura_state) =
+  let cr, cg, cb, _ = Lightstave.aura_color a.au_key in
+  let side = 24. in
+  let x = r.x +. ((r.w -. side) /. 2.) in
+  let y = r.y +. ((r.h -. side) /. 2.) in
+  fill ~round:0.5 (rect (x -. 1.) (y -. 1.) (side +. 2.) (side +. 2.)) (rgba 8 10 14 190);
+  fill ~round:0.5 (rect x y side side) (rgba cr cg cb 225);
+  text ~font:bold ~size:17. ~color:(rgba 12 14 18 255)
+    (x +. 6.) (y +. 2.)
+    (string_of_int a.au_remaining)
+
 (* Flying Chariot: the hidden wielder rides visibly on the Pegasus.  This is
    display only; the slot is still the Pegasus, and the card comes back when
    the Pegasus dies.  Keep just a small piece of art and the attack value:
@@ -1126,6 +1168,7 @@ let draw_slot ui pid num =
            let eating = Option.is_some eaten in
            if fade < 0.999 || eating then draw_slot_well r;
            let c = st.card.c_card in
+           let active_auras = auras_on_slot (view ui) st.slot_id in
            if fade >= 0.999 && inside r then ui.hover <- Some (Hover_card (c, pid, Some st.max_life));
            let life_color = if st.life < st.max_life then gold else life_ok in
            let shake_x, shake_y = Fx.slot_offset pid num in
@@ -1160,6 +1203,7 @@ let draw_slot ui pid num =
                  (match eaten with
                  | Some (amount, seed) -> with_dissolve r ~amount ~seed face
                  | None -> if warp > 0.02 then with_warp r warp face else face r);
+                 draw_aura_outline r active_auras;
                  if not !decorated then
                    let flags = flag_names st in
                    if flags <> "" then
@@ -1527,6 +1571,9 @@ let draw_hand_at ui pid ~cards_y ~header_y =
               Fx.with_grey grey (fun () ->
                   draw_card_face (desc ui) r c ~cost:(Some cd.cd_cost) ~attack:(printed_attack c)
                     ~life:(printed_life c) ~life_color:life_ok ~tint:R.Color.white ~decor:(fun () -> ()));
+              (match List.find_opt (fun (a : aura_state) -> a.au_key = c.key) (Lightstave.auras (view ui).players.(pid)) with
+              | Some a -> draw_hand_aura_count r a
+              | None -> ());
               (* Gray-out veil while another side is to move, over art and text alike. *)
               if not turn_on then fill ~round:0.08 r (rgba 168 168 178 125);
               if is_selected then Fx.draw_sel ~x:r.x ~y:r.y ~w:r.w ~h:r.h;
@@ -1618,7 +1665,7 @@ let draw_preview ui =
   | Some (Hover_house h) -> draw_note_preview ~x ~w ~y ~pad ~title:(house_title h) ~body:(house_blurb h)
   | Some (Hover_note { title; body }) -> draw_note_preview ~x ~w ~y ~pad ~title ~body
   | Some (Hover_card (c, pid, max_life)) ->
-      let art_s = if c.is_spell then 130. else 120. in
+      let art_s = if c.is_spell || c.is_aura then 130. else 120. in
       let title_size = 20. and sub_size = 16. and desc_size = 18. in
       let title_lh = 24. and desc_lh = 22. in
       let title, subtitle, desc_text = card_preview_bits ~state:(view ui) ~player:pid ?max_life c in
@@ -1688,7 +1735,8 @@ let house_scroll_by dlg wheel =
   let max = Float.max 0. (dlg.content_h -. house_dlg_view.h) in
   dlg.scroll <- Float.min max (Float.max 0. (dlg.scroll -. (wheel *. 48.)))
 
-let house_card_art_size (c : card) = if c.is_spell then (100., 108.) else (96., 96.)
+let house_card_art_size (c : card) =
+  if c.is_spell || c.is_aura then (100., 108.) else (96., 96.)
 let house_card_title_size = 19.
 let house_card_sub_size = 16.
 let house_card_desc_size = 17.

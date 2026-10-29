@@ -12,7 +12,10 @@ let get_souls p = souls_of p.pstate.ps_data
 let hide_special_creature_mod : desc_mod =
  fun house cards ->
   if house.phd_house.h_index <> special_house_index then cards
-  else Array.map (fun cd -> if cd.cd_card.is_spell then cd else { cd with cd_enabled = false }) cards
+  else
+    Array.map
+      (fun cd -> if cd.cd_card.is_spell || cd.cd_card.is_aura then cd else { cd with cd_enabled = false })
+      cards
 
 let set_souls p souls =
   match p.pstate.ps_data with

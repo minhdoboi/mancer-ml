@@ -574,7 +574,7 @@ module Player = struct
     emit p.updater (Ev_refresh { silent = true });
     let slot_id =
       match c.cmd_input with
-      | Some num when not c.cmd_card.is_spell ->
+      | Some num when (not c.cmd_card.is_spell) && not c.cmd_card.is_aura ->
           let target =
             match c.cmd_card.input_spec with
             | Select_target_creature -> (other_player p).slots_update

@@ -279,6 +279,7 @@ let campaign_portraits =
     "spiritshaman";
     "fairy_knight";
     "dreamweaver";
+    "lightstave";
     "antimancer";
     "zen";
     "kahjivir";

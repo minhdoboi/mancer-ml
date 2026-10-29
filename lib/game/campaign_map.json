@@ -362,12 +362,28 @@
       }
     },
     {
+      "id": "lightstave",
+      "chapter": "day",
+      "x": 0.83,
+      "y": 0.69,
+      "after": [
+        "ram"
+      ],
+      "fight": {
+        "house_key": "lightstave",
+        "bot_id": "strategist",
+        "portrait_id": "lightstave",
+        "life": 40
+      }
+    },
+    {
       "id": "mountainking",
       "chapter": "day",
       "x": 0.75,
       "y": 0.8,
       "after_any": [
         "dreamweaver",
+        "lightstave",
         "powermancer",
         "quantumancer"
       ],
@@ -920,6 +936,14 @@
     },
     {
       "from": "dreamweaver",
+      "to": "mountainking"
+    },
+    {
+      "from": "ram",
+      "to": "lightstave"
+    },
+    {
+      "from": "lightstave",
       "to": "mountainking"
     },
     {

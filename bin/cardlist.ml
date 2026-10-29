@@ -232,7 +232,7 @@ let card_json b (h : house) (c : card) =
       ("name", `String (text b c.name));
       ("house", `String h.h_key);
       ("cost", `Int c.cost);
-      ("spell", `Bool c.is_spell);
+      ("spell", `Bool (c.is_spell || c.is_aura));
       ("text", `String (body_text b c));
       ("art", match art_name c with None -> `Null | Some f -> `String ("cards/" ^ url_enc f));
     ]

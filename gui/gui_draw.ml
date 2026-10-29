@@ -453,7 +453,7 @@ let label_at fr s ~nh ~bl_x ~bl_y ~color str =
    Scala SlotCardActors.updateZIndex gives decorators zIndex 1, below the frame
    (2) and the labels (3), so the stone crops them. *)
 let draw_card_face desc r (c : card) ~cost ~attack ~life ~life_color ~tint ~decor =
-  let spell = c.is_spell in
+  let spell = c.is_spell || c.is_aura in
   let nw, nh = if spell then spell_native else creature_native in
   let fr, s = fit_in r nw nh in
   let ax, ay, aw, ah = if spell then spell_art_box else creature_art_box in

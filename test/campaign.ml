@@ -51,6 +51,8 @@ let mountain_approaches () =
        "mountainking");
   check_bool "dreamweaver" true
     (has [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver" ] "mountainking");
+  check_bool "lightstave" true
+    (has [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "lightstave" ] "mountainking");
   check_bool "powermancer" true
     (has [ "entomologist"; "seasons"; "dudes"; "colors"; "elementalist"; "gardener"; "powermancer" ]
        "mountainking")
@@ -103,8 +105,15 @@ let meteomancer_path () =
   let faerie = done_ @ [ "emotion"; "sower"; "otter"; "fairy_knight" ] in
   check_bool "ram not dreamweaver" true (has_not faerie "dreamweaver");
   check_bool "ram" true (has faerie "ram");
+  check_bool "fork at ram" true
+    (has (faerie @ [ "ram" ]) "lightstave" && has (faerie @ [ "ram" ]) "dreamweaver");
   check_bool "dreamweaver" true (has (faerie @ [ "ram" ]) "dreamweaver");
-  check_bool "king" true (has (faerie @ [ "ram"; "dreamweaver" ]) "mountainking");
+  check_bool "lightstave" true (has (faerie @ [ "ram" ]) "lightstave");
+  check_bool "no king from ram alone" true (has_not (faerie @ [ "ram" ]) "mountainking");
+  check_bool "king after dreamweaver" true
+    (has (faerie @ [ "ram"; "dreamweaver" ]) "mountainking");
+  check_bool "king after lightstave" true
+    (has (faerie @ [ "ram"; "lightstave" ]) "mountainking");
   check_bool "ram meeting" true (not (Campaign.is_fight (Campaign.node "ram")))
 
 let dudes_path () =
@@ -308,6 +317,20 @@ let end_lines () =
     "generic lose" "campaign.end.lose"
     (Campaign.end_message_key ~node_id:"zen" ~bot_id:"oracle" ~won:false ~has_key:keys)
 
+let lightstave_node () =
+  let n = Campaign.node "lightstave" in
+  check_bool "is a fight" true (Campaign.is_fight n);
+  check_bool "day chapter" true (n.chapter = Campaign.Day);
+  (match n.fight with
+  | Some f ->
+      Alcotest.(check string) "house" "lightstave" f.house_key;
+      Alcotest.(check string) "portrait" "lightstave" f.portrait_id;
+      Alcotest.(check (option int)) "life" (Some 40) f.life
+  | None -> Alcotest.fail "lightstave has no fight");
+  check_bool "portrait registered" true (List.mem "lightstave" Campaign.campaign_portraits);
+  check_bool "house resolves" true
+    (Option.is_some (Campaign.house_of (Catalog.init (); Catalog.specials) "lightstave"))
+
 let i18n_keys () =
   let langs = [ "en"; "fr"; "es"; "ru"; "vi" ] in
   let bots =
@@ -478,6 +501,7 @@ let () =
           Alcotest.test_case "meteomancer path" `Quick meteomancer_path;
           Alcotest.test_case "dudes path" `Quick dudes_path;
           Alcotest.test_case "junk to king" `Quick junk_to_king;
+          Alcotest.test_case "lightstave" `Quick lightstave_node;
           Alcotest.test_case "early life" `Quick early_life;
         ] );
       ( "night",

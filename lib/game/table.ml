@@ -122,7 +122,7 @@ let house_groups =
         ] );
       ("Wavelength", [ "seasons"; "meteomancer"; "dreamweaver"; "quantumancer"; "faerie" ]);
       ("sfault", [ "conjurer" ]);
-      ("Redrook", [ "tinker"; "soulbinder"; "entomologist"; "shadowcaster"; "spiritshaman" ]);
+      ("Redrook", [ "tinker"; "soulbinder"; "entomologist"; "shadowcaster"; "spiritshaman"; "lightstave" ]);
       ("valentyne", [ "rogue"; "kahjivir" ]);
       ("fuzzer", [ "limbo" ]);
       ("Madhatter97", [ "colors" ]);

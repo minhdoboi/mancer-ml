@@ -150,6 +150,9 @@ and priest_data = { hp_revealed : (int * int) list; hp_turn : int }
    (house_index, card_index) identities, oldest first. *)
 and beast_data = { bd_revealed : (int * int) list }
 
+(* Lightstaves: an Aura around a creature, with the turns it has left. *)
+and aura_state = { au_id : int; au_key : string; au_target : int; au_remaining : int }
+
 (* Kinetician: ChangeTarget id plus Call of the Fittest cost mods *)
 and kinetic_data = { ki_target : int option; ki_halves : (int * desc_mod) list }
 
@@ -177,6 +180,8 @@ and player_data =
   | Kinetic_data of kinetic_data
   (* Beastlords: revealed cards *)
   | Beast_data of beast_data
+  (* Lightstaves: active Auras *)
+  | Aura_data of aura_state list
 
 and input_spec =
   | No_input
@@ -280,6 +285,8 @@ and card = {
      damage, Fury total, …). [None] leaves the template as-is. *)
   desc_args : (game_state -> player_id -> string list) option;
   is_spell : bool;
+  (* Auras are cast like spells but are deliberately not spells. *)
+  is_aura : bool;
   (* Some for creatures, None for spells *)
   creature_body : creature_body option;
 }

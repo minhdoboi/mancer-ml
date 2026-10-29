@@ -76,7 +76,7 @@ let spirit_of (c : card) =
   else None
 
 let is_totem c = Option.is_some (spirit_of c)
-let is_spirit_card (c : card) = (not c.is_spell) && c.house_id = 30
+let is_spirit_card (c : card) = (not c.is_spell) && (not c.is_aura) && c.house_id = 30
 
 let occupied (p : player_update) =
   Array.fold_left (fun n s -> if Option.is_some s.value then n + 1 else n) 0 p.slots_update.slot_updates

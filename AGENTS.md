@@ -109,9 +109,14 @@ sync.
 
 ### Look
 
-Painted dark-fantasy illustration, close to Magic: The Gathering card art:
-oil-paint texture, dramatic light, a single readable subject filling a square
-frame. No text, letters, UI, watermark, or card border.
+Painted illustration, close to Magic: The Gathering card art: oil-paint
+texture, dramatic light, a single readable subject filling a square frame.
+No text, letters, UI, watermark, or card border.
+
+The mood follows the house: **dark fantasy** for sinister or earthly factions
+(Undead, Insects, Fire, Rogues, …) and **celestial fantasy** for radiant or
+sky-bound ones (Light, Air, Rainbows, …). Pick the palette that fits the
+faction's identity rather than forcing one mood onto every card.
 
 In-game art is the 80×80 file itself. **Contrast is required.** The subject must
 separate from the background by value and hue: rim light, brighter midtones, a
@@ -147,6 +152,8 @@ Darksider, Disciples, Dreamweaver, Dudes, Earth, Elementalist, Entomologist,
 Faerie Druid, Fairy Knight, Fire, High Priest, Junk, Kinetician, Limbo,
 Mountain King, Rogue, Seasons, Shadowmage, Shaman, Snowblood, Soul Reaper,
 Soulbinder, Sower, Tinker, Troopers, Vampires, Warp, Water, Wind, Zen.
+Lightstave is painted in the **celestial** mood (bright radiant palette), not
+the dark one.
 
 Dudes and Troopers started as beat-em-up / sci-fi pastiche. In vibe they are
 **fantasy** versions of the same roles (pit fighters of rising rank; a siege

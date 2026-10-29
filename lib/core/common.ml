@@ -36,7 +36,7 @@ let is_multi_card (c : card) =
 
 let is_bridled (st : slot_state) = match st.card.c_body.b_data with Mortal_of _ -> true | _ -> false
 
-let new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell ~body =
+let new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell ~is_aura ~body =
   {
     key;
     name = key;
@@ -50,6 +50,7 @@ let new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell ~body =
     description;
     desc_args;
     is_spell;
+    is_aura;
     creature_body = body;
   }
 
@@ -68,7 +69,8 @@ let creature ~key ~attack ~life ~description ?desc_args ?(effects = no_effects)
       b_data = data;
     }
   in
-  new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell:false ~body:(Some body)
+  new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell:false ~is_aura:false
+    ~body:(Some body)
 
 let is_card opt (c : card) = match opt with Some x -> x.id = c.id | None -> false
 
@@ -86,8 +88,9 @@ let special_house ~key ~id ?(effects = []) ?(additional_cards = []) ?(listener =
     h_data = data;
   }
 
-let spell ~key ~description ?desc_args ?(input_spec = No_input) ~effects () =
-  new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell:true ~body:None
+let spell ?(is_aura = false) ~key ~description ?desc_args ?(input_spec = No_input) ~effects () =
+  new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell:(not is_aura) ~is_aura
+    ~body:None
 
 (* ----------------------------------------------------------- attack bonus *)
 
@@ -157,7 +160,10 @@ let hide_spell_mod : desc_mod =
  fun _ cards -> Array.map (fun cd -> if cd.cd_card.is_spell then { cd with cd_enabled = false } else cd) cards
 
 let hide_creature_mod : desc_mod =
- fun _ cards -> Array.map (fun cd -> if cd.cd_card.is_spell then cd else { cd with cd_enabled = false }) cards
+ fun _ cards ->
+  Array.map
+    (fun cd -> if cd.cd_card.is_spell || cd.cd_card.is_aura then cd else { cd with cd_enabled = false })
+    cards
 
 let skip_turn_mod : desc_mod = fun _ cards -> Array.map (fun cd -> { cd with cd_enabled = false }) cards
 let focus_slot ?(blocking = true) s = Updater.focus s.slots.player.updater s.num s.slots.player.pid blocking
