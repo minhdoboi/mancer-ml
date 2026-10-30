@@ -33,7 +33,7 @@ jobs:
           # built against (2.35 here), so never build on a rolling distro.
           every = [
               {"name": "linux-x64", "os": "ubuntu-22.04"},
-              {"name": "mac-aarch64", "os": "macos-14"},
+              {"name": "mac-aarch64", "os": "macos-15"},
               {"name": "mac-x64", "os": "macos-15-intel"},
               {"name": "windows-x64", "os": "windows-latest"},
           ]

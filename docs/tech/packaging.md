@@ -21,7 +21,7 @@ working directory is elsewhere.
 ## CI (recommended)
 
 `.github/workflows/package.yml` runs `scripts/package.sh` on `ubuntu-22.04`,
-`macos-14` (arm64), `macos-15-intel` (x64) and `windows-latest`, and uploads
+`macos-15` (arm64), `macos-15-intel` (x64) and `windows-latest`, and uploads
 each zip as an artifact. Push a `v*` tag, or run the workflow by hand, to
 build; a tag also attaches the zips to a GitHub Release.
 
