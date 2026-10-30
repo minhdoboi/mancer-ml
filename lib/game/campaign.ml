@@ -257,6 +257,7 @@ let npcs =
     "panther";
     "crowd";
     "gardener";
+    "pigboy";
     "night-host";
     "night-soup";
   ]

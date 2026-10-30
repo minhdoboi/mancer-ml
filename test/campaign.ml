@@ -99,7 +99,10 @@ let meteomancer_path () =
   check_bool "no otter yet" true (has_not done_ "otter");
   check_bool "sower after emotion" true (has (done_ @ [ "emotion" ]) "sower");
   check_bool "no sower after seasons" true (has_not (done_ @ [ "seasons" ]) "sower");
-  check_bool "trappers after seasons" true (has (done_ @ [ "seasons" ]) "trappers");
+  check_bool "pigboy after seasons" true (has (done_ @ [ "seasons" ]) "pigboy");
+  check_bool "no trappers after seasons" true (has_not (done_ @ [ "seasons" ]) "trappers");
+  check_bool "trappers after pigboy" true
+    (has (done_ @ [ "seasons"; "pigboy" ]) "trappers");
   check_bool "no trappers after emotion" true (has_not (done_ @ [ "emotion" ]) "trappers");
   check_bool "otter after sower" true (has (done_ @ [ "emotion"; "sower" ]) "otter");
   check_bool "no otter after trappers" true (has_not (done_ @ [ "seasons"; "trappers" ]) "otter");
@@ -161,6 +164,21 @@ let junk_to_king () =
        (done_ @ [ "farmer"; "junk"; "beaver"; "spiritshaman"; "paganist"; "quantumancer" ])
        "mountainking");
   check_bool "beaver is day" true ((Campaign.node "beaver").chapter = Campaign.Day)
+
+let pigboy_node () =
+  let n = Campaign.node "pigboy" in
+  check_bool "not a fight" true (not (Campaign.is_fight n));
+  check_bool "day chapter" true (n.chapter = Campaign.Day);
+  check_bool "registered npc" true (List.mem "pigboy" Campaign.npcs);
+  Alcotest.(check (option string))
+    "portrait" (Some "pigboy")
+    (Option.map (fun (m : Campaign.meeting) -> m.portrait_id) n.meeting);
+  check_bool "between seasons and trappers" true
+    (has [ "meteomancer"; "seasons" ] "pigboy");
+  check_bool "trappers wait for the boy" true
+    (has_not [ "meteomancer"; "seasons" ] "trappers");
+  check_bool "trappers after the boy" true
+    (has [ "meteomancer"; "seasons"; "pigboy" ] "trappers")
 
 let early_life () =
   Alcotest.(check (option int))
@@ -565,6 +583,7 @@ let () =
           Alcotest.test_case "lightstave" `Quick lightstave_node;
           Alcotest.test_case "priest between king and stave" `Quick priest_between_king_and_stave;
           Alcotest.test_case "barbarians" `Quick barbarians_node;
+          Alcotest.test_case "pigboy" `Quick pigboy_node;
           Alcotest.test_case "early life" `Quick early_life;
         ] );
       ( "night",

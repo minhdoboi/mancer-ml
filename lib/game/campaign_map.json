@@ -79,8 +79,8 @@
     {
       "id": "beaver",
       "chapter": "day",
-      "x": 0.35,
-      "y": 0.7,
+      "x": 0.26,
+      "y": 0.75,
       "after": [
         "junk"
       ],
@@ -91,8 +91,8 @@
     {
       "id": "spiritshaman",
       "chapter": "day",
-      "x": 0.5,
-      "y": 0.77,
+      "x": 0.40,
+      "y": 0.78,
       "after": [
         "beaver"
       ],
@@ -107,7 +107,7 @@
       "id": "paganist",
       "chapter": "day",
       "x": 0.48,
-      "y": 0.69,
+      "y": 0.71,
       "after": [
         "beaver"
       ],
@@ -121,8 +121,8 @@
     {
       "id": "quantumancer",
       "chapter": "day",
-      "x": 0.64,
-      "y": 0.76,
+      "x": 0.57,
+      "y": 0.79,
       "after": [
         "spiritshaman"
       ],
@@ -148,8 +148,8 @@
     {
       "id": "seasons",
       "chapter": "day",
-      "x": 0.78,
-      "y": 0.22,
+      "x": 0.62,
+      "y": 0.21,
       "after": [
         "meteomancer"
       ],
@@ -203,12 +203,24 @@
       }
     },
     {
+      "id": "pigboy",
+      "chapter": "day",
+      "x": 0.76,
+      "y": 0.24,
+      "after": [
+        "seasons"
+      ],
+      "meeting": {
+        "portrait_id": "pigboy"
+      }
+    },
+    {
       "id": "trappers",
       "chapter": "day",
       "x": 0.90,
       "y": 0.32,
       "after": [
-        "seasons"
+        "pigboy"
       ],
       "fight": {
         "house_key": "trappers",
@@ -926,6 +938,10 @@
     },
     {
       "from": "seasons",
+      "to": "pigboy"
+    },
+    {
+      "from": "pigboy",
       "to": "trappers"
     },
     {
