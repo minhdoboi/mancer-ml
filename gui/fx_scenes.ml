@@ -89,52 +89,105 @@ let spawn_madden ~foes ~allies ~eye ~start =
               circle eye.x eye.y (28. +. (10. *. open_)) (rgb 0.9 0.12 0.04 (fade *. 0.18 *. open_ *. pulse));
               circle eye.x eye.y 14. (rgb 1. 0.4 0.08 (fade *. 0.12 *. open_))))))
 
-let spawn_shockwave slots ~start =
-  let duration = 0.9 in
-  let stretch_y = 1.55 in
+let shockwave_duration = 1.2
+
+(* Chaos Priest's Shockwave: the dice spare one foe creature and stun the rest.
+   The spared slot is the emitter, not a hole to hide.  Out of it run trains of
+   parallel arcs -- crescents that bow the way they travel, like the fronts of a
+   shock wave -- one train to the left when there are lanes there and one to the
+   right when there are lanes there, each arc born at the emitter and running out
+   over the stunned slots.  The arcs fade in as they are born and never light
+   past half, so the row sees a wave, not a wall; every stunned lane shudders as
+   the front reaches it, the way the warp quake makes a row tremble. *)
+let spawn_shockwave ~slots ~spared ~foe_pid ~start =
+  let duration = shockwave_duration in
   let n = Array.length slots in
-  let mid_x, mid_y, max_r, origin_x, origin_y, width, height =
-    if n = 0 then (0., 0., 1., 0., 0., 1., 1.)
-    else
-      let sx = Array.fold_left (fun s p -> s +. p.x) 0. slots /. float n in
-      let sy = Array.fold_left (fun s p -> s +. p.y) 0. slots /. float n in
-      let xmin = Array.fold_left (fun m p -> min m p.x) slots.(0).x slots in
-      let xmax = Array.fold_left (fun m p -> max m p.x) slots.(0).x slots in
-      let span = Float.max 80. (xmax -. xmin) in
-      let reach = (span *. 0.58) +. 90. in
-      let w = (reach +. 70.) *. 2. and h = ((reach /. stretch_y) +. 70.) *. 2. in
-      (sx, sy, reach, sx -. (w *. 0.5), sy -. (h *. 0.5), w, h)
-  in
-  mk ~start ~duration (fun ~age ->
-      let fade = Float.min 1. ((duration -. age) /. 0.2) in
-      if fade > 0.02 && n > 0 then
-        match load_named "shockwave" with
-        | None ->
-            additive (fun () ->
-                let u = ease_out (Float.min 1. (age /. 0.68)) in
-                circle mid_x mid_y (u *. max_r) (rgb 0.96 0.68 0.26 (fade *. 0.25)))
-        | Some s ->
-            let u = ease_out (Float.min 1. (age /. 0.68)) in
-            let radius = u *. max_r in
-            let u2 = ease_out (clamp01 ((age -. 0.14) /. 0.62)) in
-            let radius2 = if age <= 0.14 then 0. else u2 *. max_r *. 0.92 in
-            let flash = Float.max 0. (1. -. (age /. 0.16)) in
-            let width_ring = 14. +. (10. *. (1. -. u)) in
-            set_vec2 s "u_size" width height;
-            set_vec2 s "u_center" (width *. 0.5) (height *. 0.5);
-            set_vec2 s "u_stretch" 1. stretch_y;
-            set_float s "u_radius" radius;
-            set_float s "u_radius2" radius2;
-            set_float s "u_width" width_ring;
-            set_float s "u_fade" fade;
-            set_float s "u_flash" flash;
-            R.begin_blend_mode R.BlendMode.Additive;
-            R.begin_shader_mode s.sh;
-            R.draw_rectangle_rec
-              (R.Rectangle.create (sx origin_x) (sy origin_y) (width *. !scale) (height *. !scale))
-              (rgb 1. 1. 1. 1.);
-            R.end_shader_mode ();
-            R.end_blend_mode ())
+  if n = 0 then mk ~start ~duration:0. (fun ~age -> ())
+  else begin
+    let center = slots.(spared) in
+    let left = Array.to_list (Array.sub slots 0 spared) in
+    let right = Array.to_list (Array.sub slots (spared + 1) (n - spared - 1)) in
+    (* the farthest lane on a side is where that side's wave runs out *)
+    let side list =
+      match list with
+      | [] -> None
+      | first :: _ ->
+          let dist (p : spot) = hypot (p.x -. center.x) (p.y -. center.y) in
+          let tip, d =
+            List.fold_left
+              (fun (b, bd) p ->
+                let dd = dist p in
+                if dd > bd then (p, dd) else (b, bd))
+              (first, dist first) list
+          in
+          Some (tip, d)
+    in
+    let left_side = side left and right_side = side right in
+    let span =
+      List.fold_left (fun m -> function Some (_, d) -> Float.max m d | None -> m) 0.
+        [ left_side; right_side ]
+    in
+    (* the wave crosses the whole row in [sweep] seconds; a lane shudders at the
+       moment the front reaches it *)
+    let sweep = 0.72 in
+    let speed = if span < 1. then 1. else span /. sweep in
+    Array.iteri
+      (fun i (p : spot) ->
+        if i <> spared then
+          let t = hypot (p.x -. center.x) (p.y -. center.y) /. speed in
+          add_shake foe_pid i ~start:(start +. t) ~duration:0.6 ~strength:1.1)
+      slots;
+    (* [train tip] is the wave running from the emitter to [tip]: [waves] parallel
+       crescents, spaced by [gap], all marching outward together.  A new one is
+       born at the emitter as the leading ones run on, so the train never ends
+       until it has crossed the side. *)
+    let waves = 5 and gap = 30. in
+    let train ~age ~fade (tip : spot) =
+      let ex = tip.x -. center.x in
+      let reach = Float.max 1. (hypot ex (tip.y -. center.y)) in
+      let dir = if ex < 0. then -1. else 1. in
+      let front = age *. speed in
+      for k = 0 to waves - 1 do
+        let d = front -. (float k *. gap) in
+        if d > 0. then begin
+          let spring = clamp01 (d /. 34.) in
+          let out = clamp01 ((reach +. 60. -. d) /. 70.) in
+          (* the leading arc is the crest; the ones behind are its fading wake *)
+          let a = fade *. spring *. out *. (0.42 -. (0.055 *. float k)) in
+          if a > 0.01 then begin
+            let cx = center.x +. (dir *. d) in
+            let h = 50. +. (noise k 1 5 *. 4.) in
+            let bow = 22. +. (3. *. noise k 3 5) in
+            (* a slow shudder runs along the crest so the wave is never a clean
+               stencil -- this house serves chaos *)
+            let shiver = sin ((age *. 20.) +. (float k *. 2.3)) *. 1.4 in
+            let steps = 16 in
+            for s = 0 to steps - 1 do
+              let t0 = ((float s /. float steps) *. 2.) -. 1. in
+              let t1 = ((float (s + 1) /. float steps) *. 2.) -. 1. in
+              let ax = cx +. (dir *. bow *. cos (t0 *. Float.pi /. 2.)) +. (shiver *. t0) in
+              let ay = center.y +. (h *. t0) in
+              let bx = cx +. (dir *. bow *. cos (t1 *. Float.pi /. 2.)) +. (shiver *. t1) in
+              let by = center.y +. (h *. t1) in
+              (* a soft glow behind the bright core, both translucent *)
+              line ax ay bx by 3.6 (rgb 0.5 0.45 0.95 (a *. 0.32));
+              line ax ay bx by 1.3 (rgb 0.86 0.82 1. a)
+            done
+          end
+        end
+      done
+    in
+    mk ~start ~duration (fun ~age ->
+        let fade = Float.min 1. ((duration -. age) /. 0.3) in
+        if fade > 0.02 then
+          additive (fun () ->
+              (* the emitter: a quiet point the arcs leave from, on the spared lane *)
+              let pulse = 0.5 +. (0.5 *. sin (age *. 9.)) in
+              circle center.x center.y (6. +. (pulse *. 3.)) (rgb 0.7 0.64 1. (fade *. 0.2));
+              circle center.x center.y 3. (rgb 1. 0.96 1. (fade *. 0.45));
+              Option.iter (fun (tip, _) -> train ~age ~fade tip) left_side;
+              Option.iter (fun (tip, _) -> train ~age ~fade tip) right_side))
+  end
 
 type confetti = {
   x0 : float;

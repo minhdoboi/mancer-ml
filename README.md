@@ -311,5 +311,5 @@ A rules change shows up as an expect diff: review it, then `dune promote`.
 * Migration was done with multiple models Opus,Sonnet,Grok. The art was mostly
 generated with Grok Imagine. At the end to avoid spending too much money,
 I used more Deepseek, Minimax, Flux or Meta Muse Image, depending on the tasks.
-A simple dev setup can be pi harness with Deepseek or GLM (via a router like edenai)
-and Flux (bfl).
+A simple dev setup can be pi harness with Deepseek or GLM, with a green provider
+like greenpt via a router like edenai for example, and Flux (bfl).

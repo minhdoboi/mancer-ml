@@ -58,7 +58,13 @@ let mountain_approaches () =
        [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver"; "barbarians" ]
        "mountainking");
   check_bool "lightstave" true
-    (has [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "lightstave" ] "mountainking");
+    (has [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "ram" ] "lightstave");
+  check_bool "the priest gates the king on the stave branch" true
+    (has_not [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "lightstave" ] "mountainking");
+  check_bool "the king opens after the priest" true
+    (has
+       [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "lightstave"; "chaospriest" ]
+       "mountainking");
   check_bool "powermancer" true
     (has [ "entomologist"; "seasons"; "dudes"; "colors"; "elementalist"; "gardener"; "powermancer" ]
        "mountainking")
@@ -122,8 +128,10 @@ let meteomancer_path () =
     (has_not (faerie @ [ "ram"; "dreamweaver" ]) "mountainking");
   check_bool "king after barbarians" true
     (has (faerie @ [ "ram"; "dreamweaver"; "barbarians" ]) "mountainking");
-  check_bool "king after lightstave" true
+  check_bool "king after lightstave" false
     (has (faerie @ [ "ram"; "lightstave" ]) "mountainking");
+  check_bool "king after lightstave and priest" true
+    (has (faerie @ [ "ram"; "lightstave"; "chaospriest" ]) "mountainking");
   check_bool "ram meeting" true (not (Campaign.is_fight (Campaign.node "ram")))
 
 let dudes_path () =
@@ -248,6 +256,16 @@ let warp_fork () =
   check_bool "valley darksider" true (has (girl @ [ Campaign.to_valley ]) "darksider");
   check_bool "patou" true (has [ "wind"; "darksider" ] "patou");
   check_bool "patou then limbo" true (has [ "wind"; "darksider"; "patou" ] "limbo")
+
+let priest_between_king_and_stave () =
+  let base = [ "entomologist"; "disciples"; "junk"; "spiritshaman"; "paganist" ] in
+  check_bool "no priest before lightstave" true (has_not base "chaospriest");
+  check_bool "priest after lightstave" true
+    (has (base @ [ "ram"; "lightstave" ]) "chaospriest");
+  check_bool "king still open after the priest" true
+    (has (base @ [ "ram"; "lightstave"; "chaospriest" ]) "mountainking");
+  check_bool "the priest does not unlock the night" true
+    (has_not (base @ [ "ram"; "lightstave"; "chaospriest" ]) "limbo")
 
 let highpriest_gate () =
   check_bool "no priest before limbo" true
@@ -545,6 +563,7 @@ let () =
           Alcotest.test_case "dudes path" `Quick dudes_path;
           Alcotest.test_case "junk to king" `Quick junk_to_king;
           Alcotest.test_case "lightstave" `Quick lightstave_node;
+          Alcotest.test_case "priest between king and stave" `Quick priest_between_king_and_stave;
           Alcotest.test_case "barbarians" `Quick barbarians_node;
           Alcotest.test_case "early life" `Quick early_life;
         ] );

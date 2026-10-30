@@ -51,9 +51,12 @@ dune exec ./bin/sync_assets.exe
 scripts/push_assets.sh "message"   # commit assets/, stage the submodule pointer
 ```
 
-Use `.tmp` folder for intermediate files. You can also use `assets/source/cards`
-which is not versionned, for cards source file before minification to keep a
-reference for modification.
+Use `.tmp` folder for intermediate files. Keep the full-size card art **source**
+in `assets/source/cards/`, named after the card key plus `.src.png`
+(`assets/source/cards/lightstave.rainbowdragon.src.png` for
+`assets/cards/lightstave.rainbowdragon.jpg`). That folder is not versioned, but
+it is the reference to re-crop or edit a card later, so do not delete the source
+after resizing.
 
 ## Adding a special class (special house)
 
@@ -111,9 +114,10 @@ frame. A 1024×1024 painting therefore shows only a dark corner, an 80×80 spell
 sits off-center in the 95×103 hole, and a huge file blows up any UI that sizes a
 thumbnail to the image height.
 
-After generating art, downscale with LANCZOS to the size above, lift crushed
-shadows, and unsharp-mask so the subject still reads at thumbnail size. Then
-sync.
+After generating art, first copy the full-size original to
+`assets/source/cards/<card key>.src.png` as the reference source. Then downscale
+with LANCZOS to the size above, lift crushed shadows, and unsharp-mask so the
+subject still reads at thumbnail size. Then sync.
 
 ### Look
 

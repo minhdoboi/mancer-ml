@@ -392,15 +392,30 @@
       }
     },
     {
+      "id": "chaospriest",
+      "chapter": "day",
+      "x": 0.79,
+      "y": 0.75,
+      "after": [
+        "lightstave"
+      ],
+      "fight": {
+        "house_key": "chaospriest",
+        "bot_id": "gambler",
+        "portrait_id": "chaospriest",
+        "life": 40
+      }
+    },
+    {
       "id": "mountainking",
       "chapter": "day",
       "x": 0.75,
       "y": 0.8,
       "after_any": [
         "barbarians",
-        "lightstave",
         "powermancer",
-        "quantumancer"
+        "quantumancer",
+        "chaospriest"
       ],
       "fight": {
         "house_key": "mountainking",
@@ -959,6 +974,10 @@
     },
     {
       "from": "lightstave",
+      "to": "chaospriest"
+    },
+    {
+      "from": "chaospriest",
       "to": "mountainking"
     },
     {

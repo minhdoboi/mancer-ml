@@ -1152,13 +1152,13 @@ let draw_slot ui pid num =
       | Browse -> []
   in
   (match targets with _ :: _ when inside r -> fill ~round:0.08 r (rgba 246 196 82 70) | _ -> ());
-  (if not (List.mem num p.ps_slot_list) then text_c ~size:28. ~color:faint r (r.y +. (r.h /. 2.) -. 16.) "×"
-   else
-     match p.ps_slots.(num) with
-     | None -> draw_empty_slot ui pid num r p
-     | Some st when concealed -> draw_empty_slot ui pid num r p
-     | Some _ when slot_hidden ui pid num -> draw_empty_slot ui pid num r p
-     | Some st ->
+  let sealed = not (List.mem num p.ps_slot_list) in
+  (match p.ps_slots.(num) with
+  | None when sealed -> text_c ~size:28. ~color:faint r (r.y +. (r.h /. 2.) -. 16.) "×"
+  | None -> draw_empty_slot ui pid num r p
+  | Some st when concealed -> draw_empty_slot ui pid num r p
+  | Some _ when slot_hidden ui pid num -> draw_empty_slot ui pid num r p
+  | Some st ->
          let fade = match death_alpha ui pid num st.slot_id with None -> 1. | Some a -> a in
          if fade <= 0.02 then draw_slot_well r
          else (
@@ -1208,6 +1208,9 @@ let draw_slot ui pid num =
                    let flags = flag_names st in
                    if flags <> "" then
                      text_c ~size:11. ~color:gold r (r.y +. r.h -. 2.) (fit 11. (r.w +. 8.) flags)))));
+  (* a sealed slot keeps its tenant alive and visible; the seal only refuses
+     new ones, so the marker goes on top of the card *)
+  if sealed then text_c ~size:20. ~color:faint r (r.y +. 9.) "×";
   match targets with
   | [] -> ()
   | c :: _ ->

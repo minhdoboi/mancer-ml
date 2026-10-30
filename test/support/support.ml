@@ -60,6 +60,7 @@ let all_houses =
     Beastlord.house;
     Lightstave.house;
     Barbarians.house;
+    Chaospriest.house;
   ]
 
 let init_all_houses () =
@@ -116,7 +117,8 @@ let init_all_houses () =
   Game.init_cards ~cost_fn:Trappers.cost_fn Trappers.house;
   Game.init_cards ~cost_fn:Beastlord.cost_fn Beastlord.house;
   Game.init_cards Lightstave.house;
-  Game.init_cards ~cost_fn:Barbarians.cost_fn Barbarians.house
+  Game.init_cards ~cost_fn:Barbarians.cost_fn Barbarians.house;
+  Game.init_cards ~cost_fn:Chaospriest.cost_fn Chaospriest.house
 
 let card_by_key key =
   all_houses

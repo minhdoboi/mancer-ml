@@ -469,3 +469,109 @@ let spawn_grenade ~src ~target ~pid ~num ~start =
                   ((2.2 *. (1. -. ps)) +. 1.)
                   (rgb 0.86 0.72 1. (1. -. ps))
             done)))
+
+(* Unstable Cannon: a bomb is lobbed from the cannon onto a foe creature and
+   goes off in a burst of fire and shrapnel.  The cannon fires a salvo, so
+   the bombs follow one another, a little late each. *)
+let cannon_bomb_duration = 1.35
+let cannon_bomb_fall = 0.42
+let cannon_bomb_boom = 0.8
+let cannon_bomb_step = 0.16
+
+(* One bomb, drawn at [age] seconds past its own start. *)
+let draw_cannon_bomb ~src ~target ~age =
+  let fall = cannon_bomb_fall and boom = cannon_bomb_boom in
+  let cy = target.y -. 22. in
+  if age >= 0. && age < fall then (
+    let p = age /. fall in
+    let arc = 130. in
+    let x = lerp src.x target.x p and y = lerp src.y cy p -. (arc *. 4. *. p *. (1. -. p)) in
+    (* the burning fuse sheds sparks *)
+    additive (fun () ->
+        for k = 1 to 6 do
+          let pb = Float.max 0. (p -. (float k *. 0.035)) in
+          let tx = lerp src.x target.x pb
+          and ty = lerp src.y cy pb -. (arc *. 4. *. pb *. (1. -. pb)) in
+          circle tx (ty -. 6.) (2.6 -. (float k *. 0.3)) (rgb 1. 0.55 0.12 (0.65 -. (float k *. 0.09)))
+        done);
+    (* the shell: dark iron, a hot rim and a burning fuse *)
+    let sp = age *. 11. in
+    circle x y 6.5 (rgb 0.14 0.12 0.13 1.);
+    circle (x -. 2.) (y -. 2.) 2. (rgb 0.45 0.42 0.4 0.85);
+    additive (fun () ->
+        circle x y 11. (rgb 1. 0.45 0.08 0.14);
+        let fx = x +. (sin sp *. 2.6) and fy = y -. 6. -. 5. in
+        line (x +. 1.) (y -. 5.) fx fy 1.5 (rgb 0.5 0.4 0.32 1.);
+        let fl = 0.7 +. (0.3 *. sin (age *. 55.)) in
+        circle fx fy (4.5 *. fl) (rgb 1. 0.6 0.15 0.95);
+        circle fx fy (1.9 *. fl) (rgb 1. 0.95 0.7 1.)))
+  else
+    let te = age -. fall in
+    if te >= 0. && te < boom then (
+      let p = te /. boom in
+      let q = 1. -. p in
+      (* a puff of smoke *)
+      if p > 0.1 then
+        for k = 0 to 4 do
+          let s = noise k 7 13 in
+          let ps = clamp01 ((p -. 0.1) /. 0.9) in
+          circle
+            (target.x +. ((s -. 0.5) *. 44.) +. (sin ((te *. 3.) +. float k) *. 5.))
+            (cy -. (ps *. (26. +. (44. *. s))))
+            (11. +. (ps *. 16.))
+            (rgb 0.16 0.13 0.12 (q *. 0.55))
+        done;
+      additive (fun () ->
+          (* the flash *)
+          if p < 0.3 then
+            circle target.x cy
+              ((46. *. (1. -. (p /. 0.3))) +. 10.)
+              (rgb 1. 0.92 0.72 ((1. -. (p /. 0.3)) ** 2.));
+          (* the fireball *)
+          let r = 15. +. (32. *. ease_out p) in
+          circle target.x cy r (rgb 1. 0.45 0.06 (q *. 0.8));
+          circle target.x cy (r *. 0.62) (rgb 1. 0.78 0.25 (q *. 0.85));
+          circle target.x cy (r *. 0.3) (rgb 1. 0.97 0.85 (q *. 0.9));
+          (* the shrapnel ring *)
+          if p < 0.55 then (
+            let pr = p /. 0.55 in
+            let ring = 10. +. (74. *. ease_out pr) in
+            for k = 0 to 13 do
+              let ang = (float k *. (Float.pi *. 2. /. 14.)) +. 0.3 in
+              circle
+                (target.x +. (cos ang *. ring))
+                (cy +. 8. +. (sin ang *. ring *. 0.45))
+                ((2.4 *. (1. -. pr)) +. 0.8)
+                (rgb 1. 0.6 0.15 ((1. -. pr) *. 0.85))
+            done);
+          (* the embers *)
+          for s = 0 to 11 do
+            let life = 0.35 +. (0.3 *. noise s 5 7) in
+            if te < life then
+              let ps = te /. life in
+              let ang = -.(Float.pi /. 2.) +. ((noise s 3 9 -. 0.5) *. Float.pi *. 1.8) in
+              let speed = 100. +. (160. *. noise s 7 4) in
+              circle
+                (target.x +. (cos ang *. speed *. te))
+                (cy +. (sin ang *. speed *. te) +. (250. *. te *. te))
+                ((2.4 *. (1. -. ps)) +. 0.9)
+                (rgb 1. 0.72 0.22 (1. -. ps))
+          done))
+
+(* The Cannon's salvo: every bomb flies from the same muzzle and lands on its
+   own creature, a moment after the one before it. *)
+let cannon_bomb_span n = cannon_bomb_duration +. (float (max 0 (n - 1)) *. cannon_bomb_step)
+
+let spawn_cannon_bombs ~src ~targets ~start =
+  List.iteri
+    (fun i (pid, num, _) ->
+      add_shake pid num
+        ~start:(start +. (float i *. cannon_bomb_step) +. cannon_bomb_fall)
+        ~duration:0.35 ~strength:0.8)
+    targets;
+  mk ~start ~duration:(cannon_bomb_span (List.length targets)) (fun ~age ->
+      List.iteri
+        (fun i (_, _, at) ->
+          let age = age -. (float i *. cannon_bomb_step) in
+          if age >= 0. then draw_cannon_bomb ~src ~target:at ~age)
+        targets)

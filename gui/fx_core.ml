@@ -561,7 +561,7 @@ let white_tex () =
 
 let load () =
   ignore (white_tex ());
-  List.iter (fun n -> ignore (load_named n)) [ "shockwave"; "sel"; "grey"; "night" ]
+  List.iter (fun n -> ignore (load_named n)) [ "sel"; "grey"; "night" ]
 
 let unload () =
   Hashtbl.iter (fun _ s -> Option.iter (fun s -> R.unload_shader s.sh) s) shaders;

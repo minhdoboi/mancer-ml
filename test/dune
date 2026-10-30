@@ -191,6 +191,11 @@
  (libraries mancer support alcotest))
 
 (test
+ (name chaospriest)
+ (modules chaospriest)
+ (libraries mancer support alcotest))
+
+(test
  (name barbarians)
  (modules barbarians)
  (libraries mancer support alcotest))

@@ -280,6 +280,7 @@ let campaign_portraits =
     "fairy_knight";
     "dreamweaver";
     "lightstave";
+    "chaospriest";
     "antimancer";
     "zen";
     "kahjivir";

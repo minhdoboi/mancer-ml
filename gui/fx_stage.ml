@@ -792,6 +792,28 @@ let for_ability layout ~kind ~player ~num ~target =
               spawn_grenade ~src:(layout.slot_center player num) ~target:(layout.slot_center tp tn)
                 ~pid:tp ~num:tn ~start))
         target
+  | kind when String.starts_with ~prefix:"chaospriest.cannon.bomb" kind ->
+      (* Unstable Cannon: a salvo of bombs flies from the cannon onto the foe
+         creatures it went for; the kind names their slots *)
+      let foe = other player in
+      let targets =
+        kind |> String.split_on_char '.' |> List.tl |> List.filter_map int_of_string_opt
+      in
+      Some
+        (recipe ~duration:(cannon_bomb_span (List.length targets)) ~blocking:true (fun ~start ->
+             spawn_cannon_bombs ~src:(layout.slot_center player num)
+               ~targets:(List.map (fun n -> (foe, n, layout.slot_center foe n)) targets)
+               ~start))
+  | "chaospriest.shockwave" ->
+      (* the dice spared one lane; the wave rolls out of it over the stunned
+         slots on either side *)
+
+      let foe = other player in
+      let spared = match target with Some (_, n) -> n | None -> num in
+      let slots = slots_of foe layout.slot_center in
+      Some
+        (recipe ~duration:shockwave_duration ~blocking:true (fun ~start ->
+             spawn_shockwave ~slots ~spared ~foe_pid:foe ~start))
   | _ -> None
 
 let demo_names =
@@ -859,6 +881,7 @@ let demo_names =
     "astralstorm";
     "quake";
     "falcon";
+    "cannonbomb";
   ]
 
 let spawn_demo layout name =
@@ -956,7 +979,8 @@ let spawn_demo layout name =
            ~allies:(List.init nb_slots (fun n -> (owner, n, own.(n))))
            ~eye:{ x = (foe.(2).x +. foe.(3).x) *. 0.5; y = (own.(0).y +. foe.(0).y) *. 0.5 }
            ~start:now)
-  | "shockwave" -> go (spawn_shockwave foe ~start:now)
+  | "shockwave" ->
+      go (spawn_shockwave ~slots:foe ~spared:2 ~foe_pid:opponent ~start:now)
   | "warcry" -> go (spawn_warcry ~source:own_life ~foe ~foe_life ~foe_pid:opponent ~start:now)
   | "bats" -> go (spawn_bats ~from_:own.(1) ~to_:own.(4) ~start:now)
   | "harvest" -> go (spawn_harvest ~from_:foe.(2) ~to_:own_life ~souls:3 ~start:now)
@@ -1040,4 +1064,10 @@ let spawn_demo layout name =
       let right = Array.fold_left (fun a s -> Float.max a s.x) row.(0).x row in
       let foe_span = (right -. left) /. 2. in
       go (spawn_falcon ~from_:own.(2) ~foe_x ~foe_y ~foe_span ~targets ~start:now)
+  | "cannonbomb" ->
+      (* the Unstable Cannon's salvo: two bombs onto the foe row *)
+      go
+        (spawn_cannon_bombs ~src:own.(2)
+           ~targets:[ (opponent, 1, foe.(1)); (opponent, 3, foe.(3)) ]
+           ~start:now)
   | _ -> ()

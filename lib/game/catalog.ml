@@ -81,6 +81,7 @@ let specials =
     Beastlord.house;
     Lightstave.house;
     Barbarians.house;
+    Chaospriest.house;
   ]
 
 let all = standard_basics @ [ Fire.house; Water.house; Air.house; Earth.house ] @ specials
@@ -136,6 +137,7 @@ let init () =
       Trappers.house;
       Beastlord.house;
       Lightstave.house;
+      Chaospriest.house;
     ];
   Game.init_cards ~cost_fn:Antimancer.cost_fn Antimancer.house;
   Game.init_cards ~cost_fn:Colors.cost_fn Colors.house;

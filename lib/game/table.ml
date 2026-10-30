@@ -119,6 +119,7 @@ let house_groups =
           "vampires";
           "wind";
           "reaper";
+          "chaospriest";
         ] );
       ("Wavelength", [ "seasons"; "meteomancer"; "dreamweaver"; "quantumancer"; "faerie" ]);
       ("sfault", [ "conjurer" ]);
