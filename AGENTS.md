@@ -26,6 +26,14 @@ language in the submodule (`assets/i18n/<lang>.properties`), the page's own
 strings from the `grimoire.*` keys of the same bundle — so a new language
 needs its bundle and nothing else.
 
+The landing page (`docs/index.html`) is hand-written and speaks the reader's
+language too: the top of it (title, tagline, the "About" story, the buttons)
+is translated by `docs/index.js`, which holds the strings for the site only —
+the game never reads them, so they do not belong in an i18n bundle. The
+language comes from `?lang=`, then from what the reader picked (the key is
+shared with the grimoire page, so both pages keep the same language), then
+from the browser.
+
 **The media lives here**, in the [mancer-assets](https://github.com/minhdoboi/mancer-assets)
 submodule (`assets/`), and it is committed **in the shape the game reads it**:
 a card's picture is `assets/cards/<card key>.jpg`, a board is
