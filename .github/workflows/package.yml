@@ -123,6 +123,16 @@ jobs:
             Copy-Item "$env:MESA/x64/*.dll" (Get-ChildItem dist/.smoke -Directory)[0].FullName
           }
 
+      - name: The package carries its runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          # The game links against the mingw runtime (libwinpthread-1.dll
+          # for the threads of OCaml 5). A player's machine has none of
+          # it, so the package has to ship it next to the exe.
+          ls -1 dist/.smoke/mancer-*/*.dll
+          ls dist/.smoke/mancer-*/libwinpthread-1.dll
+
       - name: Unpack the package (Linux and macOS)
         if: runner.os != 'Windows'
         shell: bash

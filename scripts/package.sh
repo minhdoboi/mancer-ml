@@ -64,6 +64,69 @@ copy_assets() {
   printf '%s' "$version" > "$dest/version.txt"
 }
 
+# The mingw runtime is not on a player's machine: the exe links against
+# libwinpthread-1.dll (OCaml 5 runs on threads), and Windows refuses to
+# start the game without it. Copy the DLLs the binary needs next to it; the
+# system ones (KERNEL32, USER32, ...) stay on the machine.
+copy_runtime_dlls() {
+  dest=$1
+  exe=$2
+
+  # The exe is x86_64; a 32-bit DLL next to it does not load.
+  skip_arch="i686"
+
+  copy_one() {
+    [ -f "$1" ] || return 0
+    base=$(basename "$1")
+    [ -f "$dest/$base" ] && return 0
+    cp "$1" "$dest/" 2>/dev/null || return 0
+    echo "  + $base"
+  }
+
+  # The DLLs the compiler's own runtime ships: the exact ones the binary
+  # was linked against, and the right architecture. The x86_64 tree only:
+  # a 32-bit DLL does not load next to a 64-bit exe.
+  for cc in x86_64-w64-mingw32-gcc ocamlopt ocamlc; do
+    cc_path=$(command -v "$cc" 2>/dev/null) || continue
+    dir=$(dirname "$cc_path")
+    for name in libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll; do
+      copy_one "$dir/$name"
+    done
+  done
+
+  # The usual mingw trees, for a build that keeps the compiler elsewhere.
+  for dir in /mingw64/bin /usr/x86_64-w64-mingw32/sys-root/mingw/bin; do
+    for name in libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll; do
+      copy_one "$dir/$name"
+    done
+  done
+
+  # And whatever else the binary needs that Windows does not have. The
+  # system DLLs resolve into the Windows folder and stay there.
+  if command -v ldd >/dev/null 2>&1; then
+    ldd "$exe" 2>/dev/null | awk -v skip="$skip_arch" '
+      { i = index($0, "=> ")
+        if (i == 0) next
+        rest = substr($0, i + 3)
+        j = index(rest, " (0x")
+        if (j > 0) rest = substr(rest, 1, j - 1)
+        if (tolower(rest) ~ /\/windows\//) next
+        # A 32-bit DLL next to a 64-bit exe does not load.
+        if (skip != "" && tolower(rest) ~ skip) next
+        print rest }' | while IFS= read -r dll; do
+      copy_one "$dll"
+    done || true
+  fi
+}
+
+# mingw's strip does not understand a cygwin path.
+strip_exe() {
+  command -v strip >/dev/null 2>&1 || return 0
+  path=$1
+  if command -v cygpath >/dev/null 2>&1; then path=$(cygpath -w "$path"); fi
+  strip "$path" 2>/dev/null || true
+}
+
 write_readme() {
   dest=$1
   run=$2
@@ -136,7 +199,8 @@ EOF
 
 elif [ "$kind" = windows ]; then
   cp "$bin" "$out/mancer.exe"
-  if command -v strip >/dev/null 2>&1; then strip "$out/mancer.exe" || true; fi
+  strip_exe "$out/mancer.exe"
+  copy_runtime_dlls "$out" "$out/mancer.exe"
   copy_assets "$out/assets"
   # Git Bash / MSYS writes LF; CRLF is what Explorer expects.
   printf '%s\r\n' \

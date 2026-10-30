@@ -172,9 +172,13 @@ The zip contains `mancer.exe`, `mancer.bat`, and `assets/`. `mancer.bat`
 sets `HOME` to `%USERPROFILE%` (so prefs land in `%USERPROFILE%\.mancer`)
 and `MANCER_ASSETS` to the shipped `assets\` folder.
 
-raylib is static. If `mancer.exe` still needs mingw runtime DLLs
-(`libwinpthread-1.dll`, `libgcc_s_seh-1.dll`, `libstdc++-6.dll`), copy
-them next to the exe from the mingw `bin` directory. Check with:
+raylib is static. The exe still needs the mingw runtime — `libwinpthread-1.dll`
+(OCaml 5 runs on threads), plus `libgcc_s_seh-1.dll` and `libstdc++-6.dll` —
+and a player's machine has none of it. `scripts/package.sh` copies those next
+to `mancer.exe`; without them Windows refuses to start the game
+(`libwinpthread-1.dll was not found`). The packager finds them next to the
+mingw compiler, next to `ocamlopt` (Diskuv OCaml ships them there), in
+`/mingw64/bin`, or through `ldd`. Check what a build needs with:
 
 ```bat
 ldd _build/default/bin/gui.exe
