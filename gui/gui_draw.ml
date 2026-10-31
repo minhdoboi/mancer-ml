@@ -454,7 +454,7 @@ let label_at fr s ~nh ~bl_x ~bl_y ~color str =
    overlay (mortal, sand, …) over the art but under the frame and the numbers:
    Scala SlotCardActors.updateZIndex gives decorators zIndex 1, below the frame
    (2) and the labels (3), so the stone crops them. *)
-let draw_card_face desc r (c : card) ~cost ~attack ~life ~life_color ~tint ~decor =
+let draw_card_face desc r (c : card) ~cost ~attack ~life ~life_color ~tint ~frame_tint ~decor =
   let spell = c.is_spell || c.is_aura in
   let nw, nh = if spell then spell_native else creature_native in
   let fr, s = fit_in r nw nh in
@@ -463,7 +463,13 @@ let draw_card_face desc r (c : card) ~cost ~attack ~life ~life_color ~tint ~deco
   (match card_texture c with Some t -> image ~tint t art | None -> fill ~round:0.04 art panel_hi);
   decor ();
   (match texture (if spell then Assets.spell_frame () else Assets.creature_frame ()) with
-  | Some t -> image_at ~tint t fr
+  | Some t ->
+      (* A translucent [frame_tint] is a wash: keep the solid frame and lay the
+         colour over it, instead of fading the whole frame out. *)
+      if R.Color.a frame_tint >= 255 then image_at ~tint:frame_tint t fr
+      else (
+        image_at t fr;
+        image_at ~tint:frame_tint t fr)
   | None -> outline ~round:0.08 ~thick:2. fr (rgba 180 168 140 255));
   Option.iter
     (fun n ->

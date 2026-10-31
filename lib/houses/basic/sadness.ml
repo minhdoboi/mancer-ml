@@ -48,11 +48,11 @@ let banshee_reaction () =
         if abs (me.num - slot.num) = 1 then Slot.toggle slot run_flag);
   }
 
-(* Pain Confessor: heals its owner by 10 when summoned, or 12 at 10 life or
+(* Pain Confessor: heals its owner by 10 when summoned, or 12 at 15 life or
    less. *)
 let pain_confessor : card_effect =
  fun env ->
-  let amount = if (player_of_env env).pstate.ps_life <= 10 then 12 else 10 in
+  let amount = if (player_of_env env).pstate.ps_life <= 15 then 12 else 10 in
   Updater.focus env.env_updater env.env_selected env.env_player true;
   Player.heal (player_of_env env) amount
 

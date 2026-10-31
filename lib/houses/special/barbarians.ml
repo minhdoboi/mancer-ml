@@ -18,11 +18,20 @@ let house_id = 49
 
 (* ---- thresholds ---- *)
 
+(* The life total at or below which a card opens its second face.  Kept named so
+   the rule and the GUI hint (below) cannot drift apart. *)
+let axe_life = 8
+let goliath_life = 13
+let cerberus_life = 10
+let bull_life = 15
+let ogre_life = 8
+let giant_life = 20
+
 (* All of these read the owner's life, so an attack that raises the attack while
 the player is low uses Attack_state_func, exactly as the Emotion house's
 Courage does. *)
-let axe_attack = Attack_state_func (fun atk p -> if p.pstate.ps_life <= 8 then atk + 5 else atk)
-let goliath_attack = Attack_state_func (fun atk p -> if p.pstate.ps_life <= 13 then atk + 4 else atk)
+let axe_attack = Attack_state_func (fun atk p -> if p.pstate.ps_life <= axe_life then atk + 5 else atk)
+let goliath_attack = Attack_state_func (fun atk p -> if p.pstate.ps_life <= goliath_life then atk + 4 else atk)
 
 (* ---- Dwarven Hammer ---- *)
 
@@ -61,7 +70,7 @@ let goliath_reaction () =
 (* Below 10 life the hound stops choosing: the attack sweeps every opponent
    creature (the Limbo wraith's Multi_target, minus the player). *)
 let cerberus_attack target d p =
-  if p.pstate.ps_life <= 10 then Slots.inflict_creatures (other_player p).slots_update d
+  if p.pstate.ps_life <= cerberus_life then Slots.inflict_creatures (other_player p).slots_update d
   else ignore (single_target_attack target d p)
 
 (* ---- Steaming Bull ---- *)
@@ -70,7 +79,7 @@ let cerberus_attack target d p =
    at the moment of the attack, not baked in at summon time. *)
 let bull_attack blows target d p =
   ignore (single_target_attack target d p);
-  blows = 0 && p.pstate.ps_life <= 15
+  blows = 0 && p.pstate.ps_life <= bull_life
 
 (* ---- Ogre Mage ---- *)
 
@@ -80,7 +89,7 @@ let bull_attack blows target d p =
 let ogre_tick : card_effect =
  fun env ->
   let p = player_of_env env in
-  if p.pstate.ps_life <= 8 then (
+  if p.pstate.ps_life <= ogre_life then (
     let me = own_slot_of_env env in
     Slot.heal me 8;
     add_attack me (Attack_func (fun a -> a + 1)))
@@ -90,7 +99,7 @@ let ogre_tick : card_effect =
 (* Below 20 life the giant ignores the creature in front of it and swings at
    the player. *)
 let behemoth_attack target d p =
-  if p.pstate.ps_life <= 20 then Player.inflict (other_player p) d
+  if p.pstate.ps_life <= giant_life then Player.inflict (other_player p) d
   else ignore (single_target_attack target d p)
 
 (* ---- Eldritch Giant ---- *)
@@ -100,7 +109,7 @@ let behemoth_attack target d p =
 let eldritch_curse : card_effect =
  fun env ->
   let p = player_of_env env in
-  if p.pstate.ps_life <= 20 then
+  if p.pstate.ps_life <= giant_life then
     let op = other_player p in
     let big =
       Slots.foldl op.slots_update [] (fun acc s ->
@@ -158,4 +167,16 @@ let cards =
 (* Deck costs, by card order: the list is ascending so the deck builder and the
    card list keep their order. *)
 let cost_fn i = i + 1
+
+(* The life threshold a card opens at, by key, for the GUI to mark a creature
+   whose second face is live.  [None] for the spell, which has no condition. *)
+let life_threshold = function
+  | "barbarians.axewarrior" -> Some axe_life
+  | "barbarians.cerberus" -> Some cerberus_life
+  | "barbarians.goliath" -> Some goliath_life
+  | "barbarians.steamingbull" -> Some bull_life
+  | "barbarians.ogremage" -> Some ogre_life
+  | "barbarians.behemoth" | "barbarians.eldritchgiant" -> Some giant_life
+  | _ -> None
+
 let house = special_house ~key:"barbarians" ~id:house_id cards

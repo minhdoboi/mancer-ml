@@ -31,7 +31,7 @@ let classic_deals_earth () =
   check_string "classic house 3 is earth" "earth" p.desc.pd_houses.(3).phd_house.h_key
 
 (* Every cost, attack, life and multi flag matches earth's card of the same slot.
-   Sun Stone Golem is an intentional exception: it keeps a lower life than Earth
+   Laughing Golem is an intentional exception: it keeps a lower life than Earth
    Elemental for balance, so only its life is allowed to differ. *)
 let same_stats () =
   let life_exceptions = [ ("joy.sunstonegolem", 44) ] in
@@ -156,6 +156,26 @@ let attachment_heals_all () =
   check_int "owner 40 + 3" 43 (player_life u 0);
   check_int "goblin 8 + 3" 11 (life_at u 0 1)
 
+let attachment_heals_on_summon_when_wounded () =
+  let u = new_game ~house:Joy.house () in
+  (player u 0).pstate.ps_life <- 12;
+  place u 0 "fire.goblin" 1;
+  hit u 0 1 8;
+  place u 0 "joy.attachment" 0;
+  step u (fun () -> Player.apply_effects (player u 0) Direct);
+  check_int "owner 12 + 3" 15 (player_life u 0);
+  check_int "goblin 8 + 3" 11 (life_at u 0 1)
+
+let attachment_spares_above_fifteen () =
+  let u = new_game ~house:Joy.house () in
+  (player u 0).pstate.ps_life <- 16;
+  place u 0 "fire.goblin" 1;
+  hit u 0 1 8;
+  place u 0 "joy.attachment" 0;
+  step u (fun () -> Player.apply_effects (player u 0) Direct);
+  check_int "owner still 16" 16 (player_life u 0);
+  check_int "goblin still 8" 8 (life_at u 0 1)
+
 let dragon_sweeps_and_heals () =
   let u = new_game ~house:Joy.house () in
   place u 0 "joy.dragon" 0;
@@ -187,9 +207,12 @@ let () =
           Alcotest.test_case "nymphea" `Quick nymphea_spawns_two;
           Alcotest.test_case "faune" `Quick faune_heals_self;
           Alcotest.test_case "solar burst" `Quick solar_burst_burns;
-          Alcotest.test_case "sun stone golem" `Quick sunstonegolem_mana_attack;
-          Alcotest.test_case "sun stone golem heals" `Quick sunstonegolem_heals_neighbours;
+          Alcotest.test_case "laughing golem" `Quick sunstonegolem_mana_attack;
+          Alcotest.test_case "laughing golem heals" `Quick sunstonegolem_heals_neighbours;
           Alcotest.test_case "attachment healer" `Quick attachment_heals_all;
+          Alcotest.test_case "attachment heals on summon when wounded"
+            `Quick attachment_heals_on_summon_when_wounded;
+          Alcotest.test_case "attachment spares above fifteen" `Quick attachment_spares_above_fifteen;
           Alcotest.test_case "oriental dragon" `Quick dragon_sweeps_and_heals;
         ] );
     ]

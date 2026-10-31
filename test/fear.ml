@@ -132,15 +132,15 @@ let is_stunned u pid num =
 let medusa_stuns_opposite_when_wounded () =
   let u = new_game ~mana:[ 4; 4; 7; 4 ] ~house:Fear.house () in
   place u 1 "anger.boar" 1;
-  (player u 0).pstate.ps_life <- 10;
+  (player u 0).pstate.ps_life <- 15;
   place u 0 "fear.medusa" 1;
   step u (fun () -> Player.apply_effects (player u 0) Direct);
   check_bool "opposite boar stunned" true (is_stunned u 1 1)
 
-let medusa_leaves_opposite_alone_above_ten () =
+let medusa_leaves_opposite_alone_above_fifteen () =
   let u = new_game ~mana:[ 4; 4; 7; 4 ] ~house:Fear.house () in
   place u 1 "anger.boar" 1;
-  (player u 0).pstate.ps_life <- 11;
+  (player u 0).pstate.ps_life <- 16;
   place u 0 "fear.medusa" 1;
   step u (fun () -> Player.apply_effects (player u 0) Direct);
   check_bool "opposite boar not stunned" false (is_stunned u 1 1)
@@ -177,7 +177,7 @@ let () =
           Alcotest.test_case "fear of fear" `Quick fear_of_fear_destroys;
           Alcotest.test_case "medusa" `Quick medusa_power_and_growth;
           Alcotest.test_case "medusa petrifies when wounded" `Quick medusa_stuns_opposite_when_wounded;
-          Alcotest.test_case "medusa spares above ten" `Quick medusa_leaves_opposite_alone_above_ten;
+          Alcotest.test_case "medusa spares above fifteen" `Quick medusa_leaves_opposite_alone_above_fifteen;
           Alcotest.test_case "malediction" `Quick malediction_kills_opposite;
         ] );
     ]

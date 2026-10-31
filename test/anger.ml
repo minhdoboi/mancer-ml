@@ -137,21 +137,21 @@ let nemesis_sweep_when_wounded () =
   check_int "dragon 41 - 5" 36 (life_at u 1 0);
   check_int "opponent still 60 - 3" 57 (player_life u 1)
 
-let nemesis_sweep_at_ten () =
+let nemesis_sweep_at_fifteen () =
   let u = new_game ~mana0:7 ~house:Anger.house () in
   place u 1 "fire.dragon" 0;
-  (player u 0).pstate.ps_life <- 10;
+  (player u 0).pstate.ps_life <- 15;
   place u 0 "anger.nemesis" 0;
   step u (fun () -> Player.apply_effects (player u 0) Direct);
-  check_int "dragon 41 - 5 at exactly 10" 36 (life_at u 1 0)
+  check_int "dragon 41 - 5 at exactly 15" 36 (life_at u 1 0)
 
-let nemesis_sweep_at_eleven () =
+let nemesis_sweep_at_sixteen () =
   let u = new_game ~mana0:7 ~house:Anger.house () in
   place u 1 "fire.dragon" 0;
-  (player u 0).pstate.ps_life <- 11;
+  (player u 0).pstate.ps_life <- 16;
   place u 0 "anger.nemesis" 0;
   step u (fun () -> Player.apply_effects (player u 0) Direct);
-  check_int "dragon 41 - 3 at eleven" 38 (life_at u 1 0)
+  check_int "dragon 41 - 3 at sixteen" 38 (life_at u 1 0)
 
 let incarnation_boosts_spells () =
   let u = new_game ~mana0:20 ~house:Anger.house () in
@@ -194,8 +194,8 @@ let () =
           Alcotest.test_case "nemesis hits on summon" `Quick nemesis_hits_on_summon;
           Alcotest.test_case "nemesis mana each turn" `Quick nemesis_mana_each_turn;
           Alcotest.test_case "nemesis sweeps harder when wounded" `Quick nemesis_sweep_when_wounded;
-          Alcotest.test_case "nemesis sweeps 5 at ten life" `Quick nemesis_sweep_at_ten;
-          Alcotest.test_case "nemesis sweeps 3 at eleven life" `Quick nemesis_sweep_at_eleven;
+          Alcotest.test_case "nemesis sweeps 5 at fifteen life" `Quick nemesis_sweep_at_fifteen;
+          Alcotest.test_case "nemesis sweeps 3 at sixteen life" `Quick nemesis_sweep_at_sixteen;
           Alcotest.test_case "incarnation" `Quick incarnation_boosts_spells;
           Alcotest.test_case "outburst" `Quick outburst_scales_with_anger;
         ] );

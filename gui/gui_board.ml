@@ -794,7 +794,7 @@ let draw_slides ui =
         let x = s.sx +. ((s.tx -. s.sx) *. t) and y = s.sy +. ((s.ty -. s.sy) *. t) in
         let life_color = match (s.life, s.max_life) with Some l, Some m when l < m -> gold | _ -> life_ok in
         draw_card_face (desc ui) (rect x y card_w card_h) s.card ~cost:s.cost ~attack:s.attack ~life:s.life
-          ~life_color ~tint:R.Color.white ~decor:(fun () -> ()))
+          ~life_color ~tint:R.Color.white ~frame_tint:R.Color.white ~decor:(fun () -> ()))
     ui.slides
 
 let peek_smoke_card ui =
@@ -1144,6 +1144,14 @@ let with_dissolve r ~amount ~seed draw =
   | None -> draw r
   | Some shader -> with_painted_shader shader ~set:(fun () -> Fx.dissolve_uniforms ~amount ~seed) r draw
 
+(* Barbarians: a creature's second face opens while the owner's life is at or
+   below its threshold.  The frame takes on a red taint while it is raging, in
+   the hand and on the board alike. *)
+let rage_tint = rgba 214 74 66 110
+
+let barbarian_rage p (c : card) =
+  match Barbarians.life_threshold c.key with Some t -> p.ps_life <= t | None -> false
+
 let draw_slot ui pid num =
   let r = rect (slot_x num) (oy ui (row_y pid)) slot_w slot_h in
   let p = (view ui).players.(pid) in
@@ -1194,9 +1202,10 @@ let draw_slot ui pid num =
                let gone = match eaten with Some (amount, _) -> amount >= 0.999 | None -> false in
                let warp = if Fx.warp_any () then Fx.warp_amount spot else 0. in
                let face r =
+                 let frame_tint = if barbarian_rage p c then rage_tint else R.Color.white in
                  draw_card_face (desc ui) r c ~cost:(Some c.cost)
                    ~attack:(Some (string_of_int st.attack))
-                   ~life:(Some st.life) ~life_color ~tint
+                   ~life:(Some st.life) ~life_color ~tint ~frame_tint
                    ~decor:(fun () ->
                      decorated := draw_status_overlay r st;
                      draw_blacksmith_marks r st);
@@ -1372,7 +1381,9 @@ let draw_player_bar ui pid =
   let tx = x +. portrait_size +. 8. in
   let p = (view ui).players.(pid) in
   let life = string_of_int p.ps_life in
-  draw_label_plate ~font:bold ~size:22. ~color:fg tx (y +. 8.) life;
+  (* Low life reads yellow, so the danger is visible at a glance. *)
+  let life_color = if p.ps_life <= 15 then gold else fg in
+  draw_label_plate ~font:bold ~size:22. ~color:life_color tx (y +. 8.) life;
   (* Meteomancer: the Called Element symbol sits beside the life total. *)
   draw_element_badge ui pid (tx +. text_w ~font:bold 22. life +. 10.) (y +. 7.);
   (* Scala DataPanel beside the life: souls, Dark power, eclipse shield, shaman buffs. *)
@@ -1552,8 +1563,16 @@ let draw_house_header ui pid hd col header_y =
     if pid = opponent then ui.hover_opp <- true);
   on_click plate (fun () -> open_house_dlg ui pid hd.phd_house)
 
+(* Cards whose summon effect is stronger while the owner is at 15 life or less.
+   The hand frame turns yellow for these so the bonus is visible. *)
+let low_life_boost = function
+  | "anger.nemesis" | "sadness.paindruid" | "fear.medusa" | "joy.attachment" -> true
+  | _ -> false
+
 let draw_hand_at ui pid ~cards_y ~header_y =
   let reveal_all = reveal_hand ui pid in
+  let p = (view ui).players.(pid) in
+  let low_life = p.ps_life <= 15 in
   let can_choose = human_to_move ui = Some pid in
   (* In a game with a human, only the side to move looks active; a bot-only
      table keeps the informative tint on both sides. *)
@@ -1577,9 +1596,15 @@ let draw_hand_at ui pid ~cards_y ~header_y =
               let is_selected = selected = Some c.key in
               let grey = reveal_all && not playable in
               if (not is_selected) && active && inside r then fill ~round:0.08 r (rgba 255 255 255 28);
+              let frame_tint =
+                if barbarian_rage p c then rage_tint
+                else if low_life && low_life_boost c.key then gold
+                else R.Color.white
+              in
               Fx.with_grey grey (fun () ->
                   draw_card_face (desc ui) r c ~cost:(Some cd.cd_cost) ~attack:(printed_attack c)
-                    ~life:(printed_life c) ~life_color:life_ok ~tint:R.Color.white ~decor:(fun () -> ()));
+                    ~life:(printed_life c) ~life_color:life_ok ~tint:R.Color.white ~frame_tint
+                    ~decor:(fun () -> ()));
               (match List.find_opt (fun (a : aura_state) -> a.au_key = c.key) (Lightstave.auras (view ui).players.(pid)) with
               | Some a -> draw_hand_aura_count r a
               | None -> ());
