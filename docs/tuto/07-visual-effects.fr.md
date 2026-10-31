@@ -55,7 +55,7 @@ fonction.
 | mot | sens courant |
 |---|---|
 | **age** | secondes écoulées depuis le début de l'effet ; seule entrée de `draw` |
-| **recipe** | un effet prêt à lancer : sa durée, s'il est bloquant, et une fonction `make` |
+| **recipe** | un effet prêt à lancer : sa durée, s'il est bloquant, un clip sonore optionnel, et une fonction `make` |
 | **blocking** | l'animation suivante (invocation, mort, glissement…) attend la fin de cet effet |
 | **alpha** | opacité, de 0 (invisible) à 1 (opaque) |
 | **additive blending** | les couleurs sont *ajoutées* à ce qu'il y a dessous ; la lumière qui se recoupe devient donc plus brillante, comme des projecteurs |
@@ -72,7 +72,7 @@ fonction.
 
 ```ocaml
 type t = { start : float; duration : float; draw : age:float -> unit }
-type recipe = { duration : float; blocking : bool; make : start:float -> t }
+type recipe = { duration : float; blocking : bool; sound : string option; make : start:float -> t }
 ```
 
 `fx_core.ml:9-10`. Un effet est lancé une fois, puis *réévalué à partir de zéro à
@@ -1043,6 +1043,84 @@ des cas où l'effet choisit de *contredire* la visée de la carte :
 capacités des cartes, indexée sur une chaîne `kind` libre, et — notable — deux
 de ses cinq cas sont non bloquants.
 
+### 6.1 Un sort dont la cible n'est connue qu'à la résolution
+
+La plupart des sorts nomment leur cible avant d'être joués : le joueur choisit
+un emplacement, et l'effet y est visé. Un sort joué aux dés, non. La
+**Soin Instable** du Prêtre du Chaos choisit au hasard l'une des créatures du
+joueur *au moment où la carte se résout* : le front ne peut donc pas savoir, au
+moment du jet, sur quelle créature la guérison va tomber.
+
+Un tel sort ne doit pas utiliser un look `Target`. `target_spot`
+(`fx_stage.ml:27`) lit `c.cmd_input`, qui vaut `None` pour un sort sans entrée,
+et `points_of` (`fx_core.ml:673`) se rabat alors sur `foe.(2)` — l'emplacement
+du milieu **de l'adversaire** :
+
+```ocaml
+| Spell_looks.Target -> (
+    match target with Some p -> [| p |] | None -> if Array.length foe > 2 then [| foe.(2) |] else own)
+```
+
+Les motes vertes se lèvent donc sur une créature adverse pendant que la
+créature du joueur est soignée en silence. La table des looks ne peut pas
+exprimer cela : c'est exactement à cela que sert `custom`.
+
+Le sort annonce la créature à la place. L'effet de maison choisit l'emplacement,
+le soigne et émet un `Ev_ability` qui le nomme
+(`lib/houses/special/chaospriest.ml`) :
+
+```ocaml
+| Some st when st.life > 0 && st.life < st.max_life ->
+    focus_slot s;
+    Slot.heal s (st.max_life - st.life);
+    emit env.env_updater
+      (Ev_ability
+         {
+           kind = "chaospriest.unstablehealing";
+           player = env.env_player;
+           num = s.num;
+           target = Some (env.env_player, s.num);
+         })
+```
+
+et le plateau le dessine là (`gui/fx_stage.ml`) :
+
+```ocaml
+| "chaospriest.unstablehealing" ->
+    Option.map
+      (fun (tp, tn) ->
+        recipe ~sound:"naturescare" ~duration:nature_care_duration ~blocking:true (fun ~start ->
+            spawn_nature_care [ layout.slot_center tp tn ] ~start))
+      target
+```
+
+Deux conséquences découlent de cette forme. La clé passe de `looks` à `custom`
+dans `lib/game/spell_looks.ml`, car le sort n'a plus aucun effet au moment où la
+carte est jouée : la carte est dessinée quand l'effet se résout, pas quand elle
+est jouée. Et l'annonce est conditionnelle — l'événement n'est émis que si une
+créature a réellement été soignée, pour qu'un sort qui ne trouve rien à soigner
+reste muet au lieu de clignoter sur une créature inchangée.
+
+Une capacité est l'endroit où un effet reçoit un **son qui lui est propre**. Le
+clip d'un sort vient du nom anglais de la carte (`gui/gui_draw.ml:266`), mais
+une capacité part d'une créature et n'a pas de carte à nommer : c'est donc la
+recipe qui porte le nom du clip, et le plateau le joue quand l'effet démarre :
+
+```ocaml
+| "meteomancer.grenadier" ->
+    Option.map
+      (fun (tp, tn) ->
+        recipe ~sound:"scatterbomb" ~duration:grenade_duration ~blocking:true (fun ~start ->
+            spawn_grenade ~src:(layout.slot_center player num) ~target:(layout.slot_center tp tn)
+              ~pid:tp ~num:tn ~start))
+      target
+```
+
+Le nom est un fichier dans `assets/sounds/`, donc `~sound:"scatterbomb"` est
+`assets/sounds/scatterbomb.mp3` — le clip du Scatterbomb du Constructeur de
+Mécanismes, réutilisé ici parce qu'une grenade qui tombe et une bombe qui
+tombe font le même bruit.
+
 ## 7. Écrire un nouvel effet
 
 Un effet complet fait environ dix lignes. Pour faire un sort appelé `fire.tide`
@@ -1093,6 +1171,14 @@ Liste de contrôle, dans l'ordre qui attrape réellement les erreurs :
       tous les effets de démo (`bin/gui.ml:317-320`) — cela marche dans
       n'importe quel état de jeu, ce qui est le seul moyen pratique de vérifier
       les timings.
+- [ ] **Nommer un clip si l'effet fait du bruit.** `~sound:"<fichier>"` sur la
+      recipe, pour une capacité (le son d'un sort vient du nom de la carte).
+      Le clip démarre avec l'animation, donc sa propre prise d'élan est le délai.
+- [ ] **Vérifier que la cible est connue au moment du dessin.** Un look
+      `Target` vise `c.cmd_input`, et un sort sans entrée se rabat sur
+      l'emplacement du milieu de l'*adversaire* (§6.1). Si la carte tire sa
+      cible aux dés, que la maison émet un `Ev_ability` qui la nomme, et
+      dessine d'après celui-ci.
 
 Deux règles de performance bon marché tirées du code existant : dériver tout
 nombre de pas d'une longueur (`steps = clamp(6, h/7, 14)`) plutôt que de coder

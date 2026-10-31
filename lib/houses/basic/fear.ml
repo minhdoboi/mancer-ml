@@ -80,7 +80,7 @@ let cards =
     spell ~key:"fear.fear" ~description:"fear.fear.description" ~input_spec:Select_target_creature
       ~effects:(effects [ (Direct, fear_of_fear) ])
       ();
-    creature ~key:"fear.medusa" ~attack:(mana_attack 2) ~life:44 ~description:"fear.medusa.description"
+    creature ~key:"fear.medusa" ~attack:(mana_attack 2) ~life:39 ~description:"fear.medusa.description"
       ~new_reaction:(mana_growth_reaction ~owner:true ~amount:1 ~house_indexes:[ 2 ])
       ~effects:(effects [ (Direct, focus (damage ~is_ability:true 8)); (Direct, medusa_gaze) ])
       ();

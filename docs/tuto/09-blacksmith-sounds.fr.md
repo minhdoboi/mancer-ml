@@ -61,6 +61,39 @@ clip, il faut jouer la carte. **F8** fait défiler `Fx.demo_names`, mais
 `Fx.spawn_demo` ne déclenche que le visuel — aucun événement, donc F8 montre
 l'animation en silence.
 
+### Les capacités nomment leur propre clip
+
+Le clip d'un sort vient du nom de la carte, mais une **capacité** part d'une
+créature et n'a pas de carte à nommer. Là, c'est l'effet qui nomme le fichier
+lui-même, dans la `recipe` (`gui/fx_core.ml:18`) :
+
+```ocaml
+type recipe = { duration : float; blocking : bool; sound : string option; make : start:float -> t }
+```
+
+et le plateau le joue quand l'effet démarre (`gui/gui_board.ml:699`) :
+
+```ocaml
+| Ev_ability { kind; player; num; target } -> (
+    match Fx.for_ability (fx_layout ui) ~kind ~player ~num ~target with
+    | None -> ()
+    | Some r ->
+        let start = run_fx ui r in
+        Option.iter (fun name -> ui.late_sounds <- (start, name) :: ui.late_sounds) r.Fx.sound)
+```
+
+Le nom est le fichier dans `assets/sounds/`, sans extension — donc
+`~sound:"scatterbomb"` est `assets/sounds/scatterbomb.mp3`, le clip du
+Scatterbomb du Constructeur de Mécanismes. La salve de bombes du Canon
+Instable et la grenade du Grenadier Astral l'empruntent tous les deux : une
+bombe qui tombe et une grenade qui tombent font le même bruit, et écrire un
+clip neuf pour chacune reviendrait à écrire deux fois le même.
+
+Le clip démarre **avec** l'animation, donc sa propre prise d'élan est le délai —
+la même règle que suivent les clips du Forgeron (§2). Le clip du scatterbomb
+convient par hasard aux deux : son premier impact arrive à 0,45 s, et la bombe
+du canon met 0,42 s à tomber comme la grenade.
+
 ## 2. Pourquoi le clip n'est pas un impact
 
 Le son et l'animation démarrent tous deux sur le même événement

@@ -57,6 +57,38 @@ Both cards fire from `card_effect`, when the wielder **comes into play**
 the card. **F8** cycles `Fx.demo_names`, but `Fx.spawn_demo` only spawns the
 visuals — it emits no event, so F8 shows the animation in silence.
 
+### Abilities name their own clip
+
+A spell's clip comes from the card's name, but an **ability** fires on a
+creature and has no card to be named after. There the effect names the file
+itself, in the `recipe` (`gui/fx_core.ml:18`):
+
+```ocaml
+type recipe = { duration : float; blocking : bool; sound : string option; make : start:float -> t }
+```
+
+and the board plays it when the effect starts (`gui/gui_board.ml:699`):
+
+```ocaml
+| Ev_ability { kind; player; num; target } -> (
+    match Fx.for_ability (fx_layout ui) ~kind ~player ~num ~target with
+    | None -> ()
+    | Some r ->
+        let start = run_fx ui r in
+        Option.iter (fun name -> ui.late_sounds <- (start, name) :: ui.late_sounds) r.Fx.sound)
+```
+
+The name is the file in `assets/sounds/`, without an extension — so
+`~sound:"scatterbomb"` is `assets/sounds/scatterbomb.mp3`, the tinker's
+Scatterbomb clip. The Unstable Cannon's bomb salvo and the Astral Grenadier's
+grenade both borrow it: a bomb landing and a grenade landing are the same
+noise, and writing a new clip for each would mean writing the same one twice.
+
+The clip starts **with** the animation, so its own lead-in is the delay — the
+same rule the Blacksmith clips follow (§2). The scatterbomb clip happens to
+suit both: its first impact lands 0.45 s in, and the cannon's bomb falls for
+0.42 s and the grenade's for 0.45 s.
+
 ## 2. Why the clip is not a hit
 
 The sound and the animation both start on the same `Ev_spell_played` event, so

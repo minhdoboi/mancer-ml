@@ -30,8 +30,11 @@ let classic_deals_earth () =
   let p = Shuffle.create_player ~first:true ~special:Troopers.house Catalog.classic_basics in
   check_string "classic house 3 is earth" "earth" p.desc.pd_houses.(3).phd_house.h_key
 
-(* Every cost, attack, life and multi flag matches earth's card of the same slot. *)
+(* Every cost, attack, life and multi flag matches earth's card of the same slot.
+   Sun Stone Golem is an intentional exception: it keeps a lower life than Earth
+   Elemental for balance, so only its life is allowed to differ. *)
 let same_stats () =
+  let life_exceptions = [ ("joy.sunstonegolem", 44) ] in
   init_all_houses ();
   let z = Array.of_list (Joy.house.h_cards @ Joy.house.h_additional_cards) in
   let e = Array.of_list (Earth.house.h_cards @ Earth.house.h_additional_cards) in
@@ -46,7 +49,9 @@ let same_stats () =
           check_int (Printf.sprintf "attack %d" i)
             (Option.value eb.b_attack.base ~default:(-1))
             (Option.value jb.b_attack.base ~default:(-1));
-          check_int (Printf.sprintf "life %d" i) eb.b_life jb.b_life;
+          (match List.assoc_opt jc.key life_exceptions with
+          | Some expected -> check_int (Printf.sprintf "life %d" i) expected jb.b_life
+          | None -> check_int (Printf.sprintf "life %d" i) eb.b_life jb.b_life);
           check_bool (Printf.sprintf "multi %d" i) eb.b_run_attack.is_multi_target
             jb.b_run_attack.is_multi_target
       | None, None -> ()

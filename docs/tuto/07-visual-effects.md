@@ -50,7 +50,7 @@ variable — everything here is a constant in a function body.
 | word | plain meaning |
 |---|---|
 | **age** | seconds since the effect started; the only input to `draw` |
-| **recipe** | a ready-to-spawn effect: its duration, whether it blocks, and a `make` function |
+| **recipe** | a ready-to-spawn effect: its duration, whether it blocks, an optional sound clip, and a `make` function |
 | **blocking** | the next animation (summon, death, slide…) waits until this effect ends |
 | **alpha** | opacity, 0 (invisible) to 1 (solid) |
 | **additive blending** | colours are *added* to what is underneath, so overlapping light gets brighter, like spotlights |
@@ -68,7 +68,7 @@ variable — everything here is a constant in a function body.
 
 ```ocaml
 type t = { start : float; duration : float; draw : age:float -> unit }
-type recipe = { duration : float; blocking : bool; make : start:float -> t }
+type recipe = { duration : float; blocking : bool; sound : string option; make : start:float -> t }
 ```
 
 `fx_core.ml:9-10`. An effect is spawned once and then *re-evaluated from
@@ -983,6 +983,81 @@ choosing to *disagree* with the card's aim:
 abilities, keyed on a free-form `kind` string, and — notably — two of its five
 cases are non-blocking.
 
+### 6.1 A spell whose target is only known when it resolves
+
+Most spells name their target before they are cast: the player picks a slot, and
+the effect is aimed at it. A dice-rolled spell does not. The Chaos Priest's
+**Unstable Healing** picks one of the caster's own creatures at random *when the
+card resolves*, so the front end cannot know at cast time which creature the
+healing will land on.
+
+Such a spell must not use a `Target` look. `target_spot` (`fx_stage.ml:27`) reads
+`c.cmd_input`, which is `None` for a spell with no input, and `points_of`
+(`fx_core.ml:673`) then falls back to `foe.(2)` — the *opponent's* middle slot:
+
+```ocaml
+| Spell_looks.Target -> (
+    match target with Some p -> [| p |] | None -> if Array.length foe > 2 then [| foe.(2) |] else own)
+```
+
+So the green motes rise on the opponent's creature while the caster's creature is
+healed in silence. The look table cannot express this, which is exactly what
+`custom` is for.
+
+The spell announces the creature instead. The house effect picks the slot, heals
+it and emits an `Ev_ability` naming it (`lib/houses/special/chaospriest.ml`):
+
+```ocaml
+| Some st when st.life > 0 && st.life < st.max_life ->
+    focus_slot s;
+    Slot.heal s (st.max_life - st.life);
+    emit env.env_updater
+      (Ev_ability
+         {
+           kind = "chaospriest.unstablehealing";
+           player = env.env_player;
+           num = s.num;
+           target = Some (env.env_player, s.num);
+         })
+```
+
+and the board draws it there (`gui/fx_stage.ml`):
+
+```ocaml
+| "chaospriest.unstablehealing" ->
+    Option.map
+      (fun (tp, tn) ->
+        recipe ~sound:"naturescare" ~duration:nature_care_duration ~blocking:true (fun ~start ->
+            spawn_nature_care [ layout.slot_center tp tn ] ~start))
+      target
+```
+
+Two things follow from this shape. The key moves from `looks` to `custom` in
+`lib/game/spell_looks.ml`, because the spell no longer has a cast overlay at
+all: the card is drawn when the effect resolves, not when it is played. And the
+announcement is conditional — the event is emitted only when a creature was
+actually healed, so a spell that finds nothing to heal is silent rather than
+flashing on a creature that did not change.
+
+An ability is where an effect gets a **sound of its own**. A spell's clip comes
+from the card's English name (`gui/gui_draw.ml:266`), but an ability fires on a
+creature and has no card to be named after, so the recipe carries the clip name
+instead and the board plays it when the effect starts:
+
+```ocaml
+| "meteomancer.grenadier" ->
+    Option.map
+      (fun (tp, tn) ->
+        recipe ~sound:"scatterbomb" ~duration:grenade_duration ~blocking:true (fun ~start ->
+            spawn_grenade ~src:(layout.slot_center player num) ~target:(layout.slot_center tp tn)
+              ~pid:tp ~num:tn ~start))
+      target
+```
+
+The name is a file in `assets/sounds/`, so `~sound:"scatterbomb"` is
+`assets/sounds/scatterbomb.mp3` — the tinker's Scatterbomb clip, reused here
+because a grenade landing and a bomb landing are the same noise.
+
 ## 7. Writing a new effect
 
 A complete effect is about ten lines. To make a spell called `fire.tide` burn
@@ -1030,6 +1105,13 @@ Checklist, in the order that actually catches mistakes:
 - [ ] **Add it to `demo_names`.** Press **F8** in a duel to cycle through every
       demo effect (`bin/gui.ml:317-320`) — it works in any game state, which is
       the only practical way to check timings.
+- [ ] **Name a clip if the effect makes a noise.** `~sound:"<file>"` on the
+      recipe, for an ability (a spell's sound comes from the card's name).
+      The clip starts with the animation, so its own lead-in is the delay.
+- [ ] **Check the target is known when you draw.** A `Target` look aims at
+      `c.cmd_input`, and a spell with no input falls back to the *opponent's*
+      middle slot (§6.1). If the card rolls its target, have the house emit an
+      `Ev_ability` naming it and draw from that instead.
 
 Two cheap performance rules learned from the existing code: derive any step
 count from a length (`steps = clamp(6, h/7, 14)`) rather than hard-coding a

@@ -50,7 +50,10 @@ let deep_meditation : card_effect =
   in
   Player.add_effect p (On_turn, tick)
 
-(* Unstable Healing: a random creature of the owner is healed completely. *)
+(* Unstable Healing: a random creature of the owner is healed completely. The
+   dice pick the creature, so the front end cannot know before the spell
+   resolves which one it will be; the spell therefore announces the healed
+   slot here, and the board draws the healing on that creature alone. *)
 let unstable_healing : card_effect =
  fun env ->
   let p = player_of_env env in
@@ -59,7 +62,15 @@ let unstable_healing : card_effect =
       match s.value with
       | Some st when st.life > 0 && st.life < st.max_life ->
           focus_slot s;
-          Slot.heal s (st.max_life - st.life)
+          Slot.heal s (st.max_life - st.life);
+          emit env.env_updater
+            (Ev_ability
+               {
+                 kind = "chaospriest.unstablehealing";
+                 player = env.env_player;
+                 num = s.num;
+                 target = Some (env.env_player, s.num);
+               })
       | _ -> ())
   | None -> ()
 

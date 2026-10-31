@@ -11,7 +11,11 @@ type spot = { x : float; y : float }
    effects that are part of the scene (smoke rolling in behind a creature) rather
    than bolts and flares flying across it. *)
 type t = { start : float; duration : float; under : bool; draw : age:float -> unit }
-type recipe = { duration : float; blocking : bool; make : start:float -> t }
+
+(* [sound] is the clip the effect plays when it starts, if any.  A card sound is
+   normally played by the board from the card's name, but an ability effect has
+   no card of its own, so it names its clip here. *)
+type recipe = { duration : float; blocking : bool; sound : string option; make : start:float -> t }
 
 type layout = {
   slot_center : player_id -> int -> spot;
@@ -400,7 +404,7 @@ let draw_all ~now =
   run_layer ~now active
 
 let mk ?(under = false) ~start ~duration draw = { start; duration; under; draw }
-let recipe ~duration ~blocking make = { duration; blocking; make }
+let recipe ?sound ~duration ~blocking make = { duration; blocking; sound; make }
 
 (* ---------------------------------------------------------------- shaders *)
 

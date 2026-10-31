@@ -86,6 +86,51 @@ let unstable_healing_heals_one_completely () =
   check_bool "one creature is fully healed" true
     ((d1', d2') = (0, d2) || (d1', d2') = (d1, 0))
 
+(* The dice pick the creature, so the spell tells the front end which one it
+   healed: the healing is drawn on that creature and on no other. *)
+let unstable_healing_names_the_healed_creature () =
+  let u = new_game ~special:Chaospriest.house () in
+  place u 0 "fire.dragon" 1;
+  place u 0 "fire.goblin" 2;
+  hurt_creature u 0 1 20;
+  hurt_creature u 0 2 5;
+  let events = ref [] in
+  Updater.listen u (fun e -> events := e :: !events);
+  play u 0 "chaospriest.unstablehealing" ~input:None ~cost:0;
+  let cares =
+    List.filter_map
+      (function
+        | Ev_ability { kind = "chaospriest.unstablehealing"; player = 0; num; target = Some (0, n) } ->
+            Some (num, n)
+        | _ -> None)
+      !events
+  in
+  check_int "one healing announced" 1 (List.length cares);
+  let healed =
+    List.filter
+      (fun n ->
+        match (slot u 0 n).value with Some st -> st.life = st.max_life | None -> false)
+      [ 1; 2 ]
+  in
+  check_int "one creature healed" 1 (List.length healed);
+  (match cares with
+  | [ (num, n) ] ->
+      check_bool "the announcement names the healed creature" true
+        (n = List.hd healed && num = n)
+  | _ -> Alcotest.fail "no healing announced")
+
+(* Nothing is healed when the owner has no wounded creature: no announcement. *)
+let unstable_healing_says_nothing_when_nothing_is_hurt () =
+  let u = new_game ~special:Chaospriest.house () in
+  place u 0 "fire.dragon" 1;
+  let events = ref [] in
+  Updater.listen u (fun e -> events := e :: !events);
+  play u 0 "chaospriest.unstablehealing" ~input:None ~cost:0;
+  check_bool "no healing announced" false
+    (List.exists
+       (function Ev_ability { kind = "chaospriest.unstablehealing"; _ } -> true | _ -> false)
+       !events)
+
 let shockwave_stuns_all_but_one () =
   let u = new_game ~special:Chaospriest.house () in
   place u 1 "fire.goblin" 0;
@@ -310,6 +355,10 @@ let () =
           Alcotest.test_case "deep meditation blocks growth" `Quick deep_meditation_blocks_one_growth;
           Alcotest.test_case "deep meditation skips a tick" `Quick deep_meditation_skips_one_tick_then_expires;
           Alcotest.test_case "unstable healing" `Quick unstable_healing_heals_one_completely;
+          Alcotest.test_case "unstable healing names the healed creature" `Quick
+            unstable_healing_names_the_healed_creature;
+          Alcotest.test_case "unstable healing with nothing to heal" `Quick
+            unstable_healing_says_nothing_when_nothing_is_hurt;
           Alcotest.test_case "shockwave" `Quick shockwave_stuns_all_but_one;
           Alcotest.test_case "healer" `Quick healer_shrugs_off_damage;
           Alcotest.test_case "healer needs its turn" `Quick healer_needs_its_turn;

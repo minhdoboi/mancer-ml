@@ -696,8 +696,14 @@ let queue_slides ui e =
       if delay > 0. then
         let at = Option.value fx_start ~default:start +. delay in
         ui.late_sounds <- (at, card_sound_name c.cmd_card) :: ui.late_sounds
-  | Ev_ability { kind; player; num; target } ->
-      ignore (Option.map (run_fx ui) (Fx.for_ability (fx_layout ui) ~kind ~player ~num ~target))
+  | Ev_ability { kind; player; num; target } -> (
+      match Fx.for_ability (fx_layout ui) ~kind ~player ~num ~target with
+      | None -> ()
+      | Some r ->
+          let start = run_fx ui r in
+          (* An ability has no card of its own, so the effect names its clip;
+              it starts with the animation, whose own lead-in is the delay. *)
+          Option.iter (fun name -> ui.late_sounds <- (start, name) :: ui.late_sounds) r.Fx.sound)
   | Ev_mana { player; num; target; deltas } ->
       (* a creature moved some but not all of a player's houses: arcs to the labels *)
       let fl = fx_layout ui in

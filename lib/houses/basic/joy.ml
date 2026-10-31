@@ -74,7 +74,7 @@ let cards =
     spell ~key:"joy.burst" ~description:"joy.burst.description"
       ~effects:(effects [ (Direct, mass_damage ~is_spell:true 25) ])
       ();
-    creature ~key:"joy.sunstonegolem" ~attack:(mana_attack 3) ~life:49
+    creature ~key:"joy.sunstonegolem" ~attack:(mana_attack 3) ~life:44
       ~description:"joy.sunstonegolem.description"
       ~effects:(effects [ (On_turn, add_mana 1 [ 3 ]); (On_turn, golem_light) ])
       ();

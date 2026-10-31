@@ -89,9 +89,12 @@ let looks =
     ("blacksmith.cloakanddagger", look Shadow Own_target 0.45 0.35 0.55 ());
     ("beastlord.ritual", look Rise Own_slots 0.5 0.85 0.4 ());
     ("chaospriest.deepmeditation", look Rise Own_life 0.55 0.4 0.9 ());
-    ("chaospriest.unstablehealing", look Rise Target 0.45 0.9 0.55 ());
   ]
 
+(* Spells the GUI draws itself, either from [for_spell] (a bespoke case on the
+   card key) or from [for_ability] (the card's own effect announces what
+   happened, and the board draws that).  The second kind is what a spell with a
+   rolled target needs: the target is only known once the card resolves. *)
 let custom =
   [
     "elementalist.avalanche";
@@ -160,6 +163,7 @@ let custom =
     "trappers.roots";
     "beastlord.poison";
     "chaospriest.shockwave";
+    "chaospriest.unstablehealing";
   ]
 
 (* Spells whose visual is not a cast overlay at all. Eclipse darkens the whole

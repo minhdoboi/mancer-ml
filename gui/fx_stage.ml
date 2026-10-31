@@ -788,7 +788,7 @@ let for_ability layout ~kind ~player ~num ~target =
          the foe just summoned *)
       Option.map
         (fun (tp, tn) ->
-          recipe ~duration:grenade_duration ~blocking:true (fun ~start ->
+          recipe ~sound:"scatterbomb" ~duration:grenade_duration ~blocking:true (fun ~start ->
               spawn_grenade ~src:(layout.slot_center player num) ~target:(layout.slot_center tp tn)
                 ~pid:tp ~num:tn ~start))
         target
@@ -800,7 +800,10 @@ let for_ability layout ~kind ~player ~num ~target =
         kind |> String.split_on_char '.' |> List.tl |> List.filter_map int_of_string_opt
       in
       Some
-        (recipe ~duration:(cannon_bomb_span (List.length targets)) ~blocking:true (fun ~start ->
+        (recipe ~sound:"scatterbomb"
+           ~duration:(cannon_bomb_span (List.length targets))
+           ~blocking:true
+           (fun ~start ->
              spawn_cannon_bombs ~src:(layout.slot_center player num)
                ~targets:(List.map (fun n -> (foe, n, layout.slot_center foe n)) targets)
                ~start))
@@ -814,6 +817,14 @@ let for_ability layout ~kind ~player ~num ~target =
       Some
         (recipe ~duration:shockwave_duration ~blocking:true (fun ~start ->
              spawn_shockwave ~slots ~spared ~foe_pid:foe ~start))
+  | "chaospriest.unstablehealing" ->
+      (* the dice healed one of the caster's own creatures: the healing falls on
+         that creature alone, the way Nature's Care falls on its target *)
+      Option.map
+        (fun (tp, tn) ->
+          recipe ~sound:"naturescare" ~duration:nature_care_duration ~blocking:true (fun ~start ->
+              spawn_nature_care [ layout.slot_center tp tn ] ~start))
+        target
   | _ -> None
 
 let demo_names =
@@ -882,6 +893,7 @@ let demo_names =
     "quake";
     "falcon";
     "cannonbomb";
+    "naturecare";
   ]
 
 let spawn_demo layout name =
@@ -1070,4 +1082,7 @@ let spawn_demo layout name =
         (spawn_cannon_bombs ~src:own.(2)
            ~targets:[ (opponent, 1, foe.(1)); (opponent, 3, foe.(3)) ]
            ~start:now)
+  | "naturecare" ->
+      (* the Chaos Priest's Unstable Healing: nature's care on one creature *)
+      go (spawn_nature_care [ own.(2) ] ~start:now)
   | _ -> ()

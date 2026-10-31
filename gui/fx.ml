@@ -3,7 +3,12 @@
 
 type spot = Fx_core.spot = { x : float; y : float }
 type t = Fx_core.t = { start : float; duration : float; under : bool; draw : age:float -> unit }
-type recipe = Fx_core.recipe = { duration : float; blocking : bool; make : start:float -> t }
+type recipe = Fx_core.recipe = {
+  duration : float;
+  blocking : bool;
+  sound : string option;
+  make : start:float -> t;
+}
 
 type layout = Fx_core.layout = {
   slot_center : Mancer.Sp.player_id -> int -> spot;

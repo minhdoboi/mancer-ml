@@ -5,7 +5,12 @@ open Sp
 
 type spot = { x : float; y : float }
 type t = { start : float; duration : float; under : bool; draw : age:float -> unit }
-type recipe = { duration : float; blocking : bool; make : start:float -> t }
+type recipe = {
+  duration : float;
+  blocking : bool;
+  sound : string option;  (** The clip the effect plays when it starts, if any. *)
+  make : start:float -> t;
+}
 
 type layout = {
   slot_center : player_id -> int -> spot;
