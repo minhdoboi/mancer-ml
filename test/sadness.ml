@@ -111,11 +111,11 @@ let paindruid_heals_and_grows () =
 
 let paindruid_heals_12_when_wounded () =
   let u = new_game ~mana:[ 4; 7; 4; 4 ] ~house:Sadness.house () in
-  (player u 0).pstate.ps_life <- 10;
+  (player u 0).pstate.ps_life <- 15;
   place u 0 "sadness.paindruid" 0;
   step u (fun () -> Player.apply_effects (player u 0) Direct);
   settle u;
-  check_int "heals 12 at ten life" 22 (player_life u 0)
+  check_int "heals 12 at fifteen life" 27 (player_life u 0)
 
 let fallen_angel_grows_everything () =
   let u = new_game ~house:Sadness.house () in
