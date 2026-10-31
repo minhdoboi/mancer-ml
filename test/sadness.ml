@@ -109,6 +109,14 @@ let paindruid_heals_and_grows () =
   check_int "sadness growth +1" (before + 1) (growth u 0 1);
   check_int "attack = sadness mana" 7 (attack_at u 0 0)
 
+let paindruid_heals_12_when_wounded () =
+  let u = new_game ~mana:[ 4; 7; 4; 4 ] ~house:Sadness.house () in
+  (player u 0).pstate.ps_life <- 10;
+  place u 0 "sadness.paindruid" 0;
+  step u (fun () -> Player.apply_effects (player u 0) Direct);
+  settle u;
+  check_int "heals 12 at ten life" 22 (player_life u 0)
+
 let fallen_angel_grows_everything () =
   let u = new_game ~house:Sadness.house () in
   let before = Array.init 4 (fun i -> growth u 0 i) in
@@ -144,6 +152,7 @@ let () =
           Alcotest.test_case "rain of tears" `Quick tears_damage_and_drain;
           Alcotest.test_case "banshee" `Quick banshee_gives_run;
           Alcotest.test_case "pain druid" `Quick paindruid_heals_and_grows;
+          Alcotest.test_case "pain druid wounded" `Quick paindruid_heals_12_when_wounded;
           Alcotest.test_case "fallen angel" `Quick fallen_angel_grows_everything;
           Alcotest.test_case "soul anchor" `Quick soul_anchor_shrinks_opponent;
         ] );

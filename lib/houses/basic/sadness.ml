@@ -48,6 +48,14 @@ let banshee_reaction () =
         if abs (me.num - slot.num) = 1 then Slot.toggle slot run_flag);
   }
 
+(* Pain Confessor: heals its owner by 10 when summoned, or 12 at 10 life or
+   less. *)
+let pain_confessor : card_effect =
+ fun env ->
+  let amount = if (player_of_env env).pstate.ps_life <= 10 then 12 else 10 in
+  Updater.focus env.env_updater env.env_selected env.env_player true;
+  Player.heal (player_of_env env) amount
+
 let cards =
   [
     spell ~key:"sadness.retirement" ~description:"sadness.retirement.description"
@@ -77,7 +85,7 @@ let cards =
     creature ~key:"sadness.paindruid" ~attack:(mana_attack 1) ~life:37
       ~description:"sadness.paindruid.description"
       ~new_reaction:(mana_growth_reaction ~owner:true ~amount:1 ~house_indexes:[ 1 ])
-      ~effects:(effects [ (Direct, focus (heal 10)) ])
+      ~effects:(effects [ (Direct, pain_confessor) ])
       ();
     creature ~key:"sadness.fallenangel" ~attack:(attack 6) ~life:23
       ~description:"sadness.fallenangel.description"

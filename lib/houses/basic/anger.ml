@@ -32,6 +32,13 @@ let outburst : card_effect =
   Player.inflict (other_of_env env) (spell_damage env amount);
   mass_damage ~is_spell:true amount env
 
+(* Nemesis: 3 damage to every opponent creature when summoned, rising to 5
+   while its owner has 10 life or less. *)
+let nemesis_sweep : card_effect =
+ fun env ->
+  let amount = if (player_of_env env).pstate.ps_life <= 10 then 5 else 3 in
+  Slots.inflict_creatures (other_of_env env).slots_update (ability_damage env amount)
+
 (* War Chief style lasting bonus: +1 attack to the owner's cards. *)
 let bonus_reaction tag ~cond ~plus () =
   attack_bonus_reaction ~cond
@@ -72,7 +79,7 @@ let cards =
       ~effects:
         (effects
            [
-             (Direct, damage_creatures ~is_ability:true 3);
+             (Direct, nemesis_sweep);
              (Direct, focus (damage ~is_ability:true 3));
              (On_turn, add_mana 1 [ 0 ]);
            ])

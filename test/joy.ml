@@ -133,6 +133,14 @@ let sunstonegolem_mana_attack () =
   step u (fun () -> Player.apply_effects (player u 0) On_turn);
   check_int "joy mana 7 + 1" 8 (mana u 0 3)
 
+let sunstonegolem_heals_neighbours () =
+  let u = new_game ~mana:[ 4; 4; 4; 7 ] ~house:Joy.house () in
+  place u 0 "joy.sunstonegolem" 1;
+  place u 0 "fire.goblin" 0;
+  hit u 0 0 8;
+  step u (fun () -> Player.apply_effects (player u 0) On_turn);
+  check_int "goblin 8 + 3" 11 (life_at u 0 0)
+
 let attachment_heals_all () =
   let u = new_game ~house:Joy.house () in
   (player u 0).pstate.ps_life <- 40;
@@ -175,6 +183,7 @@ let () =
           Alcotest.test_case "faune" `Quick faune_heals_self;
           Alcotest.test_case "solar burst" `Quick solar_burst_burns;
           Alcotest.test_case "sun stone golem" `Quick sunstonegolem_mana_attack;
+          Alcotest.test_case "sun stone golem heals" `Quick sunstonegolem_heals_neighbours;
           Alcotest.test_case "attachment healer" `Quick attachment_heals_all;
           Alcotest.test_case "oriental dragon" `Quick dragon_sweeps_and_heals;
         ] );

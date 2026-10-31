@@ -40,6 +40,10 @@ let nymph : card_effect =
   spawn (env.env_selected - 1);
   spawn (env.env_selected + 1)
 
+(* Sun Stone Golem: heals its adjacent creatures by 3 each turn. *)
+let golem_light : card_effect =
+ fun env -> List.iter (fun s -> Slot.heal s 3) (Slot.filled_adjacent (own_slot_of_env env))
+
 let cards =
   [
     creature ~key:"joy.faery" ~attack:(attack 2) ~life:12 ~description:"joy.faery.description"
@@ -72,7 +76,7 @@ let cards =
       ();
     creature ~key:"joy.sunstonegolem" ~attack:(mana_attack 3) ~life:49
       ~description:"joy.sunstonegolem.description"
-      ~effects:(effects [ (On_turn, add_mana 1 [ 3 ]) ])
+      ~effects:(effects [ (On_turn, add_mana 1 [ 3 ]); (On_turn, golem_light) ])
       ();
     creature ~key:"joy.attachment" ~attack:(attack 3) ~life:35 ~description:"joy.attachment.description"
       ~effects:(effects [ (On_turn, focus (heal 3)); (On_turn, heal_creatures 3) ])

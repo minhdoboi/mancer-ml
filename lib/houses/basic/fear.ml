@@ -30,6 +30,11 @@ let malediction : card_effect =
   Updater.focus env.env_updater env.env_selected env.env_player true;
   Slot.inflict (opp_slot_of_env env) (ability_damage env 15)
 
+(* Medusa Egregore: when its owner is at 10 life or less, the creature in the
+   opposing slot is petrified (stunned) as she is summoned. *)
+let medusa_gaze : card_effect =
+ fun env -> if (player_of_env env).pstate.ps_life <= 10 then Slot.stun (opp_slot_of_env env)
+
 (* Shapeless Mimic: rebirths itself on death while its owner's anger is 10+,
    unless the death was a "destroy". *)
 let mimic_reaction () =
@@ -77,7 +82,7 @@ let cards =
       ();
     creature ~key:"fear.medusa" ~attack:(mana_attack 2) ~life:44 ~description:"fear.medusa.description"
       ~new_reaction:(mana_growth_reaction ~owner:true ~amount:1 ~house_indexes:[ 2 ])
-      ~effects:(effects [ (Direct, focus (damage ~is_ability:true 8)) ])
+      ~effects:(effects [ (Direct, focus (damage ~is_ability:true 8)); (Direct, medusa_gaze) ])
       ();
     creature ~key:"fear.malediction" ~attack:(attack 9) ~life:40
       ~description:"fear.malediction.description"
