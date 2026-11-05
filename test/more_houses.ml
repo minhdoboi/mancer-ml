@@ -287,7 +287,7 @@ let kojiro_rushes () =
   let u = new_game ~mana:all_mana ~special:Snowblood.house () in
   place u 1 "anger.werewolf" 0;
   play u 0 "snowblood.kojiro" ~input:(Some 0) ~cost:6;
-  check_int "+4 on the turn it lands" 9 (attack_at u 0 0);
+  check_int "+3 on the turn it lands" 8 (attack_at u 0 0);
   step u (fun () -> Player.apply_effects (player u 0) On_end_turn);
   check_int "gone after the turn" 5 (attack_at u 0 0)
 
@@ -296,11 +296,22 @@ let kojiro_rushes_only_when_opposed () =
   play u 0 "snowblood.kojiro" ~input:(Some 0) ~cost:6;
   check_int "no bonus without an opposite creature" 5 (attack_at u 0 0)
 
-let kojiro_lands_on_occupied () =
+let kojiro_cannot_land_on_occupied () =
   let u = new_game ~mana:all_mana ~special:Snowblood.house () in
+  (* the reproducible test deck keeps one special pick per quarter, so swap a
+     pick for Kojiro to ask the command builder where he may land *)
+  let special = u.desc.gd_players.(0).pd_houses.(1) in
+  special.phd_cards.(0) <-
+    { cd_card = card_by_key "snowblood.kojiro"; cd_cost = 6; cd_enabled = true; cd_extra_mana = 0 };
   place u 0 "anger.werewolf" 3;
-  play u 0 "snowblood.kojiro" ~input:(Some 3) ~cost:6;
-  check_string "replaced" "snowblood.kojiro" (Option.get (occupant u 0 3))
+  let cmds =
+    Game.available_commands u (player u 0)
+    |> List.filter (fun c -> c.cmd_card.key = "snowblood.kojiro")
+  in
+  check_bool "the occupied slot is not offered" false
+    (List.exists (fun c -> c.cmd_input = Some 3) cmds);
+  check_bool "an empty slot is offered" true
+    (List.exists (fun c -> c.cmd_input = Some 0) cmds)
 
 (* The board draws a blade mark through the run from this event *)
 let kojiro_announces_the_cut () =
@@ -841,7 +852,7 @@ let () =
           test_case "kojiro run" `Quick kojiro_burns_the_run;
           test_case "kojiro rush" `Quick kojiro_rushes;
           test_case "kojiro needs an opponent" `Quick kojiro_rushes_only_when_opposed;
-          test_case "kojiro occupied" `Quick kojiro_lands_on_occupied;
+          test_case "kojiro occupied" `Quick kojiro_cannot_land_on_occupied;
           test_case "kojiro cut" `Quick kojiro_announces_the_cut;
           test_case "kojiro single cut" `Quick kojiro_announces_a_single_cut;
           test_case "janus turn" `Quick janus_feeds_on_its_own_board;

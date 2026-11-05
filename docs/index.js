@@ -24,6 +24,7 @@ const TEXTS = {
     story: 'The unity of the elements seems to have been replaced by an order you no longer understand. Unsure whether the cause lies only within you, you set off on a journey—a voyage to a fantastical land where you will encounter a community that lives with mages of various persuasions.',
     download: 'Download',
     grimoire: 'Grimoire',
+    gallery: 'Gallery',
     language: 'Language',
     source: 'Source on GitHub',
     shot: 'Mancers duel board screenshot',
@@ -33,9 +34,10 @@ const TEXTS = {
     title: "L'écho des manciens",
     tag: 'Un jeu de duel de cartes fantastique, petit hommage à Spectromancer©.',
     about: 'À propos',
-    story: "L'unité des éléments semble avoir été remplacée par un ordre que vous ne comprenez plus. Vous demandant si la cause n'est pas qu'en vous, vous vous mettez en route — un voyage vers une terre fantastique où vous rencontrerez une communauté qui vit avec des mages de diverses tendances.",
+    story: "L'unité des éléments semble avoir été remplacée par un ordre que vous ne comprenez plus. Vous demandant si la cause n'était pas qu'en vous, vous vous mettez en route — un voyage vers une terre fantastique où vous rencontrerez une communauté où l'on côtoie des mages de diverses obédiences.",
     download: 'Télécharger',
     grimoire: 'Grimoire',
+    gallery: 'Galerie',
     language: 'Langue',
     source: 'Code source sur GitHub',
     shot: "Capture d'écran du plateau de duel de Mancers",
@@ -48,6 +50,7 @@ const TEXTS = {
     story: 'La unidad de los elementos parece haber sido reemplazada por un orden que ya no entiendes. Sin saber si la causa está en ti, te pones en camino: un viaje a una tierra fantástica donde encontrarás una comunidad que vive con magos de distintas tendencias.',
     download: 'Descargar',
     grimoire: 'Grimoire',
+    gallery: 'Galería',
     language: 'Idioma',
     source: 'Código fuente en GitHub',
     shot: 'Captura de pantalla del tablero de duelo de Mancers',
@@ -60,6 +63,7 @@ const TEXTS = {
     story: 'Единство стихий, по-видимому, уступило место порядку, которого вы больше не понимаете. Не зная, в вас ли причина, вы отправляетесь в путь — путешествие в фантастическую страну, где вы встретите общину, живущую с магами самых разных убеждений.',
     download: 'Скачать',
     grimoire: 'Гримуар',
+    gallery: 'Галерея',
     language: 'Язык',
     source: 'Исходный код на GitHub',
     shot: 'Скриншот дуэльного стола Mancers',
@@ -72,6 +76,7 @@ const TEXTS = {
     story: 'Sự hài hòa giữa các yếu tố dường như đã nhường chỗ cho một trật tự mà bạn không còn hiểu nổi. Tự hỏi liệu nguyên nhân có phải nằm ở chính mình chăng, bạn quyết định lên đường — một hành trình đến vùng đất kỳ ảo, nơi bạn sẽ gặp một cộng đồng gồm đủ loại pháp sư thuộc nhiều khuynh hướng khác nhau cùng chung sống.',
     download: 'Tải về',
     grimoire: 'Sách pha chú',
+    gallery: 'Thư viện',
     language: 'Ngôn ngữ',
     source: 'Mã nguồn trên GitHub',
     shot: 'Ảnh chụp bàn đấu Mancers',
@@ -95,8 +100,10 @@ function apply(code) {
   el('story').textContent = t.story;
   el('download').textContent = t.download;
   el('grimtext').textContent = t.grimoire;
+  el('gallerytext').textContent = t.gallery;
   /* the grimoire page speaks the same language */
   el('grimoire').setAttribute('href', 'cards.html?lang=' + code);
+  el('gallery').setAttribute('href', 'gallery/?lang=' + code);
   el('github').title = t.source;
   el('github').setAttribute('aria-label', t.source);
   el('shot').alt = t.shot;

@@ -499,8 +499,12 @@ let draw_card_face desc r (c : card) ~cost ~attack ~life ~life_color ~tint ~fram
   Option.iter (fun str -> label_at fr s ~nh ~bl_x:2. ~bl_y:5. ~color:red str) attack;
   Option.iter (fun n -> label_at fr s ~nh ~bl_x:67. ~bl_y:5. ~color:life_color (string_of_int n)) life
 
+(* Attack shown on the card itself.  A body that is rolled when summoned (the
+   Shapeless Mimic) reads X like a mana attack, because the printed number is
+   only a placeholder; the board draws the real rolled value. *)
 let printed_attack (c : card) =
   match c.creature_body with
+  | Some b when Option.is_some b.b_roll -> Some "X"
   | Some b -> ( match b.b_attack.base with Some a -> Some (string_of_int a) | None -> Some "X")
   | None -> None
 

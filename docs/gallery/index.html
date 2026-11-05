@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gallery — Mancers</title>
+<meta name="description" id="metadesc" content="A gallery of Mancers artwork.">
+<style>
+:root{--bg:#14110f;--fg:#e8dfd0;--muted:#a89c88;--accent:#d9a441;--card:#1f1a16;--line:#3a3028;--lower-bg:#0b0908;}
+@media (prefers-color-scheme:light){:root{--bg:#b6d2e4;--fg:#2a211a;--muted:#6b5d4d;--accent:#222222;--card:#fffaf0;--line:#d8ccb6;--lower-bg:#e6dbc4;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 Georgia,serif}
+main{max-width:1200px;margin:0 auto;padding:32px 16px 64px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
+h1{font-size:2.4rem;margin:0;color:var(--accent);letter-spacing:.02em}
+.tools{display:flex;align-items:center;gap:12px}
+.tools label{color:var(--muted);font-size:.95rem;display:flex;align-items:center;gap:6px}
+.tools select{padding:8px 10px;border-radius:6px;border:1px solid var(--accent);background:var(--bg);color:var(--accent);font:inherit;font-size:.95rem;cursor:pointer}
+a.btn{padding:9px 18px;border-radius:6px;border:1px solid var(--accent);color:var(--accent);text-decoration:none}
+a.btn:hover{background:var(--accent);color:var(--bg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.tile{position:relative;display:block;padding:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card);cursor:zoom-in;aspect-ratio:1}
+.tile img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s ease,opacity .4s ease}
+.tile:hover img{transform:scale(1.04)}
+.tile img.pending{opacity:0}
+.tile img.broken{display:none}
+.load{color:var(--muted);text-align:center;padding:28px 0}
+.sentinel{height:1px}
+#lightbox{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:24px 76px;background:rgba(0,0,0,.85);z-index:10;cursor:zoom-out}
+#lightbox.on{display:flex}
+#lightbox img{max-width:100%;max-height:100%;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:default}
+#lightbox .nav{position:absolute;top:50%;transform:translateY(-50%);width:52px;height:52px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:50%;background:rgba(0,0,0,.55);color:var(--accent);font:2rem/1 Georgia,serif;cursor:pointer}
+#lightbox .nav:hover{background:var(--accent);color:var(--bg)}
+#lightbox #prev{left:14px}
+#lightbox #next{right:14px}
+#counter{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);margin:0;color:var(--muted);font-size:.95rem}
+@media (max-width:640px){h1{font-size:1.9rem}.grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}#lightbox{padding:16px 56px}#lightbox .nav{width:42px;height:42px;font-size:1.6rem}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">Gallery</h1>
+    <div class="tools">
+      <label class="lang"><span id="langlabel">Language</span>
+        <select id="lang"></select>
+      </label>
+      <a class="btn" href="../index.html"><span aria-hidden="true">&#8592;</span> <span id="back">Back</span></a>
+    </div>
+  </header>
+  <p class="load" id="loading">Loading the gallery…</p>
+  <div class="grid" id="grid"></div>
+  <div class="sentinel" id="sentinel"></div>
+</main>
+<div id="lightbox" role="dialog" aria-label="Picture">
+  <button class="nav" id="prev" type="button" aria-label="Previous">&#8249;</button>
+  <img id="lightimg" alt="">
+  <button class="nav" id="next" type="button" aria-label="Next">&#8250;</button>
+  <p id="counter"></p>
+</div>
+<script src="gallery.js" defer></script>
+</body>
+</html>

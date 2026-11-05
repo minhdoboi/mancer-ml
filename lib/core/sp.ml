@@ -237,6 +237,10 @@ and run_attack = { can_attack : bool; apply_ : run_attack_kind; is_multi_target 
 and creature_body = {
   b_attack : attack_sources;
   b_life : int;
+  (* Rolled when the slot is built, before the summon event fires: returns
+     (attack, life).  A rolled body is fixed for that play, so the board never
+     shows the printed value and then a malus pop. *)
+  b_roll : (Dice.t -> int * int) option;
   b_new_reaction : unit -> reaction;
   b_run_attack : run_attack;
   b_is_altar : bool;

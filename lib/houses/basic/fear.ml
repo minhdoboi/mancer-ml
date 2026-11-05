@@ -48,15 +48,22 @@ let malediction : card_effect =
 let medusa_gaze : card_effect =
  fun env -> if (player_of_env env).pstate.ps_life <= 15 then Slot.stun (opp_slot_of_env env)
 
-(* Shapeless Mimic: rebirths itself on death while its owner's anger is 10+,
-   unless the death was a "destroy". *)
+(* Shapeless Mimic: its body is rolled when it enters play — a random attack
+   of 6..8 and a random life of 14..19.  The engine calls this while it builds
+   the slot, before the summon event, so the board never shows the printed
+   value and then a life-malus pop; the same roll is redone on rebirth. *)
+let mimic_roll rng = (6 + Dice.int rng 3, 14 + Dice.int rng 6)
+
+(* Shapeless Mimic: rebirths itself on death while its owner's sadness is 10+,
+   unless the death was a "destroy".  [Slots.add_creature] rebuilds the slot
+   through the roll hook, so the reborn body is rolled too. *)
 let mimic_reaction () =
   let r = Reaction.default () in
   {
     r with
     on_my_death =
       (fun dead ->
-        if (not (dead_is_destroy dead)) && dead.d_player.houses_update.hu_value.(0).mana > 9 then (
+        if (not (dead_is_destroy dead)) && dead.d_player.houses_update.hu_value.(1).mana > 9 then (
           let slot = dead.d_player.slots_update.slot_updates.(dead.d_num) in
           Slots.add_creature slot dead.d_slot.card;
           if has_flag dead.d_slot run_flag then Slot.toggle slot run_flag));
@@ -84,7 +91,7 @@ let cards =
       ~effects:(effects [ (Direct, dark_spirit) ])
       ();
     creature ~key:"fear.mimic" ~attack:(attack 7) ~life:17 ~description:"fear.mimic.description"
-      ~new_reaction:mimic_reaction ();
+      ~roll:mimic_roll ~new_reaction:mimic_reaction ();
     spell ~key:"fear.invasion" ~description:"fear.invasion.description"
       ~effects:(effects [ (Direct, damage_creatures ~is_spell:true 9); (Direct, damage ~is_spell:true 9) ])
       ();

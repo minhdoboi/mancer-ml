@@ -75,13 +75,25 @@ let freezing_fog_burns () =
   check_int "opponent 60 - 4" 56 (player_life u 1)
 
 let mimic_rebirths () =
-  let u = new_game ~mana:[ 10; 4; 4; 4 ] ~house:Fear.house () in
+  let u = new_game ~mana:[ 4; 10; 4; 4 ] ~house:Fear.house () in
   place u 0 "fear.mimic" 0;
   hit u 0 0 100;
-  check_string "same slot reborn" "fear.mimic" (Option.get (occupant u 0 0))
+  check_string "same slot reborn" "fear.mimic" (Option.get (occupant u 0 0));
+  let atk = attack_at u 0 0 and life = life_at u 0 0 in
+  check_bool "reborn attack in 6..8" true (atk >= 6 && atk <= 8);
+  check_bool "reborn life in 14..19" true (life >= 14 && life <= 19)
+
+(* The roll hook fixes the body while the slot is built, so a real summon
+   lands with the rolled attack and life already in place. *)
+let mimic_summon_rolls_stats () =
+  let u = new_game ~mana:[ 20; 4; 4; 4 ] ~house:Fear.house () in
+  play u 0 "fear.mimic" ~input:(Some 0) ~cost:7;
+  let atk = attack_at u 0 0 and life = life_at u 0 0 in
+  check_bool "summoned attack in 6..8" true (atk >= 6 && atk <= 8);
+  check_bool "summoned life in 14..19" true (life >= 14 && life <= 19)
 
 let mimic_does_not_rebirth_when_destroyed () =
-  let u = new_game ~mana:[ 10; 4; 4; 4 ] ~house:Fear.house () in
+  let u = new_game ~mana:[ 4; 10; 4; 4 ] ~house:Fear.house () in
   place u 0 "fear.mimic" 0;
   step u (fun () -> Slot.destroy (slot u 0 0));
   check_bool "destroyed, not reborn" true (is_empty u 0 0)
@@ -185,6 +197,7 @@ let () =
           Alcotest.test_case "crow sage reads joy" `Quick crow_sage_reads_joy;
           Alcotest.test_case "freezing fog" `Quick freezing_fog_burns;
           Alcotest.test_case "mimic rebirths" `Quick mimic_rebirths;
+          Alcotest.test_case "mimic rolls on summon" `Quick mimic_summon_rolls_stats;
           Alcotest.test_case "mimic destroyed" `Quick mimic_does_not_rebirth_when_destroyed;
           Alcotest.test_case "ghost invasion" `Quick ghost_invasion_hits_board;
           Alcotest.test_case "dark clouds" `Quick dark_clouds_sweep;

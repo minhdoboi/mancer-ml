@@ -425,9 +425,13 @@ let render_card_info ui ~w =
       let kind =
         match c.creature_body with
         | Some b ->
-            Printf.sprintf "creature  %s atk  %d life"
-              (match b.b_attack.base with Some a -> string_of_int a | None -> "?")
-              b.b_life
+            (* A mana attack, or a body rolled when summoned, prints X, the way
+               the hand and the card list draw it. *)
+            let atk =
+              if Option.is_some b.b_roll then "X"
+              else match b.b_attack.base with Some a -> string_of_int a | None -> "X"
+            in
+            Printf.sprintf "creature  %s atk  %d life" atk b.b_life
         | None -> "spell"
       in
       let head =

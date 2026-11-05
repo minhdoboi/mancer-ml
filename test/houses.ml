@@ -70,15 +70,15 @@ let harpy_skips_when_air_lt_5 () =
   check_int "pre-spend air 4 < 5" 60 (player_life u 1)
 
 let mimic_reborn () =
-  let u = new_game ~mana0:10 () in
+  let u = new_game ~mana:[ 4; 10; 4; 4 ] () in
   place u 0 "fear.mimic" 0;
   step u (fun () ->
       Slot.inflict (slot u 0 0)
         (mk_damage ~is_ability:true 18 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
   Alcotest.(check (option string)) "mimic returns" (Some "fear.mimic") (occupant u 0 0)
 
-let mimic_stays_dead_without_fire () =
-  let u = new_game ~mana0:9 () in
+let mimic_stays_dead_without_sadness () =
+  let u = new_game ~mana:[ 4; 9; 4; 4 ] () in
   place u 0 "fear.mimic" 0;
   step u (fun () ->
       Slot.inflict (slot u 0 0)
@@ -86,7 +86,7 @@ let mimic_stays_dead_without_fire () =
   check_bool "mana 9 is not enough" true (is_empty u 0 0)
 
 let dead_hook_override_suppresses_on_my_death () =
-  let u = new_game ~mana0:10 () in
+  let u = new_game ~mana:[ 4; 10; 4; 4 ] () in
   place u 0 "fear.mimic" 0;
   (* SlotsUpdate.onDead is a var: a house that replaces it decides whether
      onMyDeath runs, so the mimic must not come back here *)
@@ -789,7 +789,7 @@ let () =
           test_case "harpy fires" `Quick harpy_fires_when_air_ge_5;
           test_case "harpy skips" `Quick harpy_skips_when_air_lt_5;
           test_case "mimic reborn" `Quick mimic_reborn;
-          test_case "mimic stays dead" `Quick mimic_stays_dead_without_fire;
+          test_case "mimic stays dead" `Quick mimic_stays_dead_without_sadness;
           test_case "on_dead_hook override" `Quick dead_hook_override_suppresses_on_my_death;
           test_case "fear" `Quick fear_destroys;
           test_case "clouds multi" `Quick cloud_is_multi;

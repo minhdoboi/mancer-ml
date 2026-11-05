@@ -289,13 +289,22 @@ module Slots = struct
     let reaction = creature.c_body.b_new_reaction () in
     reaction.selected := Some slot;
     let b = creature.c_body in
+    (* A rolled body fixes its attack and life here, while the slot is built,
+       so the summon event and the board only ever see the final values. *)
+    let attack_sources, life =
+      match b.b_roll with
+      | Some roll ->
+          let atk, life = roll slot.slots.player.updater.rng in
+          ({ b.b_attack with base = Some atk }, life)
+      | None -> (b.b_attack, b.b_life)
+    in
     {
       card = creature;
-      life = b.b_life;
-      max_life = b.b_life;
+      life;
+      max_life = life;
       status = b.b_status;
-      attack_sources = b.b_attack;
-      attack = fold_attack slot.slots slot b.b_attack;
+      attack_sources;
+      attack = fold_attack slot.slots slot attack_sources;
       target = [ slot.num ];
       slot_id = fresh_slot_id ();
       reaction;

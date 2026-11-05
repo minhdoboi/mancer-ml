@@ -113,6 +113,9 @@ let merge_stranger (s : creature) (c : creature) : creature =
       cb with
       b_attack = sb.b_attack;
       b_life = sb.b_life;
+      (* Stats come from the Stranger, so its roll (normally none) wins over
+         the merged creature's: a Stranger copying a Mimic must not roll. *)
+      b_roll = sb.b_roll;
       b_run_attack = (if is_multi_run cb.b_run_attack then sb.b_run_attack else cb.b_run_attack);
     }
   in

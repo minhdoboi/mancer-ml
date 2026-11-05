@@ -239,7 +239,12 @@ let card_json b (h : house) (c : card) =
   match c.creature_body with
   | None -> `Assoc fields
   | Some b2 ->
-      let attack = match b2.b_attack.base with Some a -> `Int a | None -> `Null in
+      (* A body rolled when summoned (the Shapeless Mimic) prints X, like a
+         mana attack, rather than its placeholder base. *)
+      let attack =
+        if Option.is_some b2.b_roll then `Null
+        else match b2.b_attack.base with Some a -> `Int a | None -> `Null
+      in
       `Assoc (fields @ [ ("attack", attack); ("life", `Int b2.b_life) ])
 
 (* the blurb the game shows under a house name, when the i18n has one

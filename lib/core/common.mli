@@ -49,6 +49,7 @@ val creature :
   ?is_altar:bool ->
   ?status:int ->
   ?data:slot_data ->
+  ?roll:(Dice.t -> int * int) ->
   unit ->
   card
 

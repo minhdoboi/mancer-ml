@@ -364,10 +364,10 @@ let victory layout ~winner ~you ~start =
   let won = match winner with Some w -> w = owner = you | None -> false in
   let msg =
     match winner with
-    | None -> "DRAW"
-    | Some w when you && w = owner -> "YOU WON"
-    | Some _ when you -> "YOU LOSE"
-    | Some w -> Printf.sprintf "P%d WINS" (w + 1)
+    | None -> Assets.text "duel.end.draw"
+    | Some w when you && w = owner -> Assets.text "duel.end.win"
+    | Some _ when you -> Assets.text "duel.end.lose"
+    | Some w -> Assets.format (Assets.text "duel.end.wins") [ string_of_int (w + 1) ]
   in
   spawn (spawn_banner ~msg ~at:between ~won ~start);
   Option.iter (fun w -> spawn (spawn_halo ~center:(layout.life w) ~half:42. ~start)) winner;

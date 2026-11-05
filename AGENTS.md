@@ -31,8 +31,14 @@ language too: the top of it (title, tagline, the "About" story, the buttons)
 is translated by `docs/index.js`, which holds the strings for the site only —
 the game never reads them, so they do not belong in an i18n bundle. The
 language comes from `?lang=`, then from what the reader picked (the key is
-shared with the grimoire page, so both pages keep the same language), then
+shared with the other pages, so they all keep the same language), then
 from the browser.
+
+The picture gallery (`docs/gallery/`) is hand-written too: it shows ten
+pictures and adds the rest as the reader scrolls, and it carries the same
+language menu. The list it draws is `docs/gallery/photos.json`, which
+`scripts/gallery.sh` writes from the folder — run it after adding or removing
+a picture and commit both the manifest and the picture.
 
 **The media lives here**, in the [mancer-assets](https://github.com/minhdoboi/mancer-assets)
 submodule (`assets/`), and it is committed **in the shape the game reads it**:

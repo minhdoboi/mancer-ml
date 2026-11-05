@@ -185,7 +185,7 @@ let kojiro_rush : card_effect =
   match (Slot.opposite me).value with
   | None -> ()
   | Some _ ->
-      let bonus = Attack_func (fun a -> a + 4) in
+      let bonus = Attack_func (fun a -> a + 3) in
       add_attack me bonus;
       Player.add_effect (player_of_env env) (On_end_turn, one_time_player_effect (remove_attack bonus))
 
@@ -383,7 +383,7 @@ let cards =
     guide;
     creature ~key:"snowblood.kojiro" ~attack:(attack 5) ~life:27 ~description:"snowblood.kojiro.description"
       ~status:run_flag
-      ~input_spec:(Select_owner (fun pid st -> st.players.(pid).ps_slot_list))
+      ~input_spec:Select_owner_slot
       ~effects:(effects [ (Direct, kojiro_rush); (On_turn, kojiro_turn) ])
       ();
     creature ~key:"snowblood.janus" ~attack:(attack 6) ~life:25 ~description:"snowblood.janus.description"

@@ -1572,7 +1572,7 @@ let card_preview_bits ?state ?player ?max_life (c : card) =
           | _ -> string_of_int b.b_life
         in
         Printf.sprintf "Life : %s  Attack : %s" life
-          (match b.b_attack.base with Some a -> string_of_int a | None -> "X")
+          (match printed_attack c with Some s -> s | None -> "X")
     | None -> "Spell"
   in
   let desc_text =
@@ -1792,11 +1792,11 @@ let draw_last_played ui =
           if inside r then ui.hover <- Some (Hover_card (c, lp.player, None));
           let thumb = 40. in
           draw_card_art (rect (r.x +. 6.) (r.y +. ((r.h -. thumb) /. 2.)) thumb thumb) c;
-          text ~size:14. ~color:fg (r.x +. 52.) (r.y +. ((r.h -. 14.) /. 2.)) "Last played"
+          text ~size:14. ~color:fg (r.x +. 52.) (r.y +. ((r.h -. 14.) /. 2.)) (Assets.text "history.last")
       | None ->
           text ~size:14. ~color:muted (r.x +. 12.)
             (r.y +. ((r.h -. 14.) /. 2.))
-            (Printf.sprintf "P%d passed" (lp.player + 1)))
+            (Assets.format (Assets.text "history.skip") [ Printf.sprintf "P%d" (lp.player + 1) ]))
 
 let draw_spell_shows ui =
   let now = R.get_time () in

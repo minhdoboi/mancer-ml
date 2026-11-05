@@ -56,11 +56,12 @@ let new_card ~key ~effects ~input_spec ~description ~desc_args ~is_spell ~is_aur
 
 let creature ~key ~attack ~life ~description ?desc_args ?(effects = no_effects)
     ?(input_spec = Select_owner_slot) ?mod_ ?(new_reaction = Reaction.default)
-    ?(run_attack = normal_run_attack) ?(is_altar = false) ?(status = 0) ?(data = No_data) () =
+    ?(run_attack = normal_run_attack) ?(is_altar = false) ?(status = 0) ?(data = No_data) ?roll () =
   let body =
     {
       b_attack = attack;
       b_life = life;
+      b_roll = roll;
       b_new_reaction = new_reaction;
       b_run_attack = run_attack;
       b_is_altar = is_altar;
