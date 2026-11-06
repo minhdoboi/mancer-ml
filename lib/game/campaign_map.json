@@ -7,10 +7,22 @@
       "y": 0.16
     },
     {
+      "id": "porter",
+      "chapter": "day",
+      "x": 0.24,
+      "y": 0.19,
+      "meeting": {
+        "portrait_id": "porter"
+      }
+    },
+    {
       "id": "entomologist",
       "chapter": "day",
       "x": 0.22,
       "y": 0.28,
+      "after": [
+        "porter"
+      ],
       "fight": {
         "house_key": "entomologist",
         "passable": true,
@@ -110,8 +122,8 @@
     {
       "id": "paganist",
       "chapter": "day",
-      "x": 0.48,
-      "y": 0.71,
+      "x": 0.35,
+      "y": 0.69,
       "after": [
         "beaver"
       ],
@@ -121,6 +133,18 @@
         "bot_id": "gambler",
         "portrait_id": "paganist",
         "life": 50
+      }
+    },
+    {
+      "id": "pug",
+      "chapter": "day",
+      "x": 0.41,
+      "y": 0.58,
+      "after": [
+        "paganist"
+      ],
+      "meeting": {
+        "portrait_id": "pug"
       }
     },
     {
@@ -156,6 +180,9 @@
       "chapter": "day",
       "x": 0.37,
       "y": 0.16,
+      "after": [
+        "porter"
+      ],
       "fight": {
         "house_key": "meteomancer",
         "passable": true,
@@ -331,7 +358,8 @@
       "y": 0.5,
       "after_any": [
         "go_city",
-        "blacksmith"
+        "blacksmith",
+        "pug"
       ],
       "fight": {
         "house_key": "Dudes",
@@ -390,7 +418,6 @@
       "x": 0.62,
       "y": 0.64,
       "after_any": [
-        "paganist",
         "elementalist"
       ],
       "meeting": {
@@ -950,6 +977,10 @@
   "edges": [
     {
       "from": "day_start",
+      "to": "porter"
+    },
+    {
+      "from": "porter",
       "to": "entomologist"
     },
     {
@@ -967,7 +998,7 @@
       "via": "avoid_city"
     },
     {
-      "from": "day_start",
+      "from": "porter",
       "to": "meteomancer"
     },
     {
@@ -1056,7 +1087,11 @@
     },
     {
       "from": "paganist",
-      "to": "gardener"
+      "to": "pug"
+    },
+    {
+      "from": "pug",
+      "to": "dudes"
     },
     {
       "from": "gardener",

@@ -8,11 +8,15 @@ let sorted xs = List.sort String.compare xs
 let available done_ = sorted (Campaign.available done_)
 let has done_ id = List.mem id (Campaign.available done_)
 let has_not done_ id = not (has done_ id)
-let open_at_start () = Alcotest.check ss "start" [ "entomologist"; "meteomancer" ] (available [])
+let open_at_start () = Alcotest.check ss "start" [ "porter" ] (available [])
 
 let duckwoman_fork () =
-  let after = [ "entomologist" ] in
+  let after = [ "porter"; "entomologist" ] in
   Alcotest.check ss "after entomologist" [ "duckwoman"; "meteomancer" ] (available after);
+  check_bool "porter gates entomologist" true (has_not [] "entomologist");
+  check_bool "porter gates meteomancer" true (has_not [] "meteomancer");
+  check_bool "porter opens both" true
+    (has [ "porter" ] "entomologist" && has [ "porter" ] "meteomancer");
   check_bool "no farmer" true (has_not after "farmer");
   check_bool "no disciples" true (has_not after "disciples");
   check_bool "no dudes" true (has_not after "dudes");
@@ -184,6 +188,29 @@ let pigboy_node () =
   check_bool "trappers after the boy" true
     (has [ "meteomancer"; "seasons"; "pigboy" ] "trappers")
 
+let pug_node () =
+  let n = Campaign.node "pug" in
+  check_bool "not a fight" true (not (Campaign.is_fight n));
+  check_bool "day chapter" true (n.chapter = Campaign.Day);
+  check_bool "registered npc" true (List.mem "pug" Campaign.npcs);
+  Alcotest.(check (option string))
+    "portrait" (Some "pug")
+    (Option.map (fun (m : Campaign.meeting) -> m.portrait_id) n.meeting);
+  let after =
+    [
+      "entomologist"; "duckwoman"; Campaign.avoid_city; "disciples"; "farmer"; "junk"; "beaver";
+      "spiritshaman"; "paganist";
+    ]
+  in
+  check_bool "after paganist" true (has after "pug");
+  check_bool "no dudes before the pug" true (has_not after "dudes");
+  check_bool "no gardener before the pug" true (has_not after "gardener");
+  check_bool "dudes after the pug" true (has (after @ [ "pug" ]) "dudes");
+  check_bool "gardener waits for the elementalist" true
+    (has_not (after @ [ "pug"; "dudes"; "rabbit"; "colors" ]) "gardener");
+  check_bool "gardener after the elementalist" true
+    (has (after @ [ "pug"; "dudes"; "rabbit"; "colors"; "elementalist" ]) "gardener")
+
 let early_life () =
   Alcotest.(check (option int))
     "entomologist" (Some 30)
@@ -351,6 +378,22 @@ let portraits_exist () =
             | None -> Alcotest.fail (m.portrait_id ^ " missing npc portrait")))
     (Campaign.nodes ())
 
+let porter_node () =
+  let n = Campaign.node "porter" in
+  check_bool "not a fight" true (not (Campaign.is_fight n));
+  check_bool "day chapter" true (n.chapter = Campaign.Day);
+  check_bool "registered npc" true (List.mem "porter" Campaign.npcs);
+  Alcotest.(check (option string))
+    "portrait" (Some "porter")
+    (Option.map (fun (m : Campaign.meeting) -> m.portrait_id) n.meeting);
+  check_bool "no choices" true
+    (match n.meeting with Some m -> m.choices = [] | None -> false);
+  check_bool "opens the day" true (has [ "porter" ] "entomologist");
+  if Option.is_some (Assets.portrait "ember") then
+    match Assets.portrait "porter" with
+    | Some _ -> ()
+    | None -> Alcotest.fail "porter missing portrait file"
+
 let end_lines () =
   let keys = function
     | "campaign.wind.win" | "campaign.end.lecturer.lose" | "campaign.end.win" | "campaign.end.lose" -> true
@@ -418,11 +461,6 @@ let barbarians_node () =
 
 let i18n_keys () =
   let langs = [ "en"; "fr"; "es"; "ru"; "vi" ] in
-  let bots =
-    (Campaign.nodes ())
-    |> List.filter_map (fun (n : Campaign.node) -> Option.map (fun (f : Campaign.fight) -> f.bot_id) n.fight)
-    |> List.sort_uniq compare
-  in
   let required =
     [
       "campaign.end.win.title";
@@ -446,7 +484,9 @@ let i18n_keys () =
       "campaign.antimancer.wake.title";
       "campaign.antimancer.wake";
     ]
-    @ List.concat_map (fun b -> [ "campaign.end." ^ b ^ ".win"; "campaign.end." ^ b ^ ".lose" ]) bots
+    (* Every fight node carries its own win/lose text, so
+       {!Campaign.end_message_key}'s per-bot fallback never fires and no
+       campaign.end.<bot>.* key is required. *)
     @ List.concat_map
         (fun (n : Campaign.node) ->
           if Campaign.is_fight n then [ "campaign." ^ n.id ^ ".win"; "campaign." ^ n.id ^ ".lose" ] else [])
@@ -611,6 +651,7 @@ let () =
           Alcotest.test_case "priest between king and stave" `Quick priest_between_king_and_stave;
           Alcotest.test_case "barbarians" `Quick barbarians_node;
           Alcotest.test_case "pigboy" `Quick pigboy_node;
+          Alcotest.test_case "pug" `Quick pug_node;
           Alcotest.test_case "early life" `Quick early_life;
         ] );
       ( "night",
@@ -629,6 +670,7 @@ let () =
         [
           Alcotest.test_case "houses" `Quick houses_resolve;
           Alcotest.test_case "portraits" `Quick portraits_exist;
+          Alcotest.test_case "porter" `Quick porter_node;
           Alcotest.test_case "end lines" `Quick end_lines;
           Alcotest.test_case "i18n" `Quick i18n_keys;
           Alcotest.test_case "i18n font" `Quick i18n_font_coverage;

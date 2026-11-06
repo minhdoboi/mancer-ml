@@ -459,6 +459,15 @@ let fit_in r nw nh =
   let w, h = (nw *. s, nh *. s) in
   (rect (r.x +. ((r.w -. w) /. 2.)) (r.y +. ((r.h -. h) /. 2.)) w h, s)
 
+(* A slot is the creature frame's native size.  The spell frame is a little
+   larger (94x104) and both frames paint their face from the texture's
+   top-left corner, so a spell must use the creature's scale and anchor rather
+   than being shrunk to fit the slot — that shrink made spells smaller than
+   the grey veil/selection drawn over the whole slot. *)
+let card_frame r nw nh =
+  let s = Float.min (r.w /. fst creature_native) (r.h /. snd creature_native) in
+  (rect r.x r.y (nw *. s) (nh *. s), s)
+
 let box fr (nx, ny, nw, nh) s = rect (fr.x +. (nx *. s)) (fr.y +. (ny *. s)) (nw *. s) (nh *. s)
 
 (* Scala [application.conf]: label pos is the bottom-left of an ~18px actor. *)
@@ -478,7 +487,7 @@ let label_at fr s ~nh ~bl_x ~bl_y ~color str =
 let draw_card_face desc r (c : card) ~cost ~attack ~life ~life_color ~tint ~frame_tint ~decor =
   let spell = c.is_spell || c.is_aura in
   let nw, nh = if spell then spell_native else creature_native in
-  let fr, s = fit_in r nw nh in
+  let fr, s = card_frame r nw nh in
   let ax, ay, aw, ah = if spell then spell_art_box else creature_art_box in
   let art = box fr (ax, ay, aw, ah) s in
   (match card_texture c with Some t -> image ~tint t art | None -> fill ~round:0.04 art panel_hi);

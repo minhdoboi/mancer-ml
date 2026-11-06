@@ -71,14 +71,10 @@ let specials =
     Chaospriest.house;
   ]
 
-let all = standard_basics @ [ Anger.house; Sadness.house; Fear.house; Joy.house ] @ specials
+let all = standard_basics @ specials
 
 let init () =
   List.iter Game.init_cards standard_basics;
-  Game.init_cards Anger.house;
-  Game.init_cards Sadness.house;
-  Game.init_cards Fear.house;
-  Game.init_cards Joy.house;
   Game.init_cards ~cost_fn:Troopers.conscription_cost Troopers.house;
   List.iter Game.init_cards
     [

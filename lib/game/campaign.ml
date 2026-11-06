@@ -249,8 +249,10 @@ let end_message_key ~node_id ~bot_id ~won ~has_key =
 
 let npcs =
   [
+    "porter";
     "farmer";
     "duckwoman";
+    "pug";
     "ram";
     "rabbit";
     "beaver";
