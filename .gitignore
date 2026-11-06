@@ -32,3 +32,4 @@ bisect*.coverage
 tui-games/
 gui-games/
 .tmp/
+docs/viet
