@@ -67,6 +67,19 @@ let nemesis_sweep : card_effect =
   let amount = if (player_of_env env).pstate.ps_life <= 15 then 5 else 3 in
   Slots.inflict_creatures (other_of_env env).slots_update (ability_damage env amount)
 
+(* Anger Incarnation: a single blow of 9 or more makes its owner gain 1 anger
+   mana.  The reaction is bound to the dragon's own slot, so the arc the UI
+   draws starts from it. *)
+let dragon_reaction () =
+  let r = Reaction.default () in
+  {
+    r with
+    on_my_damage =
+      (fun d ->
+        let me = Reaction.bound_slot r in
+        if d.amount >= 9 then incr_mana_from me me.slots.player 1 [ 0 ]);
+  }
+
 (* War Chief style lasting bonus: +1 attack to the owner's cards. *)
 let bonus_reaction tag ~cond ~plus () =
   attack_bonus_reaction ~cond
@@ -113,12 +126,12 @@ let cards =
              (On_turn, add_mana 1 [ 0 ]);
            ])
       ();
+    creature ~key:"anger.dragon" ~attack:(attack 9) ~life:41 ~description:"anger.dragon.description"
+      ~mod_:(Spell_mod (fun x -> int_of_float (ceil (float_of_int x *. 4.0 /. 3.0))))
+      ~new_reaction:dragon_reaction ();
     spell ~key:"anger.apocalypse" ~description:"anger.apocalypse.description"
       ~desc_args:(fun state pid -> [ string_of_int (8 + state.players.(pid).ps_houses.(0).mana) ])
       ~effects:(effects [ (Direct, outburst) ])
-      ();
-    creature ~key:"anger.dragon" ~attack:(attack 9) ~life:41 ~description:"anger.dragon.description"
-      ~mod_:(Spell_mod (fun x -> int_of_float (ceil (float_of_int x *. 1.5))))
       ();
   ]
 

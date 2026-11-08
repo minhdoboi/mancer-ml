@@ -209,14 +209,16 @@ let incarnation_boosts_spells () =
   place u 0 "anger.dragon" 0;
   place u 1 "anger.dragon" 1;
   play u 0 "anger.wave" ~input:None ~cost:6;
-  check_int "9 * 1.5 = 14" (41 - 14) (life_at u 1 1)
+  check_int "9 * 4/3 = 12" (41 - 12) (life_at u 1 1)
 
 let outburst_scales_with_anger () =
-  let u = new_game ~mana0:11 ~house:Anger.house () in
+  let u = new_game ~mana0:12 ~house:Anger.house () in
+  check_int "anger incarnation costs 11" 11 (card_by_key "anger.dragon").cost;
+  check_int "outburst costs 12" 12 (card_by_key "anger.apocalypse").cost;
   place u 0 "anger.werewolf" 0;
   place u 1 "anger.werewolf" 0;
-  play u 0 "anger.apocalypse" ~input:None ~cost:11;
-  check_int "11 paid + 8" (60 - 19) (player_life u 1);
+  play u 0 "anger.apocalypse" ~input:None ~cost:12;
+  check_int "12 paid + 8" (60 - 20) (player_life u 1);
   check_bool "enemy werewolf dies" true (is_empty u 1 0);
   check_bool "caster's werewolf dies" true (is_empty u 0 0)
 

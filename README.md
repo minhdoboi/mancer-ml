@@ -92,6 +92,8 @@ dune exec ./bin/main.exe -- --bots greedy,oracle --games 4 --budget 200 --seed 1
 dune exec ./bin/main.exe -- --special zen --games 4 --seed 1
 dune exec ./bin/main.exe -- --mode summary --dir tournament-results/<ts>
 dune exec ./bin/compare_engines.exe -- --seed 1 --special zen --turns 80
+
+FX_DEMO=astralstorm FX_DEMO_DELAY=6 dune exec ./bin/gui.exe # check astralstorm fx
 ```
 
 The greedy bot always takes the cheapest legal card, so greedy-vs-greedy
@@ -313,3 +315,4 @@ generated with Grok Imagine. At the end to avoid spending too much money,
 I used more Deepseek, Minimax, Flux or Meta Muse Image, depending on the tasks.
 A simple dev setup can be pi harness with Deepseek or GLM, with a green provider
 like greenpt via a router like edenai for example, and Flux (bfl or via fal for example).
+* Vietnamese voices are generated with ZeroTTS from ZeroWeight ai.

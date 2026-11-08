@@ -217,6 +217,7 @@ let check_assets () =
   need_dir "cards" (under "" "cards");
   need_dir "portraits" (under "" "portraits");
   need_dir "sounds" (under "" "sounds");
+  need_dir "audio" (under "" "audio");
   need_dir "backgrounds" (under "" "backgrounds");
   need_dir "combat" (under "" "combat");
   need_dir "ui" (under "" "ui");
@@ -646,6 +647,9 @@ let () =
             | None -> ()));
     draw_chrome ();
     R.end_drawing ();
+    (* Closes the frame for the dialog voice-over: a frame that showed no line
+       arms the next dialog to play its clip. *)
+    Gui_voice.end_frame ();
     (match shot with
     | Some sh when R.get_time () -. t0 >= sh.wait ->
         (* take_screenshot prefixes the working directory, so export by hand *)
@@ -671,6 +675,7 @@ let () =
   Warcry.unload ();
   Rumble.unload ();
   Choir.unload ();
+  Gui_voice.unload ();
   Fx.unload ();
   R.close_audio_device ();
   R.close_window ();

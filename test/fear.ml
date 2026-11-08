@@ -81,7 +81,15 @@ let mimic_rebirths () =
   check_string "same slot reborn" "fear.mimic" (Option.get (occupant u 0 0));
   let atk = attack_at u 0 0 and life = life_at u 0 0 in
   check_bool "reborn attack in 6..8" true (atk >= 6 && atk <= 8);
-  check_bool "reborn life in 14..19" true (life >= 14 && life <= 19)
+  check_bool "reborn life in 14..19" true (life >= 14 && life <= 19);
+  check_int "rebirth costs 2 joy mana" 2 (mana u 0 3)
+
+(* A rebirth that never happens must not touch the owner's joy mana. *)
+let mimic_destroyed_keeps_joy () =
+  let u = new_game ~mana:[ 4; 10; 4; 4 ] ~house:Fear.house () in
+  place u 0 "fear.mimic" 0;
+  step u (fun () -> Slot.destroy (slot u 0 0));
+  check_int "destroyed, joy untouched" 4 (mana u 0 3)
 
 (* The roll hook fixes the body while the slot is built, so a real summon
    lands with the rolled attack and life already in place. *)
@@ -197,6 +205,7 @@ let () =
           Alcotest.test_case "crow sage reads joy" `Quick crow_sage_reads_joy;
           Alcotest.test_case "freezing fog" `Quick freezing_fog_burns;
           Alcotest.test_case "mimic rebirths" `Quick mimic_rebirths;
+          Alcotest.test_case "mimic destroy keeps joy" `Quick mimic_destroyed_keeps_joy;
           Alcotest.test_case "mimic rolls on summon" `Quick mimic_summon_rolls_stats;
           Alcotest.test_case "mimic destroyed" `Quick mimic_does_not_rebirth_when_destroyed;
           Alcotest.test_case "ghost invasion" `Quick ghost_invasion_hits_board;

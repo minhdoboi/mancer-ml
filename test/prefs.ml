@@ -18,7 +18,7 @@ let defaults () =
       check_string "language" "en" (Prefs.language p);
       check_float "sound" 1.0 (Prefs.sound_level p);
       check_bool "ambient" true (Prefs.ambient_sound p);
-      check_string "portrait" "ember" (Prefs.player_portrait p);
+      check_string "portrait" "van-loc" (Prefs.player_portrait p);
       check_string "ai" "summoner" (Prefs.ai_opponent p);
       check_bool "debug" false (Prefs.debug_mode p);
       check_string "campaign" "day_start" (Prefs.campaign_position p))

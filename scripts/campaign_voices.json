@@ -1,0 +1,256 @@
+{
+  "_comment": "Voice map for scripts/gen_vi_tts.py. Instead of pinning a voice per character, each campaign node carries the tags that decide its voice (gender, age, tone); the script's resolver matches them against `voices` and picks the best pack. A character may still pin `\"voice\": \"<id>\"` to override the resolver. Node ids are the ids used in campaign_map.json and in the campaign.<id>.* i18n keys.",
+  "reference": "https://github.com/zeroweight-ai/ZeroTTS/blob/main/docs/VOICES.md",
+  "default_voice": "maichi",
+  "narrator_voice": "giahuy",
+  "voices": {
+    "maichi": {
+      "display_name": "Mai Chi",
+      "gender": "woman",
+      "ages": ["young", "mature"],
+      "tone": "gentle",
+      "tags": "trẻ · kể chuyện · nhẹ nhàng · thân thiện"
+    },
+    "hamy": {
+      "display_name": "Hà My",
+      "gender": "woman",
+      "ages": ["young"],
+      "tone": "expressive",
+      "tags": "trẻ · hoạt hình · cao · biểu cảm"
+    },
+    "baotrang": {
+      "display_name": "Bảo Trang",
+      "gender": "woman",
+      "ages": ["mature", "older"],
+      "tone": "clear",
+      "tags": "trưởng thành · tin tức · rõ ràng · trung tính"
+    },
+    "kimoanh": {
+      "display_name": "Kim Oanh",
+      "gender": "woman",
+      "ages": ["mature", "older"],
+      "tone": "warm",
+      "tags": "trung niên · kể chuyện · ấm áp · truyền cảm · miền trung"
+    },
+    "thanhvy": {
+      "display_name": "Thanh Vy",
+      "gender": "woman",
+      "ages": ["mature"],
+      "tone": "softer",
+      "tags": "nữ · trẻ · kể chuyện · truyền cảm · tự nhiên · miền nam"
+    },
+    "ngocanh": {
+      "display_name": "Ngọc Anh",
+      "gender": "woman",
+      "ages": ["young", "mature"],
+      "tone": "energetic",
+      "tags": "nữ · trẻ · hội thoại · nhanh · tự nhiên · miền trung"
+    },
+    "quynhanh": {
+      "display_name": "Quỳnh Anh",
+      "gender": "woman",
+      "ages": ["mature"],
+      "tone": "calm",
+      "tags": "nữ · trẻ · tự nhiên · cuốn hút"
+    },
+    "DO0LS49Nwrh1zOVazCNu": {
+      "display_name": "cam",
+      "gender": "woman",
+      "ages": ["young", "mature"],
+      "tone": "soft",
+      "tags": "nữ · trẻ"
+    },
+    "vjvEe7mth8ApUnZyfEEQ": {
+      "display_name": "Mai Chi 2",
+      "gender": "woman",
+      "ages": ["young"],
+      "tone": "straight",
+      "tags": "nữ · trẻ"
+    },
+    "q0xz9xUddmWo7biZdKl7": {
+      "display_name": "ko",
+      "gender": "woman",
+      "ages": ["mature"],
+      "tone": "serious",
+      "tags": "nữ"
+    },
+    "Lh3V5ur3iDw4dfilFzDk": {
+      "display_name": "Lac Phi",
+      "gender": "woman",
+      "ages": ["older"],
+      "tone": "straight",
+      "tags": "nữ"
+    },
+    "67yCRDCTn1vlOHOzbohB": {
+      "display_name": "MC Thanh Mai",
+      "gender": "woman",
+      "ages": ["mature"],
+      "tone": "open",
+      "tags": "nữ"
+    },
+    "XcCvb8CF403LjfcAAwWJ": {
+      "display_name": "Ngoc huyen",
+      "gender": "woman",
+      "ages": ["mature"],
+      "tone": "stable",
+      "tags": "nữ"
+    },
+    "Wcg1jf3glKDI5zfur4fE": {
+      "display_name": "Thư",
+      "gender": "woman",
+      "ages": ["young"],
+      "tone": "speed",
+      "tags": "nữ"
+    },
+
+
+    "giahuy": {
+      "display_name": "Gia Huy",
+      "gender": "man",
+      "ages": ["young", "mature"],
+      "tone": "warm",
+      "tags": "trẻ · kể chuyện · trầm ấm · tâm tình"
+    },
+    "huuduc": {
+      "display_name": "Hữu Đức",
+      "gender": "man",
+      "ages": ["mature", "older"],
+      "tone": "deep",
+      "tags": "lớn tuổi · kể chuyện · trầm · điềm đạm"
+    },
+    "quangminh": {
+      "display_name": "Quang Minh",
+      "gender": "man",
+      "ages": ["young", "mature"],
+      "tone": "clear",
+      "tags": "trẻ · tin tức · rõ ràng · dứt khoát"
+    },
+    "tiendat": {
+      "display_name": "Tiến Đạt",
+      "gender": "man",
+      "ages": ["young", "mature"],
+      "tone": "energetic",
+      "tags": "trẻ · bình luận · sôi nổi · năng lượng cao"
+    },
+    "anhquan":{
+      "display_name": "Anh Quân",
+      "gender": "man",
+      "ages": ["young", "mature"],
+      "tone": "serious",
+      "tags": "nam · trẻ · thuyết minh · rõ ràng · miền nam"
+    },
+    "BWBPc7d4Wa9rSR3JTeY8":{
+      "display_name": "BANH-MI-RAM-RAM",
+      "gender": "man",
+      "ages": ["mature", "older"],
+      "tone": "straight",
+      "tags": "nam · trẻ"
+    },
+    "F33oOXJxTWIxLgHR9Axe":{
+      "display_name": "dama",
+      "gender": "man",
+      "ages": ["mature", "young"],
+      "tone": "fluid",
+      "tags": "nam · trẻ"
+    },
+    "fK4HcwieGmcmbLXNUOlK":{
+      "display_name": "tam tu ngoi linh",
+      "gender": "man",
+      "ages": ["mature"],
+      "tone": "calm",
+      "tags": "nam"
+    },
+    "BYFlcCZH0Y4pq3WTj4yK":{
+      "display_name": "Gion anh 5",
+      "gender": "man",
+      "ages": ["mature"],
+      "tone": "open",
+      "tags": "nam · miền nam"
+    },
+    "htSzITlVXGL3s4XwNqOv":{
+      "display_name": "Quang Vinh",
+      "gender": "man",
+      "ages": ["mature"],
+      "tone": "steady",
+      "tags": "nam · miền nam"
+    }
+  },
+  "characters": {
+    "quantumancer": { "gender": "woman", "age": "older", "tone": "straight" },
+    "wind": { "gender": "woman", "age": "older", "tone": "warm" },
+    "soulreaper": { "gender": "woman", "age": "older", "tone": "straight" },
+    "chronomaster": { "gender": "woman", "age": "older", "tone": "warm" },
+    "kinetician": { "gender": "woman", "age": "older", "tone": "expressive" },
+    "dreamweaver": { "gender": "woman", "age": "older", "tone": "straight" },
+
+    "faerie_druid": { "gender": "woman", "age": "mature", "tone": "warm" },
+    "duckwoman": { "gender": "woman", "age": "mature", "tone": "speed" },
+    "fairy_knight": { "gender": "woman", "age": "mature", "tone": "clear" },
+    "kahjivir": { "gender": "woman", "age": "mature", "tone": "warm" },
+    "powermancer": { "gender": "woman", "age": "mature", "tone": "energetic" },
+    "shadowcaster": { "gender": "woman", "age": "mature", "tone": "gentle" },
+    "warp": { "gender": "woman", "age": "mature", "tone": "gentle" },
+    "goatwoman": { "gender": "woman", "age": "mature", "tone": "clear" },
+    "paganist": { "gender": "woman", "age": "mature", "tone": "stable" },
+    "soulbinder": { "gender": "woman", "age": "mature", "tone": "softer" },
+    "spiritshaman": { "gender": "woman", "age": "mature", "tone": "warm" },
+    "lightstave": { "gender": "woman", "age": "mature", "tone": "clear" },
+    "rabbit": { "gender": "woman", "age": "mature", "tone": "gentle" },
+    "catwoman": { "gender": "woman", "age": "mature", "tone": "warm" },
+    "emotion": { "gender": "woman", "age": "mature", "tone": "soft" },
+
+    "rogue": { "gender": "woman", "age": "young", "tone": "straight" },
+    "sower": { "gender": "woman", "age": "young", "tone": "straight" },
+    "deer": { "gender": "woman", "age": "young", "tone": "gentle" },
+    "colors": { "gender": "woman", "age": "young", "tone": "expressive" },
+    "entomologist": { "gender": "woman", "age": "young", "tone": "gentle" },
+    "girl": { "gender": "woman", "age": "young", "tone": "gentle" },
+
+    "limbo": { "gender": "man", "age": "older", "tone": "deep" },
+    "gardener": { "gender": "man", "age": "older", "tone": "deep" },
+    "seasons": { "gender": "man", "age": "older", "tone": "deep" },
+    "elder": { "gender": "man", "age": "older", "tone": "deep" },
+    "fisherman": { "gender": "man", "age": "older", "tone": "deep" },
+    "pug": { "gender": "man", "age": "older", "tone": "deep" },
+    "ram": { "gender": "man", "age": "older", "tone": "deep" },
+    "shaman": { "gender": "man", "age": "older", "tone": "deep" },
+    "disciples": { "gender": "man", "age": "older", "tone": "deep" },
+    "barbarians": { "gender": "man", "age": "older", "tone": "straight" },
+    "antimancer": { "gender": "man", "age": "older", "tone": "deep" },
+    
+    "chaospriest": { "gender": "man", "age": "mature", "tone": "fluid" },
+    "junk": { "gender": "man", "age": "mature", "tone": "fluid" },
+    "fishman": { "gender": "man", "age": "mature", "tone": "warm" },
+    "snowblood": { "gender": "man", "age": "mature", "tone": "warm" },
+    "beastlord": { "gender": "man", "age": "mature", "tone": "open" },
+    "trappers": { "gender": "man", "age": "mature", "tone": "calm" },
+    "highpriest": { "gender": "man", "age": "mature", "tone": "straight" },
+    "mountainking": { "gender": "man", "age": "mature", "tone": "warm" },
+    "darkpriest": { "gender": "man", "age": "mature", "tone": "warm" },
+    "patou": { "gender": "man", "age": "mature", "tone": "warm" },
+    "panther": { "gender": "man", "age": "mature", "tone": "warm" },
+    "blacksmith": { "gender": "man", "age": "mature", "tone": "steady" },
+    "farmer": { "gender": "man", "age": "mature", "tone": "warm" },
+    "porter": { "gender": "man", "age": "mature", "tone": "warm" },
+    "conjurer": { "gender": "man", "age": "mature", "tone": "warm" },
+    "shadowmage": { "gender": "man", "age": "mature", "tone": "clear" },
+    "tinker": { "gender": "man", "age": "mature", "tone": "clear" },
+    "zen": { "gender": "man", "age": "mature", "tone": "clear" },
+    "darksider": { "gender": "man", "age": "mature", "tone": "energetic" },
+    "beaver": { "gender": "man", "age": "mature", "tone": "energetic" },
+    "vampires": { "gender": "man", "age": "mature", "tone": "energetic" },
+    "battlemage": { "gender": "man", "age": "mature", "tone": "firm" },
+    "dudes": { "gender": "man", "age": "mature", "tone": "energetic" },
+
+    "otter": { "gender": "man", "age": "young", "tone": "warm" },
+    "elementalist": { "gender": "man", "age": "young", "tone": "energetic" },
+    "meteomancer": { "gender": "man", "age": "young", "tone": "energetic" },
+    "pigboy": { "gender": "man", "age": "young", "tone": "energetic" },
+    "catboy": { "gender": "man", "age": "young", "tone": "energetic" }
+  },
+  "skipped": {
+  },
+  "non_characters": {
+    "crowd": "third-person narration, not a person — uses narrator_voice"
+  }
+}

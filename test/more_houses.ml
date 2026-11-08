@@ -474,7 +474,8 @@ let ram_halves_and_shifts_mana () =
   play u 0 "warp.ram" ~input:(Some 2) ~cost:6;
   check_bool "alive" false (is_empty u 1 2);
   check_int "life halved" (before / 2) (life_at u 1 2);
-  check_int "1 mana in its house" 5 (mana u 1 0);
+  (* the ram's 20 damage also triggers the dragon's rage: 1 more anger mana *)
+  check_int "1 mana in its house, plus the dragon's rage" 6 (mana u 1 0);
   check_int "1 less in the other houses" 3 (mana u 1 1);
   check_int "1 less in the other houses" 3 (mana u 1 2);
   check_int "1 less in the other houses" 3 (mana u 1 3);

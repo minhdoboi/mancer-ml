@@ -231,6 +231,39 @@ let star ?(color = gold) ?(rim = rgba 24 14 4 220) ~cx ~cy ~r () =
   blob (r *. 1.22) rim;
   blob r color
 
+(* A small line-art loudspeaker with two sound waves, for the voice-over
+   replay button: the icon atlas has no audio glyph, so it is drawn by hand.
+   [s] is the icon's height in virtual pixels. *)
+let volume_icon ?(color = ink) ~cx ~cy ~s () =
+  let c = alpha_color color in
+  let thick = Float.max 1.3 (s *. 0.1) *. !scale in
+  let line ax ay bx by = R.draw_line_ex (pos ax ay) (pos bx by) thick c in
+  (* the magnet box *)
+  let bx0 = cx -. (s *. 0.46) and bx1 = cx -. (s *. 0.14) in
+  let by0 = cy -. (s *. 0.16) and by1 = cy +. (s *. 0.16) in
+  line bx0 by0 bx1 by0;
+  line bx1 by0 bx1 by1;
+  line bx1 by1 bx0 by1;
+  line bx0 by1 bx0 by0;
+  (* the flaring horn *)
+  let hx = cx +. (s *. 0.16) and hy = s *. 0.46 in
+  line bx1 by0 hx (cy -. hy);
+  line hx (cy -. hy) hx (cy +. hy);
+  line hx (cy +. hy) bx1 by1;
+  (* two arcs opening to the right *)
+  let arc radius =
+    let a0 = -1.0 and a1 = 1.0 and steps = 12 in
+    let at a = pos (hx +. (radius *. Float.cos a)) (cy +. (radius *. Float.sin a)) in
+    let prev = ref (at a0) in
+    for i = 1 to steps do
+      let p = at (a0 +. ((a1 -. a0) *. float i /. float steps)) in
+      R.draw_line_ex !prev p thick c;
+      prev := p
+    done
+  in
+  arc (s *. 0.26);
+  arc (s *. 0.44)
+
 (* ---------------------------------------------------------------- images *)
 
 let textures : (string, R.Texture.t option) Hashtbl.t = Hashtbl.create 64
@@ -622,6 +655,22 @@ let pbutton ?(selected = false) ?(enabled = true) ?(size = 16.) r label f =
     r
     (r.y +. ((r.h -. size) /. 2.))
     label;
+  if enabled then on_click r f
+
+(* [pbutton] with a hand-drawn glyph instead of a label. [glyph] receives the
+   button's centre and the icon height, like {!volume_icon}. *)
+let picon_button ?(selected = false) ?(enabled = true) ?(size = 14.) r glyph f =
+  let hot = enabled && inside r in
+  if hot then hovering := true;
+  let fill_c =
+    if not enabled then rgba 184 132 55 140
+    else if selected then rgba 108 52 0 195
+    else if hot then rgba 199 143 61 255
+    else rgba 184 132 55 255
+  in
+  fill ~round:0.12 r fill_c;
+  outline ~round:0.12 ~thick:1.2 r (if hot || selected then rgba 92 54 18 255 else rgba 110 70 24 230);
+  glyph ~cx:(r.x +. (r.w /. 2.)) ~cy:(r.y +. (r.h /. 2.)) ~s:size;
   if enabled then on_click r f
 
 let btn_h = 28.

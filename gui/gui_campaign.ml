@@ -17,6 +17,7 @@ type campaign_dlg =
       title : string;
       body : string;
       portrait : string option;
+      voice : string option;
       button : string;
       ack : unit -> unit;
     }
@@ -98,7 +99,23 @@ let mage_line (n : Campaign.node) =
 let end_line ~node_id ~bot_id ~won =
   Assets.text (Campaign.end_message_key ~node_id ~bot_id ~won ~has_key:Assets.has_key)
 
-let parchment_card ~title ~portrait ~subtitle ~message buttons =
+(* A small amber button that replays the line's voice-over, drawn as a
+   loudspeaker icon.  Drawn only when the clip exists for the current
+   language; [top] puts it on the sheet's top-right, the default, and [false]
+   in the bottom-left corner instead. *)
+let voice_button ?(top = true) ~key ~box () =
+  match Gui_voice.path key with
+  | None -> ()
+  | Some _ ->
+      (* Start the line by itself the first frame the dialog is up. *)
+      Gui_voice.autoplay key;
+      let w = 34. in
+      let x = if top then box.x +. box.w -. 34. -. w else box.x +. 36. in
+      let y = if top then box.y +. 18. else box.y +. box.h -. 46. in
+      picon_button ~size:15. (rect x y w 24.) (fun ~cx ~cy ~s -> volume_icon ~cx ~cy ~s ()) (fun () ->
+          Gui_voice.play_key key)
+
+let parchment_card ?voice_key ~title ~portrait ~subtitle ~message buttons =
   click_full (fun () -> ());
   let msg_w = 400. in
   let face = 112. in
@@ -119,6 +136,7 @@ let parchment_card ~title ~portrait ~subtitle ~message buttons =
   let box = rect ((vw -. box_w) /. 2.) ((vh -. box_h) /. 2.) box_w box_h in
   paper box;
   on_click box (fun () -> ());
+  Option.iter (fun key -> voice_button ~key ~box ()) voice_key;
   text ~font:paper_font ~size:22. ~color:ink (box.x +. 40.) (box.y +. 22.) title;
   (match portrait with
   | Some id ->
@@ -143,11 +161,13 @@ let draw_campaign_end ~final ~node ~won ~replay ~next =
   match node.Campaign.fight with
   | None -> ()
   | Some f ->
+      let key = Campaign.end_message_key ~node_id:node.id ~bot_id:f.bot_id ~won ~has_key:Assets.has_key in
       let buttons =
         (if won then [] else [ (Assets.text "campaign.end.replay", replay) ])
         @ [ (Assets.text (if final then "campaign.continue" else "campaign.end.map"), next) ]
       in
       parchment_card
+        ~voice_key:key
         ~title:(Assets.text (if won then "campaign.end.win.title" else "campaign.end.lose.title"))
         ~portrait:(Some f.portrait_id) ~subtitle:(mage_line node)
         ~message:(end_line ~node_id:node.id ~bot_id:f.bot_id ~won)
@@ -173,6 +193,7 @@ let maybe_notes (camp : campaign_ui) =
               title = Assets.text "campaign.night.rest.title";
               body = Assets.text "campaign.night.rest";
               portrait = None;
+              voice = Some "campaign.night.rest";
               button = Assets.text "campaign.next";
               ack =
                 (fun () ->
@@ -182,6 +203,7 @@ let maybe_notes (camp : campaign_ui) =
                         title = Assets.text "campaign.night.visit.title";
                         body = Assets.text "campaign.night.visit";
                         portrait = Some "night-host";
+                        voice = Some "campaign.night.visit";
                         button = Assets.text "campaign.next";
                         ack =
                           (fun () ->
@@ -191,6 +213,7 @@ let maybe_notes (camp : campaign_ui) =
                                   title = Assets.text "campaign.night.meal.title";
                                   body = Assets.text "campaign.night.meal";
                                   portrait = Some "night-soup";
+                                  voice = Some "campaign.night.meal";
                                   button = Assets.text "campaign.next";
                                   ack =
                                     (fun () ->
@@ -200,6 +223,7 @@ let maybe_notes (camp : campaign_ui) =
                                             title = Assets.text "campaign.night.out.title";
                                             body = Assets.text "campaign.night.out";
                                             portrait = None;
+                                            voice = Some "campaign.night.out";
                                             button = Assets.text "campaign.continue";
                                             ack = (fun () -> Prefs.mark_night_rested (Prefs.load ()));
                                           });
@@ -218,6 +242,7 @@ let maybe_notes (camp : campaign_ui) =
                   title = Assets.text "campaign.antimancer.wake.title";
                   body = Assets.text "campaign.antimancer.wake";
                   portrait = None;
+                  voice = Some "campaign.antimancer.wake";
                   button = Assets.text "campaign.continue";
                   ack = (fun () -> Prefs.mark_wake_far (Prefs.load ()));
                 }
@@ -247,6 +272,7 @@ let draw_campaign_intro lobby ~start =
   let box = rect 156. 80. 520. 560. in
   paper box;
   on_click box (fun () -> ());
+  voice_button ~key:"campaign.intro" ~box ();
   text_c ~font:paper_font ~size:22. ~color:ink box (box.y +. 16.) (Assets.text "campaign.title");
   let p = Prefs.load () in
   let id = Prefs.player_portrait p in
@@ -400,7 +426,7 @@ let draw_campaign (camp : campaign_ui) =
       match camp.dlg with
       | Camp_none -> ()
       | Camp_note n ->
-          parchment_card ~title:n.title ~portrait:n.portrait ~subtitle:"" ~message:n.body
+          parchment_card ?voice_key:n.voice ~title:n.title ~portrait:n.portrait ~subtitle:"" ~message:n.body
             [
               ( n.button,
                 fun () ->
@@ -433,7 +459,8 @@ let draw_campaign (camp : campaign_ui) =
                ])
             @ [ (Assets.text "button.cancel", fun () -> camp.dlg <- Camp_none) ]
           in
-          parchment_card ~title:(Assets.text "campaign.restart")
+          parchment_card ~voice_key:(if night then "campaign.restart.choice" else "campaign.restart.confirm")
+            ~title:(Assets.text "campaign.restart")
             ~portrait:None ~subtitle:""
             ~message:(Assets.text (if night then "campaign.restart.choice" else "campaign.restart.confirm"))
             buttons
@@ -443,6 +470,7 @@ let draw_campaign (camp : campaign_ui) =
           | Some f ->
               let passable = Campaign.is_passable n in
               parchment_card
+                ~voice_key:("campaign." ^ n.id ^ ".message")
                 ~title:(Assets.text ("campaign." ^ n.id ^ ".name"))
                 ~portrait:(Some f.portrait_id) ~subtitle:(mage_line n)
                 ~message:(Assets.text ("campaign." ^ n.id ^ ".message"))
@@ -478,6 +506,7 @@ let draw_campaign (camp : campaign_ui) =
                       cs
               in
               parchment_card
+                ~voice_key:("campaign." ^ n.id ^ ".message")
                 ~title:(Assets.text ("campaign." ^ n.id ^ ".name"))
                 ~portrait:(Some m.portrait_id)
                 ~subtitle:(Assets.text ("campaign." ^ n.id ^ ".name"))
@@ -503,6 +532,7 @@ let draw_epilogue ~menu =
   let box_h = Float.min (vh -. 32.) (24. +. (float nlines *. line_h) +. 16. +. 48.) in
   let box = rect ((vw -. box_w) /. 2.) (vh -. box_h -. 32.) box_w box_h in
   paper box;
+  voice_button ~top:false ~key:"campaign.epilogue" ~box ();
   List.iteri
     (fun i l -> text_c ~font:paper_font ~size:20. ~color:ink box (box.y +. 24. +. (float i *. line_h)) l)
     lines;

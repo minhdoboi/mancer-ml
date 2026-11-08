@@ -44,11 +44,18 @@ footer a{color:var(--accent)}
 .intro{margin:32px 0}
 .intro h2{margin:0 0 .6em;font-size:1.5rem}
 .intro .lede{font-size:1.12rem;color:var(--fg);margin:0 0 1em}
-.story{margin:26px 0 0;padding:22px 26px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;background:var(--card)}
+.story{position:relative;margin:26px 0 0;padding:22px 26px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;background:var(--card)}
 .story h3{margin:0 0 .8em;font-size:.95rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
 .story p{margin:0 0 .9em}
 .story p:last-child{margin-bottom:0}
 .story .dropcap:first-letter{float:left;font-size:3.1rem;line-height:.9;padding:.06em .14em 0 0;color:var(--accent)}
+.story .sound[hidden]{display:none}
+.story .sound{position:absolute;top:12px;right:12px;width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--accent);border-radius:6px;background:transparent;color:var(--accent);cursor:pointer}
+.story .sound:hover{background:var(--accent);color:var(--bg)}
+.story .sound svg{width:20px;height:20px;fill:currentColor}
+.story .sound .icon-stop{display:none}
+.story .sound.playing .icon-play{display:none}
+.story .sound.playing .icon-stop{display:block}
 .lower{background:var(--lower-bg);border-top:1px solid var(--line)}
 .lower-inner{max-width:860px;margin:0 auto;padding:40px 16px 56px}
 .cta{text-align:center;margin:28px 0 0}
@@ -67,10 +74,15 @@ footer a{color:var(--accent)}
   <img class="screenshot" id="shot" src="screenshot.jpg" alt="Mancers duel board screenshot">
   <section class="intro">
     <div class="story">
+      <button class="sound" id="about-sound" type="button" hidden>
+        <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M15.5 8.5a4 4 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18 6a7 7 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
       <h3 id="about">About</h3>
       <p class="dropcap" id="story">The unity of the elements seems to have been replaced by an order you no longer understand. Unsure whether the cause lies within you, you set off on a journey—a voyage to a fantastical land where you will encounter a community that lives with mages of various persuasions.</p>
     </div>
   </section>
+  <audio id="about-audio" src="audio/vi/site.about.mp3" preload="none" hidden></audio>
   <div class="btns">
     <a class="btn primary" id="download" href="https://github.com/minhdoboi/mancer-ml/releases">Download</a>
     <a class="btn grimoire" id="grimoire" href="cards.html">
@@ -88,7 +100,9 @@ footer a{color:var(--accent)}
     <div class="grid">
       <div><h2>Houses from community suggestions</h2><p>Vampires, Shadowmage, Entomologist and more, each with its own creatures and spells.</p></div>
       <div><h2>Campaign &amp; duels</h2><p>Work through the campaign, or pick a duel against a bot.</p></div>
-      <div><h2>Internationalization</h2><p>Contains AI translations in multiple languages (English, French, Spanish, Russian, Vietnamese).</p></div>
+      <div><h2>Internationalization</h2><p>Contains AI translations in multiple languages (English, French, Spanish, Russian, Vietnamese).<br/>
+        Generated audio and language sheets in the source repository for vietnamese learning. (listen before reading, you can also avoid reading to keep the misunderstanding and questionning)
+      </p></div>
     </div>
     <h2>Credits</h2>
     <p>You can support the original game by buying it on <a href="https://www.spectromancer.com/">Spectromancer.com</a>.

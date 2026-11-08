@@ -23,8 +23,8 @@ let%expect_test "apocalypse clears both boards" =
   print_board u;
   [%expect
     {|
-    houses 0,4,4,4,2, life 60, slots .,.,anger.dragon/12,.,.,.
-    houses 11,4,4,4,2, life 31, slots .,.,.,.,.,.
+    houses 1,4,4,4,2, life 60, slots .,.,anger.dragon/15,.,.,.
+    houses 11,4,4,4,2, life 34, slots .,.,.,.,.,.
     |}]
 
 let%expect_test "orc and bull bonuses come and go" =

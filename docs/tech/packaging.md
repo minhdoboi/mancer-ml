@@ -108,7 +108,7 @@ To do the same by hand:
 mkdir -p dist/mancer/assets
 cp _build/default/bin/gui.exe dist/mancer/mancer.bin
 strip dist/mancer/mancer.bin
-cp -R assets/backgrounds assets/campaign assets/cards assets/combat \
+cp -R assets/audio assets/backgrounds assets/campaign assets/cards assets/combat \
       assets/fonts assets/i18n assets/particle assets/portraits \
       assets/shaders assets/sounds assets/ui dist/mancer/assets/
 # launcher: cd to the folder, export MANCER_ASSETS=$PWD/assets, exec ./mancer.bin

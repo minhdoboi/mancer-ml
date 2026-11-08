@@ -222,7 +222,7 @@ let phosphor_retaliates_combat () =
   place u 1 "anger.werewolf" 0;
   hit ~card:"anger.dragon" u 0 0 5;
   check_int "wall" 16 (life_at u 0 0);
-  check_int "werewolf" 4 (life_at u 1 0);
+  check_int "werewolf" 5 (life_at u 1 0);
   let v = new_game ~mana:ten ~special:Quantumancer.house () in
   play v 0 "quantumancer.wall" ~input:(Some 0) ~cost:5;
   place v 1 "anger.werewolf" 0;
@@ -543,6 +543,42 @@ let eternal_extra_phases () =
     (List.length
        (List.filter (function Wait_player (0, _) -> true | _ -> false) (player u 0).pstate.ps_transitions))
 
+(* A card is still in the deck the player sees, after every desc mod. *)
+let has_desc u pid key =
+  let pd = (player u pid).pstate.ps_desc in
+  Array.exists
+    (fun h ->
+      List.fold_left (fun cs m -> m h cs) h.phd_cards pd.desc_mods
+      |> Array.exists (fun cd -> cd.cd_card.key = key))
+    pd.init_desc.pd_houses
+
+(* Warp plays with the opponent's listener.  Seasons uses that hook to consume its own played
+   specials, so proxying it must not eat the Warp player's cards. *)
+let seasons_passive_icons () =
+  let u = new_duel ~mana:ten ~special0:Seasons.house ~special1:Warp.house () in
+  let active pid = Seasons.active_passives (player u pid).pstate in
+  check_int "all four" 4 (List.length (active 0));
+  (* the Warp seat proxied the listener but does not own the house: no icons *)
+  check_int "warp none" 0 (List.length (active 1));
+  play u 0 "seasons.AiluvBees.name" ~input:(Some 0) ~cost:1;
+  check_bool "spring gone" true (not (List.mem Seasons.Spring (active 0)));
+  play u 0 "seasons.SolarWave.name" ~input:None ~cost:3;
+  check_bool "summer gone" true (not (List.mem Seasons.Summer (active 0)));
+  play u 0 "seasons.GaeasAvatar.name" ~input:(Some 0) ~cost:6;
+  check_bool "autumn gone" true (not (List.mem Seasons.Autumn (active 0)));
+  play u 0 "seasons.BehemothofFrozenTime.name" ~input:(Some 0) ~cost:7;
+  check_bool "winter gone" true (not (List.mem Seasons.Winter (active 0)));
+  check_int "none left" 0 (List.length (active 0))
+
+let warp_borrows_seasons () =
+  let u = new_duel ~mana:ten ~special0:Warp.house ~special1:Seasons.house () in
+  play u 0 "warp.stranger" ~input:(Some 0) ~cost:7;
+  check_bool "warp keeps its card" true (has_desc u 0 "warp.stranger");
+  check_bool "seasons keeps its cards" true (has_desc u 1 "seasons.SolarWave.name");
+  (* but the Seasons owner still consumes its own played card *)
+  play u 1 "seasons.SolarWave.name" ~input:None ~cost:3;
+  check_bool "seasons card consumed" false (has_desc u 1 "seasons.SolarWave.name")
+
 let () =
   Alcotest.run "houses_e"
     [
@@ -606,5 +642,7 @@ let () =
           Alcotest.test_case "wintry" `Quick wintry_pokes_open;
           Alcotest.test_case "aurora" `Quick aurora_heals_and_feeds;
           Alcotest.test_case "eternal" `Quick eternal_extra_phases;
+          Alcotest.test_case "passive icons" `Quick seasons_passive_icons;
+          Alcotest.test_case "warp proxy" `Quick warp_borrows_seasons;
         ] );
     ]

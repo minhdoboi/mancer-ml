@@ -1409,6 +1409,72 @@ let draw_element_badge ui pid x y =
           text ~font:bold ~size:17. ~color:fg (cx -. (w /. 2.)) (cy -. 8.5) s)
   | _ -> ()
 
+(* --------------------------------------------------------- season icons *)
+
+(* Seasons: a small icon per passive still in force, right of the portrait.
+   Spring and Autumn share the leaf (green and amber), Summer the sun, Winter
+   the snowflake.  The icon vanishes when the matching card is played. *)
+let season_tip : (rect * string) option ref = ref None
+
+let season_icon_color = function
+  | Seasons.Spring -> rgb01 0.46 0.82 0.3 1.
+  | Seasons.Summer -> rgb01 1. 0.82 0.25 1.
+  | Seasons.Autumn -> rgb01 0.95 0.5 0.15 1.
+  | Seasons.Winter -> rgb01 0.65 0.88 1. 1.
+
+let season_note = function
+  | Seasons.Spring -> "seasons.passive.spring"
+  | Seasons.Summer -> "seasons.passive.summer"
+  | Seasons.Autumn -> "seasons.passive.autumn"
+  | Seasons.Winter -> "seasons.passive.winter"
+
+let draw_sun cx cy r color =
+  for i = 0 to 7 do
+    let a = float i *. Float.pi /. 4. in
+    R.draw_line_ex
+      (pos (cx +. (cos a *. r *. 1.3)) (cy +. (sin a *. r *. 1.3)))
+      (pos (cx +. (cos a *. r *. 1.85)) (cy +. (sin a *. r *. 1.85)))
+      (2. *. !scale) (alpha_color color)
+  done;
+  R.draw_circle_v (pos cx cy) (r *. !scale) (alpha_color color)
+
+let draw_snowflake cx cy r color =
+  let col = alpha_color color and th = 1.7 *. !scale in
+  for i = 0 to 5 do
+    let a = float i *. Float.pi /. 3. in
+    let dx = cos a and dy = sin a in
+    R.draw_line_ex (pos cx cy) (pos (cx +. (dx *. r)) (cy +. (dy *. r))) th col;
+    let bx = cx +. (dx *. r *. 0.58) and by = cy +. (dy *. r *. 0.58) in
+    List.iter
+      (fun s ->
+        let a2 = a +. (s *. 0.6) in
+        R.draw_line_ex (pos bx by)
+          (pos (bx +. (cos a2 *. r *. 0.34)) (by +. (sin a2 *. r *. 0.34)))
+          th col)
+      [ 1.; -1. ]
+  done
+
+let draw_season_passives ui pid x y =
+  let passives = Seasons.active_passives (view ui).players.(pid) in
+  let size = 22. and gap = 4. in
+  List.iteri
+    (fun i passive ->
+      let bx = x +. (float i *. (size +. gap)) in
+      let box = rect bx y size size in
+      fill ~round:0.3 box plate_ink;
+      let color = season_icon_color passive in
+      outline ~round:0.3 ~thick:1.2 box color;
+      let cx = bx +. (size /. 2.) and cy = y +. (size /. 2.) in
+      (match passive with
+      | Seasons.Spring -> draw_leaf cx cy (size *. 0.2) (size *. 0.3) color (rgb01 0.16 0.44 0.12 1.)
+      | Seasons.Autumn -> draw_leaf cx cy (size *. 0.2) (size *. 0.3) color (rgb01 0.5 0.2 0.04 1.)
+      | Seasons.Summer -> draw_sun cx cy (size *. 0.16) color
+      | Seasons.Winter -> draw_snowflake cx cy (size *. 0.36) color);
+      if inside box then (
+        hovering := true;
+        season_tip := Some (box, Assets.text (season_note passive))))
+    passives
+
 let draw_player_bar ui pid =
   let x = 8. in
   let y = oy ui (row_y pid) in
@@ -1440,6 +1506,10 @@ let draw_player_bar ui pid =
   draw_element_badge ui pid (tx +. text_w ~font:bold 22. life +. 10.) (y +. 7.);
   (* Scala DataPanel beside the life: souls, Dark power, eclipse shield, shaman buffs. *)
   let line_y = ref (y +. 36.) in
+  (* Seasons: the passives still in force sit right under the life total. *)
+  if Seasons.active_passives p <> [] then (
+    draw_season_passives ui pid tx !line_y;
+    line_y := !line_y +. 26.);
   let badge s =
     draw_label_plate ~size:13. ~color:accent tx !line_y s;
     line_y := !line_y +. 19.
@@ -1475,6 +1545,7 @@ let draw_player_bar ui pid =
 
 let draw_board ui =
   element_tip := None;
+  season_tip := None;
   (* Solar Wave: the opponent's creatures wear golden powder while they take triple damage. *)
   (* A creature that is sliding or attacking has left its slot: no powder on it. *)
   let settled pid n =
@@ -2026,6 +2097,7 @@ let draw_menu ui ~quit ~settings ~switch ~replay ~start_new =
     items;
   Option.iter (fun (anchor, label) -> tooltip_below anchor label) !tip;
   Option.iter (fun (anchor, label) -> tooltip_below anchor label) !element_tip;
+  Option.iter (fun (anchor, label) -> tooltip_below anchor label) !season_tip;
   if ui.message <> "" then text ~size:12. ~color:red 8. (bar.y +. bar.h +. 4.) (fit 12. 400. ui.message)
 
 let draw_pass ui =

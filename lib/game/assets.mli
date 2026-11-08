@@ -87,3 +87,7 @@ val shader_pair : string -> (string * string) option
 
 val sound : string -> string option
 (** Clip for a Scala [sounds] key ([move], [meditate], …) or a card sound ([flamewave]). *)
+
+val voice : string -> string option
+(** Voice-over [audio/<lang>/<key>.wav|mp3|ogg] for an i18n key (see
+    [scripts/gen_vi_tts.py]), or [None] when the line has not been generated for the current language. *)

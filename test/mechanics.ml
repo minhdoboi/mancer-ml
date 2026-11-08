@@ -124,7 +124,24 @@ let spellmod_dragon () =
   step u (fun () -> Player.refresh_slots (player u 0));
   check_int "printed attack is not modded" 9 (attack_at u 0 1);
   let spell = mk_damage ~is_spell:true 10 { ctx_player = 0; ctx_card = None; ctx_selected = 0 } in
-  check_int "spell damage 10 -> 15" 15 (Player.mod_damage (player u 1) spell).amount
+  check_int "spell damage 10 -> 14" 14 (Player.mod_damage (player u 1) spell).amount
+
+(* Anger Incarnation also pays its owner 1 anger mana for a single blow of 9
+   or more; a smaller hit gives nothing. *)
+let dragon_rage_mana () =
+  let u = new_game () in
+  place u 0 "anger.dragon" 1;
+  let mana () = (player u 0).houses_update.hu_value.(0).mana in
+  let hit amount =
+    step u (fun () ->
+        Slot.inflict (slot u 0 1)
+          (mk_damage ~is_ability:true amount { ctx_player = 1; ctx_card = None; ctx_selected = 0 }))
+  in
+  let before = mana () in
+  hit 8;
+  check_int "8 damage grants nothing" before (mana ());
+  hit 9;
+  check_int "9 damage grants 1 anger mana" (before + 1) (mana ())
 
 (* -------------------------------------------------- abilities and spells *)
 
@@ -240,6 +257,7 @@ let () =
           test_case "nemesis mana attack" `Quick mana_attack_nemesis;
           test_case "peek refolds mana attack" `Quick peek_refolds_mana_attack;
           test_case "dragon SpellMod" `Quick spellmod_dragon;
+          test_case "dragon rage mana" `Quick dragon_rage_mana;
         ] );
       ( "abilities and spells",
         [

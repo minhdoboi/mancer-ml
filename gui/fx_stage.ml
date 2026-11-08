@@ -40,6 +40,17 @@ let opposite_spot layout (c : command) lane =
     | [] -> layout.slot_center foe lane
     | n :: _ -> layout.slot_center foe n
 
+(* Astral Storm sweeps the foe's whole row; the lash grazes the edge of the
+   slots facing away from the caster, so it cuts across the row instead of
+   running through the middle of the creatures. *)
+let astral_row_edge layout ~from_ foe =
+  let centers = slots_of foe layout.slot_center in
+  let floors = slots_of foe layout.slot_floor in
+  let last = centers.(nb_slots - 1) in
+  let half = floors.(nb_slots - 1).y -. last.y in
+  let y = if last.y > from_.y then last.y +. half else last.y -. half in
+  { x = last.x; y }
+
 let look_recipe layout (c : command) look =
   let own, foe0 = own_foe layout c.cmd_player in
   let foe = if c.cmd_card.key = "disciples.wind" then oppress_foe layout c.cmd_player else foe0 in
@@ -751,14 +762,15 @@ let for_ability layout ~kind ~player ~num ~target =
              spawn_falcon ~from_:(layout.slot_center player num) ~foe_x ~foe_y ~foe_span ~targets:foes
                ~start))
   | "meteomancer.storm" ->
-      (* Astral Storm: arcs lash out of the storm card at every foe creature
-         and the last one breaks on the foe themselves *)
+      (* Astral Storm: the storm card cracks a whip at the foe's portrait, then
+         the tip is whipped across the foe's row, whipping every creature *)
       let foe = other player in
+      let from_ = layout.slot_center player num in
       let foes = layout.occupied foe |> List.map (layout.slot_center foe) |> Array.of_list in
       Some
         (recipe ~duration:astral_storm_duration ~blocking:true (fun ~start ->
-             spawn_astral_storm
-               ~from_:(layout.slot_center player num) ~targets:foes ~foe_life:(layout.life foe) ~start))
+             spawn_astral_storm ~from_ ~targets:foes ~foe_life:(layout.life foe)
+               ~row_edge:(astral_row_edge layout ~from_ foe) ~start))
   | kind when String.starts_with ~prefix:"meteomancer.prism." kind ->
       (* Prism Mage: a ray from the foe's Called Element label is refracted by
          the mage onto every foe creature *)
@@ -1097,7 +1109,10 @@ let spawn_demo layout name =
   | "grenade" -> go (spawn_grenade ~src:own.(2) ~target:foe.(2) ~pid:opponent ~num:2 ~start:now)
   | "astralstorm" ->
       let targets = Array.of_list (List.map (layout.slot_center opponent) (layout.occupied opponent)) in
-      go (spawn_astral_storm ~from_:own.(2) ~targets ~foe_life ~start:(now -. 0.9))
+      let from_ = own.(2) in
+      go
+        (spawn_astral_storm ~from_ ~targets ~foe_life
+           ~row_edge:(astral_row_edge layout ~from_ opponent) ~start:now)
   | "quake" ->
       let centers = slots_of opponent layout.slot_center in
       let floors = slots_of opponent layout.slot_floor in

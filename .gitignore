@@ -5,6 +5,11 @@ _build/
 # local opam switch, if created with `opam switch create .`
 _opam/
 
+# local python venv for scripts/gen_vi_tts.py
+.venv/
+__pycache__/
+*.pyc
+
 # merlin / editor state
 .merlin
 *.annot

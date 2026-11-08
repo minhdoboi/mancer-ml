@@ -55,7 +55,7 @@ copy_assets() {
   dest=$1
   mkdir -p "$dest"
   [ -f assets/LICENSE ] && cp assets/LICENSE "$dest/LICENSE"
-  for d in backgrounds campaign cards combat fonts i18n particle portraits shaders sounds ui; do
+  for d in audio backgrounds campaign cards combat fonts i18n particle portraits shaders sounds ui; do
     [ -d "assets/$d" ] || continue
     cp -R "assets/$d" "$dest/"
   done

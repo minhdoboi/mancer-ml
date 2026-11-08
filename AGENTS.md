@@ -99,6 +99,52 @@ player-data reaction hook). Checklist, in order:
    in all five bundles. `test/campaign.ml` checks portraits and unlock paths —
    update its `*_path` assertions if you rewire edges.
 
+## Language sheets (`docs/lang/vi/`)
+
+A **language sheet** is a French explanation of the Vietnamese that
+`assets/i18n/vi.properties` ships for one campaign duel: why the words were
+chosen, what they evoke, and how the register shifts between the three
+repliques. One file per node, `docs/lang/vi/campaign.<node>.md` (node id from
+`lib/game/campaign_map.json`), so a new campaign fight wants a new sheet the
+same way it wants i18n strings. The loose question-and-answer notes in
+`docs/viet/` are the raw ancestors of these — the sheets are the curated form.
+Worked examples to copy: `campaign.trappers.md` (short) and
+`campaign.lightstave.md` (long message, many terms).
+
+Every sheet has the same skeleton:
+
+- **Title** — a level-1 heading holding the character name, the house in bold,
+  and the node id in code at the end (e.g. `# Ruel, **Kẻ Săn Bẫy** —` followed
+  by `campaign.trappers`). The name is `campaign.<node>.name`; the house is the
+  Vietnamese `<house key>=` string.
+- **Header** — one paragraph of fight metadata read off
+  `lib/game/campaign_map.json`: chapter (*day*/*night*), the node(s) it unlocks
+  after (`after` / `after_any`), the bot, the life (or the 60 default when the
+  node sets none), and whether the fight is passable. Then a short portrait of
+  the character and a **`Ton.`** paragraph on pronouns, address, and register —
+  who says `ta` or `tôi`, who is `ngươi`, `bạn`, `kẻ lữ hành`.
+- **Three numbered sections** — one per field, in order `message`, `win`,
+  `lose`. Each quotes the bundle string as a `> ` block, gives the French
+  translation in italics, then adds one `###` entry per word or turn of
+  phrase, titled with the term and its gloss: meaning, etymology, register,
+  and the image it carries. Drop to a single `###` entry when a phrase is an
+  echo of the message (say so: « `vùng vẫy` est expliqué au § 1 »).
+
+Two rules the sheet is worthless without:
+
+- **Quote, never paraphrase.** Copy `campaign.<node>.message` / `.win` /
+  `.lose` from `assets/i18n/vi.properties` byte for byte, diacritics included.
+  A reworded quote, even a corrected typo, defeats the sheet's purpose.
+- **Tag the etymology and register.** Say whether a word is *purement
+  vietnamien* (native) or *sino-vietnamien* (give the Hán character, e.g.
+  `kiên nhẫn` `堅忍`); the Sino-Vietnamese loan often lifts the tone, and
+  noticing that shift is the point of the sheet.
+
+Cross-link the sibling sheets whenever a word or image recurs (`đá sẽ nhớ`
+belongs to both `campaign.mountainking.md` and `campaign.paganist.md`), and keep
+the explanation in French — the quoted Vietnamese and the `###` terms are the
+only Vietnamese in the file. No need to repeat the same thing across the sheets.
+
 ## Card art (`assets/cards/`)
 
 Name the file after the **card key** the game looks up —

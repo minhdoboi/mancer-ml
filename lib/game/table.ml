@@ -39,6 +39,8 @@ let random_starter ?(rng = Random.State.make_self_init ()) () =
 (* Portrait rosters for the duel dialog, mirroring Scala [Portraits]. *)
 let player_portraits =
   [
+    "van-loc";
+    "tram-anh";
     "ember";
     "tide";
     "gale";
@@ -53,7 +55,7 @@ let player_portraits =
     "grove-crone";
     "reeve-an";
     "khan-jure";
-    "scowl-master";
+    "cressida-spellman";
     "nox-tyro";
     "lotus";
     "ma-ji";

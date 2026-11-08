@@ -55,8 +55,9 @@ let medusa_gaze : card_effect =
 let mimic_roll rng = (6 + Dice.int rng 3, 14 + Dice.int rng 6)
 
 (* Shapeless Mimic: rebirths itself on death while its owner's sadness is 10+,
-   unless the death was a "destroy".  [Slots.add_creature] rebuilds the slot
-   through the roll hook, so the reborn body is rolled too. *)
+   unless the death was a "destroy".  Each rebirth costs its owner 2 joy mana.
+   [Slots.add_creature] rebuilds the slot through the roll hook, so the reborn
+   body is rolled too. *)
 let mimic_reaction () =
   let r = Reaction.default () in
   {
@@ -66,6 +67,7 @@ let mimic_reaction () =
         if (not (dead_is_destroy dead)) && dead.d_player.houses_update.hu_value.(1).mana > 9 then (
           let slot = dead.d_player.slots_update.slot_updates.(dead.d_num) in
           Slots.add_creature slot dead.d_slot.card;
+          Houses.incr_mana dead.d_player.houses_update (-2) [ 3 ];
           if has_flag dead.d_slot run_flag then Slot.toggle slot run_flag));
   }
 

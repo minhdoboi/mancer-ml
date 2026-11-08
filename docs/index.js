@@ -28,7 +28,9 @@ const TEXTS = {
     language: 'Language',
     source: 'Source on GitHub',
     shot: 'Mancers duel board screenshot',
-    description: 'Mancers: a duel card game of 42 houses, a campaign and AI opponents, written in OCaml.'
+    description: 'Mancers: a duel card game of 42 houses, a campaign and AI opponents, written in OCaml.',
+    listen: 'Listen to the About text',
+    stop: 'Stop the audio'
   },
   fr: {
     title: "L'écho des manciens",
@@ -41,7 +43,9 @@ const TEXTS = {
     language: 'Langue',
     source: 'Code source sur GitHub',
     shot: "Capture d'écran du plateau de duel de Mancers",
-    description: 'Mancers : un jeu de cartes en duel de 42 maisons, une campagne et des adversaires IA, écrit en OCaml.'
+    description: 'Mancers : un jeu de cartes en duel de 42 maisons, une campagne et des adversaires IA, écrit en OCaml.',
+    listen: 'Écouter le texte À propos',
+    stop: "Arrêter l'audio"
   },
   es: {
     title: 'El eco del Mancer',
@@ -54,7 +58,9 @@ const TEXTS = {
     language: 'Idioma',
     source: 'Código fuente en GitHub',
     shot: 'Captura de pantalla del tablero de duelo de Mancers',
-    description: 'Mancers: un juego de cartas en duelo de 42 casas, una campaña y rivales IA, escrito en OCaml.'
+    description: 'Mancers: un juego de cartas en duelo de 42 casas, una campaña y rivales IA, escrito en OCaml.',
+    listen: 'Escuchar el texto Acerca de',
+    stop: 'Detener el audio'
   },
   ru: {
     title: 'Эхо Мансера',
@@ -67,7 +73,9 @@ const TEXTS = {
     language: 'Язык',
     source: 'Исходный код на GitHub',
     shot: 'Скриншот дуэльного стола Mancers',
-    description: 'Mancers: карточная игра-дуэль с 42 домами, кампания и противники-ИИ, написанная на OCaml.'
+    description: 'Mancers: карточная игра-дуэль с 42 домами, кампания и противники-ИИ, написанная на OCaml.',
+    listen: 'Прослушать текст «О игре»',
+    stop: 'Остановить звук'
   },
   vi: {
     title: 'Dư âm của pháp sư',
@@ -80,12 +88,45 @@ const TEXTS = {
     language: 'Ngôn ngữ',
     source: 'Mã nguồn trên GitHub',
     shot: 'Ảnh chụp bàn đấu Mancers',
-    description: 'Mancers: trò chơi đấu bài với 42 lớp, một chiến dịch và các đối thủ AI, viết bằng OCaml.'
+    description: 'Mancers: trò chơi đấu bài với 42 lớp, một chiến dịch và các đối thủ AI, viết bằng OCaml.',
+    listen: 'Nghe phần Giới thiệu',
+    stop: 'Dừng âm thanh'
   }
 };
 
 const el = id => document.getElementById(id);
 let LANG = 'en';
+
+/* The About story has a Vietnamese voice-over (site.about in the bundle).
+   The speaker button only shows for Vietnamese and stops when the reader
+   switches language. */
+const aboutAudio = el('about-audio');
+const aboutSound = el('about-sound');
+
+function aboutLabel() {
+  const t = TEXTS[LANG] || TEXTS.en;
+  const label = aboutAudio.paused ? t.listen : t.stop;
+  aboutSound.setAttribute('aria-label', label);
+  aboutSound.title = label;
+}
+
+function stopAboutAudio() {
+  aboutAudio.pause();
+  aboutAudio.currentTime = 0;
+  aboutSound.classList.remove('playing');
+  aboutLabel();
+}
+
+aboutSound.onclick = () => {
+  if (aboutAudio.paused) {
+    aboutAudio.play();
+    aboutSound.classList.add('playing');
+  } else {
+    stopAboutAudio();
+  }
+  aboutLabel();
+};
+aboutAudio.onended = stopAboutAudio;
 
 /* the texts of one language on the page */
 function apply(code) {
@@ -111,6 +152,11 @@ function apply(code) {
   sel.value = code;
   sel.title = t.language;
   sel.setAttribute('aria-label', t.language);
+  /* the story is spoken only in Vietnamese */
+  const voiced = code === 'vi';
+  aboutSound.hidden = !voiced;
+  if (!voiced) stopAboutAudio();
+  aboutLabel();
 }
 
 /* the language the reader picked: this page's own key, then the grimoire

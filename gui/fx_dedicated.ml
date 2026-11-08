@@ -4513,133 +4513,176 @@ let spawn_prism ~from_ ~at ~targets ~called ~start =
 
 (* ---------------------------------------------------------------- astral storm *)
 
-(* Astral Storm: the storm card throws a lash of astral energy at the foe. The
-   arc crosses the board and lands on the foe themselves, then the lash wipes
-   sideways through the foe's row -- it runs right over every card standing
-   there -- so the whole row is wiped in one sweep. *)
-let astral_storm_duration = 1.8
+(* Astral Storm: the storm card uncoils a whip of astral energy and cracks it at
+   the foe.  A lash leaves the card and its tip lands on the foe's portrait,
+   then the tip snaps back across the foe's whole row and whips every card
+   standing there without ever stopping on one.  The whip stays in the card's
+   hand, so the lash always runs from the card to the moving tip; a wave travels
+   down it and, only once it has landed on the portrait, the tip drags a fading
+   streak behind it as it sweeps right along the edge of the foe's slots that
+   faces away from the caster, so it reads as a whip and not as a line drawn
+   across the board. *)
+let astral_charge = 0.26 (* the card coils the lash *)
+let astral_throw = 0.4 (* the tip flies over to the foe's portrait *)
+let astral_sweep = 0.82 (* the tip snaps back across the foe's row *)
+let astral_hold = 0.42 (* the tip's remanence fades *)
+let astral_lash = astral_charge +. astral_throw +. astral_sweep
+let astral_storm_duration = astral_lash +. astral_hold
 
-let astral_sample path u =
-  let n = Array.length path in
-  if n = 0 then { x = 0.; y = 0. }
-  else
-    let f = clamp01 u *. float (n - 1) in
-    let i = int_of_float (Float.min (float (n - 1)) f) in
-    let frac = f -. float i in
-    let p = path.(i) and q = path.(min (n - 1) (i + 1)) in
-    { x = p.x +. ((q.x -. p.x) *. frac); y = p.y +. ((q.y -. p.y) *. frac) }
+(* A quadratic [p0; ctrl; p1] sampled at [u]. *)
+let qbez (p0 : spot) (ctrl : spot) (p1 : spot) u =
+  let q = 1. -. u in
+  {
+    x = (q *. q *. p0.x) +. (2. *. q *. u *. ctrl.x) +. (u *. u *. p1.x);
+    y = (q *. q *. p0.y) +. (2. *. q *. u *. ctrl.y) +. (u *. u *. p1.y);
+  }
 
-(* The throw of the lash. It leaves the card in a bowed arc that crosses the
-   board and lands on the foe, then wipes sideways through the foe's row: the
-   wipe runs level with the cards and crosses every one of them, so it reads as
-   a sweep and not as a touch. *)
-let build_whip ~from_ ~targets ~foe_life =
-  let segs = ref [] in
-  let starts = ref [] in
-  let total = ref 0 in
-  let add seg =
-    segs := !segs @ [ seg ];
-    starts := !starts @ [ !total ];
-    total := !total + List.length seg
-  in
-  let hits = ref [] in
-  (* the arc to the foe, bowed aside so it reads as a throw *)
-  let bow = 24. in
+(* The whip's tip over time.  It rests on the card while the lash is coiled,
+   arcs aside over to the foe's portrait, then whips sideways along the foe's
+   row and stays where it ended.  Returns the cards in sweep order and the span
+   the tip crosses, so a card is cracked exactly when the tip runs over it. *)
+let astral_geom ~from_ ~targets ~foe_life ~row_edge =
+  let ordered = List.sort (fun a b -> compare a.x b.x) (Array.to_list targets) in
+  let row_y = row_edge.y in
+  (* the sweep runs the whole foe row, past the last slot, so it never stops on
+     a card just because one happens to stand there *)
+  let end_ = { x = row_edge.x +. 96.; y = row_y } in
+  (* the throw bows aside, so it reads as a lash thrown and not a straight pull *)
   let dx = foe_life.x -. from_.x and dy = foe_life.y -. from_.y in
   let l = Float.max 1. (hypot dx dy) in
-  let d = { x = dx /. l; y = dy /. l } in
-  let n = { x = -.d.y; y = d.x } in
-  let ctrl =
-    { x = ((from_.x +. foe_life.x) /. 2.) +. (n.x *. bow);
-      y = ((from_.y +. foe_life.y) /. 2.) +. (n.y *. bow) }
+  let nx = -.dy /. l and ny = dx /. l in
+  let bow = 28. in
+  let throw_ctrl =
+    {
+      x = ((from_.x +. foe_life.x) /. 2.) +. (nx *. bow);
+      y = ((from_.y +. foe_life.y) /. 2.) +. (ny *. bow);
+    }
   in
-  let arc_n = 14 in
-  add
-    (List.init (arc_n + 1) (fun i ->
-         let u = float i /. float arc_n in
-         let q = 1. -. u in
-         {
-           x = (q *. q *. from_.x) +. (2. *. q *. u *. ctrl.x) +. (u *. u *. foe_life.x);
-           y = (q *. q *. from_.y) +. (2. *. q *. u *. ctrl.y) +. (u *. u *. foe_life.y);
-         }));
-  let arc_seg = List.length !segs - 1 in
-  (* the foe is struck first, where the arc lands *)
-  hits := (List.nth !starts arc_seg + arc_n, foe_life) :: !hits;
-  (* the wipe runs from the foe out across the row, level with the cards *)
-  let ordered = List.sort (fun a b -> compare a.x b.x) (Array.to_list targets) in
-  let row_y = match ordered with c :: _ -> c.y | [] -> foe_life.y in
-  let last_x = match List.rev ordered with c :: _ -> c.x | [] -> foe_life.x +. 90. in
-  let start_x = foe_life.x in
-  let span = Float.max 1. ((last_x +. 70.) -. start_x) in
-  let wipe_n = 42 in
-  let wipe_pt u =
-    let rise = Float.min 1. (u *. 4.) in
-    { x = start_x +. (u *. span); y = foe_life.y +. ((row_y -. foe_life.y) *. rise) }
+  let sweep_ctrl = { x = (foe_life.x +. end_.x) /. 2.; y = row_y } in
+  let span = Float.max 1. (end_.x -. foe_life.x) in
+  let tip_at age =
+    if age <= astral_charge then from_
+    else if age <= astral_charge +. astral_throw then
+      qbez from_ throw_ctrl foe_life (clamp01 ((age -. astral_charge) /. astral_throw))
+    else
+      let u = clamp01 ((age -. astral_charge -. astral_throw) /. astral_sweep) in
+      (* a wave runs down the sweep, pinned flat at both ends: the tip bows
+         above and under the row, then cracks down onto it *)
+      let base = qbez foe_life sweep_ctrl end_ u in
+      let wave = 27. *. (sin ((u *. 6.5) -. (age *. 12.))) *. sin (Float.pi *. u) in
+      { base with y = base.y +. wave }
   in
-  add (List.init (wipe_n + 1) (fun i -> wipe_pt (float i /. float wipe_n)));
-  let wipe_seg = List.length !segs - 1 in
-  let wipe_start = List.nth !starts wipe_seg in
-  List.iter
-    (fun c ->
-      let u = clamp01 ((c.x -. start_x) /. span) in
-      hits := (wipe_start + int_of_float (u *. float wipe_n), c) :: !hits)
-    ordered;
-  let path = Array.of_list (List.concat !segs) in
-  let last = float (max 1 (Array.length path - 1)) in
-  let hits = List.map (fun (i, c) -> (float i /. last, c)) !hits in
-  (path, hits)
+  (ordered, span, tip_at)
 
-let spawn_astral_storm ~from_ ~targets ~foe_life ~start =
+let spawn_astral_storm ~from_ ~targets ~foe_life ~row_edge ~start =
   let duration = astral_storm_duration in
-  let path, hits = build_whip ~from_ ~targets ~foe_life in
-  let n = Array.length path in
-  let travel = 1.25 in (* seconds for the whole sweep *)
-  let charge_t = 0.22 in (* the card gathers the storm first *)
+  let ordered, span, tip_at = astral_geom ~from_ ~targets ~foe_life ~row_edge in
+  let t_land = astral_charge +. astral_throw in
+  (* the portrait is struck when the lash lands, each card when the tip crosses it *)
+  let hit_time c =
+    let u = clamp01 ((c.x -. foe_life.x) /. span) in
+    astral_charge +. astral_throw +. (u *. astral_sweep)
+  in
+  (* each card is cracked where the lash runs over it: on the edge of its slot,
+     not through its middle *)
+  let hits = List.map (fun c -> (hit_time c, { x = c.x; y = row_edge.y })) ordered in
   mk ~start ~duration (fun ~age ->
-      let fade = Float.min 1. ((duration -. age) /. 0.3) in
+      let fade = Float.min 1. ((duration -. age) /. astral_hold) in
       if fade > 0.02 then (
-        (* the card gathers the storm before it lets it go *)
-        let charge = clamp01 (age /. charge_t) in
+        let tip = tip_at age in
+        (* the card coils the lash before it lets go *)
+        if age < astral_charge +. 0.12 then (
+          let charge = clamp01 (age /. astral_charge) in
+          additive (fun () ->
+              circle from_.x from_.y (14. +. (12. *. charge))
+                (rgb 0.36 0.16 0.82 (fade *. charge *. 0.1));
+              (* the coil: arcs wound tighter as the lash gathers *)
+              for k = 0 to 5 do
+                let ang = (age *. 7.) +. (float k *. 1.047) in
+                let r = (4. +. (9. *. (1. -. charge))) +. (2.5 *. sin ((age *. 8.) +. float k)) in
+                circle
+                  (from_.x +. (cos ang *. r))
+                  (from_.y +. (sin ang *. r))
+                  1.7
+                  (rgb 0.82 0.72 1. (fade *. charge *. 0.55))
+              done;
+              circle from_.x from_.y 2.6 (rgb 0.95 0.9 1. (fade *. charge *. 0.7))));
+        (* one lash: a curve from the card's hand to [tip], a wave running down
+           it and tapering to a hair at the end.  [t] drives the wave and [a]
+           scales the whole stroke, so a faded copy can be laid down behind the
+           live one. *)
+        let draw_lash ~tip ~t ~a ~steps =
+          let dx = tip.x -. from_.x and dy = tip.y -. from_.y in
+          let len = Float.max 1. (hypot dx dy) in
+          let px = -.dy /. len and py = dx /. len in
+          let bow = Float.max 6. (Float.min 34. (len *. 0.14)) in
+          let ctrl =
+            {
+              x = ((from_.x +. tip.x) /. 2.) +. (px *. bow);
+              y = ((from_.y +. tip.y) /. 2.) +. (py *. bow);
+            }
+          in
+          (* a point on the lash: the base curve, rippled crosswise by a wave
+             that runs down it, thinning as it goes *)
+          let lash u =
+            let p = qbez from_ ctrl tip u in
+            let ripple = (sin ((u *. 9.) -. (t *. 15.)) *. 3.6) *. (1. -. u) in
+            { x = p.x +. (px *. ripple); y = p.y +. (py *. ripple) }
+          in
+          for i = 0 to steps - 1 do
+            let u0 = float i /. float steps and u1 = float (i + 1) /. float steps in
+            let a0 = lash u0 and b0 = lash u1 in
+            let taper = 1. -. u0 in
+            line a0.x a0.y b0.x b0.y
+              (0.8 +. (2.6 *. taper))
+              (rgb 0.6 0.4 1. (a *. (0.3 +. (0.3 *. taper))));
+            line a0.x a0.y b0.x b0.y
+              (0.35 +. (0.55 *. taper))
+              (rgb 0.96 0.93 1. (a *. (0.5 +. (0.45 *. taper))))
+          done
+        in
         additive (fun () ->
-            circle from_.x from_.y (15. +. (13. *. charge)) (rgb 0.36 0.16 0.82 (fade *. charge *. 0.09));
-            circle from_.x from_.y (7. +. (5. *. charge)) (rgb 0.56 0.36 1. (fade *. charge *. 0.2));
-            circle from_.x from_.y 3. (rgb 0.92 0.86 1. (fade *. charge *. 0.55));
-            for k = 0 to 5 do
-              let ang = (age *. 5.) +. (float k *. 1.047) in
-              let r = 13. +. (6. *. sin ((age *. 6.) +. float k)) in
-              circle
-                (from_.x +. (cos ang *. r))
-                (from_.y +. (sin ang *. r))
-                1.8
-                (rgb 0.8 0.7 1. (fade *. charge *. 0.5))
-            done);
-        let p = clamp01 ((age -. charge_t) /. travel) in
-        (* the head accelerates: the lash creeps out and then whips *)
-        let u = p *. p in
-        let drawn = int_of_float (Float.min (float (n - 1)) (u *. float (n - 1))) in
-        additive (fun () ->
-            (* the lash itself: a thin white core in a violet strand *)
-            for i = 0 to drawn - 1 do
-              let s = path.(i) and t = path.(i + 1) in
-              let k = float i /. float (max 1 (n - 2)) in
-              line s.x s.y t.x t.y (2.2 +. (1.6 *. k)) (rgb 0.6 0.4 1. (fade *. 0.5));
-              line s.x s.y t.x t.y (0.9 +. (0.9 *. k)) (rgb 0.96 0.93 1. (fade *. 0.95))
-            done;
-            (* the head of the lash, and the tail it drags *)
-            let h = astral_sample path u in
-            for s = 1 to 6 do
-              let q = astral_sample path (clamp01 (u -. (float s *. 0.02))) in
-              circle
-                q.x q.y
-                (4.6 -. (float s *. 0.55))
-                (rgb 0.72 0.55 1. (fade *. (0.4 -. (float s *. 0.055))))
-            done;
-            circle h.x h.y 5.5 (rgb 0.5 0.28 1. (fade *. 0.5));
-            circle h.x h.y 2.4 (rgb 0.95 0.9 1. (fade *. 0.95));
-            (* the lash runs over a card and it cracks *)
+            (* the remanence: only once the lash has reached the foe's portrait
+               does the whip smear, and the smear starts there and runs off to
+               the right instead of trailing back up the throw.  A fan of faded
+               copies of the whole lash shows the path it swept, and stays lit
+               along that path while the effect fades out. *)
+            if age >= t_land then (
+              let prog = clamp01 ((age -. t_land) /. astral_sweep) in
+              let ghosts = 11 in
+              for k = 1 to ghosts do
+                let u = prog *. float (k - 1) /. float (ghosts - 1) in
+                let g = t_land +. (u *. astral_sweep) in
+                let a = fade *. 0.26 *. (float k /. float ghosts) in
+                draw_lash ~tip:(tip_at g) ~t:g ~a ~steps:16
+              done);
+            (* the streak the tip drags along the swept path *)
+            let trail i =
+              let lag = (float i /. 8.) *. 0.44 in
+              tip_at (Float.max t_land (age -. lag))
+            in
+            if age >= t_land then
+              for i = 1 to 8 do
+                let a = trail (i - 1) and b = trail i in
+                let al = fade *. 0.42 *. (1. -. (float i /. 9.)) in
+                line a.x a.y b.x b.y (2.6 -. (float i *. 0.2)) (rgb 0.66 0.46 1. al);
+                line a.x a.y b.x b.y (1. -. (float i *. 0.08)) (rgb 0.96 0.92 1. (al *. 1.3))
+              done;
+            (* the live lash *)
+            draw_lash ~tip ~t:age ~a:fade ~steps:26;
+            (* the tip cracks, dragging a short hot tail behind it *)
+            if age >= t_land then
+              for s = 1 to 6 do
+                let q = trail s in
+                circle q.x q.y
+                  (4.4 -. (float s *. 0.55))
+                  (rgb 0.72 0.55 1. (fade *. (0.36 -. (float s *. 0.05))))
+              done;
+            circle tip.x tip.y 5.4 (rgb 0.5 0.28 1. (fade *. 0.5));
+            circle tip.x tip.y 2.3 (rgb 0.95 0.9 1. (fade *. 0.95));
+            (* the tip runs over a card and it cracks *)
             List.iter
-              (fun (f, c) ->
-                let ta = charge_t +. (sqrt f *. travel) in
+              (fun (ta, c) ->
                 if age >= ta then (
                   let hit = clamp01 ((age -. ta) /. 0.32) in
                   let r = 10. in
@@ -4657,7 +4700,14 @@ let spawn_astral_storm ~from_ ~targets ~foe_life ~start =
                       1.6
                       (rgb 0.9 0.85 1. (fade *. (1. -. hit) *. 0.8))
                   done))
-              hits)))
+              hits;
+            (* the portrait itself is struck where the lash lands *)
+            if age >= t_land then (
+              let hit = clamp01 ((age -. t_land) /. 0.34) in
+              circle foe_life.x foe_life.y
+                (12. +. (26. *. hit))
+                (rgb 0.5 0.28 1. (fade *. (1. -. hit) *. 0.4));
+              circle foe_life.x foe_life.y 3.4 (rgb 0.95 0.9 1. (fade *. (1. -. hit)))))))
 
 (* ------------------------------------------------------------ contextual mana *)
 

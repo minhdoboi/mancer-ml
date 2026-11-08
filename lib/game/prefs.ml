@@ -42,7 +42,7 @@ let default_server = "172.99.78.51"
 let default_server_port = "12345"
 let default_card_theme = "vibe"
 let default_ai_opponent = "summoner"
-let default_player_portrait = "ember"
+let default_player_portrait = "van-loc"
 let default_sound_level = 1.0
 let default_ocean_sound = true
 let default_ambient_sound = default_ocean_sound
@@ -55,7 +55,7 @@ let default_language = "en"
 let default_budget_ms = 1000
 let default_seats = ("human", "oracle")
 let default_specials = ([ "Troopers" ], [ "Troopers" ])
-let default_portraits = ("ember", "oracle")
+let default_portraits = ("van-loc", "oracle")
 
 type t = { path : string; props : (string, string) Hashtbl.t }
 

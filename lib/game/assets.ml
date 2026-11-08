@@ -164,6 +164,11 @@ let campaign name = first_image "campaign" [ name ]
 let particle name = png "particle" name
 let sound name = with_ext (path [ "sounds"; name ]) [ ".mp3"; ".ogg"; ".wav" ]
 
+(* Voice-over for an i18n key, written by scripts/gen_vi_tts.py: one clip per
+   language under audio/<lang>/.  [None] when the line was never generated, so
+   a front end can hide its replay button. *)
+let voice key = with_ext (path [ "audio"; lang (); key ]) [ ".wav"; ".mp3"; ".ogg" ]
+
 let shader_pair name =
   let vs = path [ "shaders"; name ^ ".vs" ] and fs = path [ "shaders"; name ^ ".fs" ] in
   if Sys.file_exists vs && Sys.file_exists fs then Some (vs, fs) else None

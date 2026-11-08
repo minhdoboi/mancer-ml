@@ -7,6 +7,11 @@ open Common
 
 let phase1 = "summer phase 1"
 let phase2 = "summer phase 2"
+
+(* The house id on the Seasons cards.  Warp runs this listener as a proxy on its own player, so the
+   played-card bookkeeping must only fire for Seasons' own cards (matched by [house_id]); otherwise
+   Warp would consume its own specials. *)
+let house_id = 34
 let init_data = { se_triple = false; se_midnight = true; se_summer = false }
 let default_data = { se_triple = false; se_midnight = false; se_summer = false }
 let get_data p = match p.pstate.ps_data with Season_data d -> d | _ -> default_data
@@ -216,7 +221,7 @@ let season_listener () =
         p.submit_command_hook <-
           (fun c ->
             let r = old c in
-            if c.cmd_card.house_index = special_house_index then (
+            if c.cmd_card.house_id = house_id then (
               Player.add_desc_mod p (destroyed_mod c.cmd_card);
               match c.cmd_card.key with
               | "seasons.AiluvBees.name" | "seasons.SpiritofEquinox.name" ->
@@ -267,6 +272,30 @@ let cards =
   ]
 
 let house =
-  special_house ~key:"seasons" ~id:34
+  special_house ~key:"seasons" ~id:house_id
     ~effects:[ (On_turn, regrowth); (On_turn, wintry) ]
     ~additional_cards:[ nectar_bloom ] ~listener:season_listener ~data:(Season_data init_data) cards
+
+(* The board shows one icon per passive still in force.  A passive is active
+   while its effect/mod is still on the player, and gone once the matching
+   card is played.  A player who does not own the house (a Warp that only
+   proxied the listener) shows nothing. *)
+type season_passive = Spring | Summer | Autumn | Winter
+
+let owns_seasons (p : player_state) =
+  Array.exists (fun hd -> hd.phd_house.h_key = "seasons") p.ps_desc.init_desc.pd_houses
+
+let active_passives (p : player_state) : season_passive list =
+  if not (owns_seasons p) then []
+  else
+    let has_effect f = List.exists (fun (_, e) -> e == f) p.ps_effects in
+    let summer = match p.ps_data with Season_data d -> d.se_midnight | _ -> false in
+    let autumn = List.exists (fun m -> m == lower_basic) p.ps_desc.desc_mods in
+    List.filter_map
+      (fun (on, v) -> if on then Some v else None)
+      [
+        (has_effect regrowth, Spring);
+        (summer, Summer);
+        (autumn, Autumn);
+        (has_effect wintry, Winter);
+      ]
