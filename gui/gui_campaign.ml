@@ -490,12 +490,27 @@ let draw_campaign (camp : campaign_ui) =
               let choices =
                 match m.choices with
                 | [] ->
-                    [
-                      ( Assets.text "campaign.continue",
-                        fun () ->
-                          Prefs.complete_campaign (Prefs.load ()) n.id;
-                          camp.dlg <- Camp_none );
-                    ]
+                    let finish () =
+                      Prefs.complete_campaign (Prefs.load ()) n.id;
+                      camp.dlg <- Camp_none
+                    in
+                    let continue_click =
+                      match Campaign.meeting_warning_key ~class_key:(Table.campaign_class ()) n.id with
+                      | None -> finish
+                      | Some key ->
+                          fun () ->
+                            camp.dlg <-
+                              Camp_note
+                                {
+                                  title = Assets.text ("campaign." ^ n.id ^ ".name");
+                                  body = Assets.text key;
+                                  portrait = Some m.portrait_id;
+                                  voice = Some key;
+                                  button = Assets.text "campaign.continue";
+                                  ack = (fun () -> Prefs.complete_campaign (Prefs.load ()) n.id);
+                                }
+                    in
+                    [ (Assets.text "campaign.continue", continue_click) ]
                 | cs ->
                     List.map
                       (fun (c : Campaign.choice) ->

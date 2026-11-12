@@ -229,6 +229,16 @@ let phosphor_retaliates_combat () =
   hit ~is_spell:true v 0 0 5;
   check_int "no retaliate" 16 (life_at v 1 0)
 
+(* A creature ability is a blow like a swing: the Boar's summon should draw
+   the wall's fire, only a spell still bounces off. *)
+let phosphor_retaliates_abilities () =
+  let u = new_game ~mana:ten ~special:Quantumancer.house () in
+  play u 0 "quantumancer.wall" ~input:(Some 0) ~cost:5;
+  place u 1 "anger.werewolf" 0;
+  hit ~is_ability:true ~card:"anger.dragon" u 0 0 5;
+  check_int "wall" 16 (life_at u 0 0);
+  check_int "the ability still draws fire" 5 (life_at u 1 0)
+
 let sealing_bans_until_death () =
   let u = new_game ~mana:ten ~special:Quantumancer.house () in
   play u 0 "quantumancer.sealing" ~input:(Some 0) ~cost:6;
@@ -603,6 +613,7 @@ let () =
           Alcotest.test_case "martyr player" `Quick martyr_ignores_player_damage;
           Alcotest.test_case "martyr mods" `Quick martyr_skips_owner_mods;
           Alcotest.test_case "phosphor" `Quick phosphor_retaliates_combat;
+          Alcotest.test_case "phosphor abilities" `Quick phosphor_retaliates_abilities;
           Alcotest.test_case "sealing" `Quick sealing_bans_until_death;
           Alcotest.test_case "sealing move" `Quick sealing_survives_move;
           Alcotest.test_case "sealing steal" `Quick sealing_stolen_drops_list;

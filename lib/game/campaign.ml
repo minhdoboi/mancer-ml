@@ -73,6 +73,27 @@ let easy_difficulty = "easy"
 let easy_bonus = 5
 let easy_bonus_big = 10
 
+(* The top-tier classes: the campaign's strongest special houses. A player who
+already wields one of these needs no warning before the mountains. The keys
+are the houses' [h_key] values, so Troopers keeps its capital letter. *)
+let top_tier_classes = [ "paganist"; "seasons"; "highpriest"; "technomage"; "Troopers" ]
+let is_top_tier_class key = List.mem key top_tier_classes
+
+(* The second line an NPC gives a player whose class is not top tier: the map
+dialog shows it after {!campaign.<node>.message}. *)
+let rabbit_warning_key = "campaign.rabbit.message.warning"
+let beaver_warning_key = "campaign.beaver.message.warning"
+
+let warning_key_of_node = function
+  | "rabbit" -> Some rabbit_warning_key
+  | "beaver" -> Some beaver_warning_key
+  | _ -> None
+
+(* [Some key] when meeting [id] adds a second line for [class_key]. A player
+   already wielding a top-tier class needs no warning. *)
+let meeting_warning_key ~class_key id =
+  if is_top_tier_class class_key then None else warning_key_of_node id
+
 (* These five fights are the hard part of the day, so the easy bonus is twice
    as big there. *)
 let easy_bonus_big_nodes = [ "entomologist"; "meteomancer"; "disciples"; "emotion"; "seasons" ]
@@ -288,6 +309,7 @@ let campaign_portraits =
     "seasons";
     "emotion";
     "paganist";
+    "technomage";
     "quantumancer";
     "spiritshaman";
     "fairy_knight";

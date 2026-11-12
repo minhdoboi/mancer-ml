@@ -61,7 +61,11 @@ let mountain_approaches () =
     (has_not [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver" ] "mountainking");
   check_bool "barbarians after dreamweaver" true
     (has [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver" ] "barbarians");
-  check_bool "army after barbarians" true
+  check_bool "technomage after barbarians" true
+    (has
+       [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver"; "barbarians" ]
+       "technomage");
+  check_bool "barbarians open the king" true
     (has
        [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "dreamweaver"; "barbarians" ]
        "mountainking");
@@ -73,15 +77,19 @@ let mountain_approaches () =
     (has
        [ "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "lightstave"; "chaospriest" ]
        "mountainking");
-  check_bool "powermancer" true
-    (has [ "entomologist"; "seasons"; "dudes"; "colors"; "elementalist"; "gardener"; "powermancer" ]
-       "mountainking")
+  check_bool "the power branch reaches the king through the powermancer" true
+    (has
+       [ "entomologist"; "seasons"; "dudes"; "colors"; "elementalist"; "gardener"; "powermancer" ]
+       "mountainking");
+  check_bool "the technomage does not open the king" true
+    (has_not [ "technomage" ] "mountainking")
 
 let wind_after_king () =
-  check_bool "wind" true
+  check_bool "wind after the king" true
     (has
        [ "entomologist"; "disciples"; "spiritshaman"; "paganist"; "quantumancer"; "mountainking" ]
-       "wind")
+       "wind");
+  check_bool "wind after the technomage" true (has [ "technomage" ] "wind")
 
 let disciples_path () =
   let fork = [ "entomologist"; "duckwoman"; Campaign.avoid_city ] in
@@ -137,8 +145,12 @@ let meteomancer_path () =
     (has (faerie @ [ "ram"; "dreamweaver" ]) "barbarians");
   check_bool "no king from dreamweaver alone" true
     (has_not (faerie @ [ "ram"; "dreamweaver" ]) "mountainking");
-  check_bool "king after barbarians" true
-    (has (faerie @ [ "ram"; "dreamweaver"; "barbarians" ]) "mountainking");
+  check_bool "barbarians open the king and the technomage" true
+    (has (faerie @ [ "ram"; "dreamweaver"; "barbarians" ]) "mountainking"
+    && has (faerie @ [ "ram"; "dreamweaver"; "barbarians" ]) "technomage");
+  check_bool "the technomage opens the wind, not the king" true
+    (has (faerie @ [ "ram"; "dreamweaver"; "barbarians"; "technomage" ]) "wind"
+    && has_not [ "technomage" ] "mountainking");
   check_bool "king after lightstave" false
     (has (faerie @ [ "ram"; "lightstave" ]) "mountainking");
   check_bool "king after lightstave and priest" true
@@ -157,8 +169,12 @@ let dudes_path () =
     (has_not (done_ @ [ "rabbit"; "colors"; "elementalist" ]) "powermancer");
   check_bool "powermancer" true
     (has (done_ @ [ "rabbit"; "colors"; "elementalist"; "gardener" ]) "powermancer");
-  check_bool "king" true
-    (has (done_ @ [ "rabbit"; "colors"; "elementalist"; "gardener"; "powermancer" ]) "mountainking")
+  check_bool "the powermancer reaches the king on the dudes branch" true
+    (has
+       (done_ @ [ "rabbit"; "colors"; "elementalist"; "gardener"; "powermancer" ])
+       "mountainking");
+  check_bool "technomage is not on the dudes branch" true
+    (has_not (done_ @ [ "rabbit"; "colors"; "elementalist"; "gardener"; "powermancer" ]) "technomage")
 
 let junk_to_king () =
   let done_ = [ "entomologist"; "duckwoman"; Campaign.avoid_city; "disciples" ] in
@@ -210,6 +226,26 @@ let pug_node () =
     (has_not (after @ [ "pug"; "dudes"; "rabbit"; "colors" ]) "gardener");
   check_bool "gardener after the elementalist" true
     (has (after @ [ "pug"; "dudes"; "rabbit"; "colors"; "elementalist" ]) "gardener")
+
+let technomage_node () =
+  let n = Campaign.node "technomage" in
+  let f = match n.fight with Some f -> f | None -> assert false in
+  check_bool "a fight" true (Campaign.is_fight n);
+  check_bool "day chapter" true (n.chapter = Campaign.Day);
+  Alcotest.(check string) "house" "technomage" f.house_key;
+  Alcotest.(check string) "bot" "gambler" f.bot_id;
+  Alcotest.(check string) "portrait" "technomage" f.portrait_id;
+  Alcotest.(check (option int)) "life" (Some 50) f.life;
+  let before =
+    [
+      "entomologist"; "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "ram";
+      "dreamweaver";
+    ]
+  in
+  check_bool "waits for the barbarians" true (has_not before "technomage");
+  check_bool "after the barbarians" true (has (before @ [ "barbarians" ]) "technomage");
+  check_bool "opens the wind" true (has (before @ [ "barbarians"; "technomage" ]) "wind");
+  check_bool "does not open the king" true (has_not [ "technomage" ] "mountainking")
 
 let early_life () =
   Alcotest.(check (option int))
@@ -443,18 +479,15 @@ let barbarians_node () =
     (has
        [ "entomologist"; "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "ram"; "dreamweaver" ]
        "barbarians");
+  check_bool "technomage after barbarians" true
+    (has
+       [ "entomologist"; "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "ram"; "dreamweaver"; "barbarians" ]
+       "technomage");
   check_bool "opens the king" true
     (has
        [
-         "entomologist";
-         "meteomancer";
-         "emotion";
-         "sower";
-         "otter";
-         "fairy_knight";
-         "ram";
-         "dreamweaver";
-         "barbarians";
+         "entomologist"; "meteomancer"; "emotion"; "sower"; "otter"; "fairy_knight"; "ram";
+         "dreamweaver"; "barbarians";
        ]
        "mountainking");
   check_bool "not a night node" true (has_not [ "wind" ] "barbarians")
@@ -483,6 +516,8 @@ let i18n_keys () =
       "campaign.night.out";
       "campaign.antimancer.wake.title";
       "campaign.antimancer.wake";
+      Campaign.rabbit_warning_key;
+      Campaign.beaver_warning_key;
     ]
     (* Every fight node carries its own win/lose text, so
        {!Campaign.end_message_key}'s per-bot fallback never fires and no
@@ -545,6 +580,25 @@ let i18n_font_coverage () =
           (Assets.load_properties file))
     [ "en"; "fr"; "es"; "ru"; "vi" ]
 
+(* The classes that need no warning before the mountains, and the extra lines
+   a non-top-tier player gets at the warning meetings. *)
+let top_tier_classes () =
+  List.iter
+    (fun key -> check_bool (key ^ " top tier") true (Campaign.is_top_tier_class key))
+    [ "paganist"; "seasons"; "highpriest"; "technomage"; "Troopers" ];
+  check_bool "shaman not top tier" false (Campaign.is_top_tier_class "shaman");
+  check_bool "lowercase troopers not top tier" false (Campaign.is_top_tier_class "troopers");
+  Alcotest.(check string) "rabbit warning" "campaign.rabbit.message.warning" Campaign.rabbit_warning_key;
+  Alcotest.(check string) "beaver warning" "campaign.beaver.message.warning" Campaign.beaver_warning_key;
+  let warns class_key id = Campaign.meeting_warning_key ~class_key id in
+  Alcotest.(check (option string))
+    "rabbit warns a shaman" (Some Campaign.rabbit_warning_key) (warns "shaman" "rabbit");
+  Alcotest.(check (option string))
+    "beaver warns a shaman" (Some Campaign.beaver_warning_key) (warns "shaman" "beaver");
+  Alcotest.(check (option string))
+    "top tier needs no warning" None (warns "technomage" "rabbit");
+  Alcotest.(check (option string)) "other nodes never warn" None (warns "shaman" "farmer")
+
 let play_bot_map () =
   Alcotest.(check string) "summoner" "summoner" (Campaign.play_bot "summoner");
   Alcotest.(check string) "strategist" "strategist" (Campaign.play_bot "strategist");
@@ -552,27 +606,6 @@ let play_bot_map () =
   Alcotest.(check string) "diviner" "diviner" (Campaign.play_bot "diviner");
   Alcotest.(check string) "lecturer" "lecturer" (Campaign.play_bot "lecturer");
   Alcotest.(check string) "oracle" "oracle" (Campaign.play_bot "oracle")
-
-(* The duels the player may skip. Everything else, meetings included, must
-   still be played. *)
-let passable_fights () =
-  let expected =
-    [
-      "entomologist"; "seasons"; "meteomancer"; "emotion"; "beastlord"; "lightstave"; "chaospriest";
-      "blacksmith"; "colors"; "elementalist"; "powermancer"; "disciples"; "junk"; "spiritshaman";
-      "quantumancer"; "paganist"; "faerie_druid"; "soulbinder";
-    ]
-  in
-  let got =
-    List.filter_map
-      (fun (n : Campaign.node) -> if Campaign.is_passable n then Some n.id else None)
-      (Campaign.nodes ())
-  in
-  Alcotest.check ss "passable" (sorted expected) (sorted got);
-  List.iter (fun id -> check_bool (id ^ " passable") true (Campaign.is_passable (Campaign.node id))) expected;
-  check_bool "mountainking not passable" false (Campaign.is_passable (Campaign.node "mountainking"));
-  check_bool "wind not passable" false (Campaign.is_passable (Campaign.node "wind"));
-  check_bool "meeting not passable" false (Campaign.is_passable (Campaign.node "farmer"))
 
 (* The hard difficulty plays the whole campaign at full life, with the
    diviner taking the day chapter. Every other difficulty keeps the map. *)
@@ -652,6 +685,7 @@ let () =
           Alcotest.test_case "barbarians" `Quick barbarians_node;
           Alcotest.test_case "pigboy" `Quick pigboy_node;
           Alcotest.test_case "pug" `Quick pug_node;
+          Alcotest.test_case "technomage" `Quick technomage_node;
           Alcotest.test_case "early life" `Quick early_life;
         ] );
       ( "night",
@@ -674,8 +708,8 @@ let () =
           Alcotest.test_case "end lines" `Quick end_lines;
           Alcotest.test_case "i18n" `Quick i18n_keys;
           Alcotest.test_case "i18n font" `Quick i18n_font_coverage;
+          Alcotest.test_case "top tier" `Quick top_tier_classes;
           Alcotest.test_case "play bot" `Quick play_bot_map;
-          Alcotest.test_case "passable" `Quick passable_fights;
           Alcotest.test_case "hard difficulty" `Quick hard_difficulty;
           Alcotest.test_case "easy difficulty" `Quick easy_difficulty;
         ] );

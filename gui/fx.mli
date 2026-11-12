@@ -104,6 +104,14 @@ val dissolve_shader : unit -> Raylib.Shader.t option
 val dissolve_uniforms : amount:float -> seed:float -> unit
 (** The dissolve shader and its uniforms, as [warp_shader] and [warp_uniforms]. *)
 
+val petrify_state : spot -> (float * float) option
+(** Fortification: how far the creature's card at this slot centre has turned to stone (0..1) and its
+    noise seed, while the effect is turning it; [None] when no effect is. *)
+
+val petrify_shader : unit -> Raylib.Shader.t option
+val petrify_uniforms : amount:float -> seed:float -> unit
+(** The petrify shader and its uniforms, as [warp_shader] and [warp_uniforms]. *)
+
 val warp_shader : string -> Raylib.Shader.t option
 (** The named effect shader, if it loaded. *)
 

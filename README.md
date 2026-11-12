@@ -136,31 +136,26 @@ House keys are the game names, not always the module names: `--special
 Troopers`, `--special Dudes`, `--special reaper` (Soul Reaper also answers
 to `soulreaper`).
 
-```
-dune exec ./bin/main.exe -- --mode houses --special seasons,darksider,sower,dreamweaver,wind,elementalist --games 5 --bots diviner --budget=200
-```
-
-|              | seasons    |   darksider  |   sower   |   dreamweaver |  wind |   elementalist
-|--------------|------------|--------------|-----------|---------------|-------|---------------
-| seasons      | -          |   4-1        |   5-0     |   4-1         |  5-0  |   4-1
-| darksider    | 1-4        |   -          |   4-1     |   1-4         |  2-3  |   1-4
-| sower        | 0-5        |   1-4        |   -       |   2-3         |  3-2  |   2-3
-| dreamweaver  | 1-4        |   4-1        |   3-2     |   -           |  5-0  |   3-2
-| wind         | 0-5        |   3-2        |   2-3     |   0-5         |  -    |   0-5
-| elementalist | 1-4        |   4-1        |   3-2     |   2-3         |  5-0  |   -
+Top tier classes, considering that seasons is better than all others:
 
 ```
-dune exec ./bin/main.exe -- --mode houses --special paganist,highpriest,seasons,Troopers,antimancer --games 3 --bots diviner --budget=200
+dune exec ./bin/main.exe -- --mode houses --special paganist,highpriest,seasons,technomage --games 3 --bots diviner --budget=200
 ```
+|           |paganist  |  highpriest | seasons  |   technomage
+| ----------|----------|-------------|----------|--------------
+|paganist   | -        |   2-1       |  2-1     |    0-3
+|highpriest | 1-2      |   -         |  3-0     |    1-2
+|seasons    | 1-2      |   0-3       |  -       |    0-3
+|technomage | 3-0      |   2-1       |  3-0     |    -
 
-|             | paganist  |  highpriest |  seasons  |   Troopers  |  antimancer
-|-------------|-----------|-------------|-----------|-------------|------------
-| paganist    | -         |  2-1        |  2-1      |   2-1       |  2-1
-| highpriest  | 1-2       |  -          |  1-2      |   1-2       |  3-0
-| seasons     | 1-2       |  2-1        |  -        |   2-1       |  3-0
-| Troopers    | 1-2       |  2-1        |  1-2      |   -         |  2-1
-| antimancer  | 1-2       |  0-3        |  0-3      |   1-2       |  -
+houses (4):
 
+|   ratio  |            |              | elo
+|----------|------------|--------------|----------
+|    0.889 |  8-1-0 / 9 |   technomage | 549.9
+|    0.556 |  5-4-0 / 9 |   highpriest | 508.8
+|    0.444 |  4-5-0 / 9 |   paganist   | 1490.9
+|    0.111 |  1-8-0 / 9 |   seasons    | 1450.3
 
 ## Limitations
 

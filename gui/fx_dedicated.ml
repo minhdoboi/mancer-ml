@@ -237,8 +237,47 @@ let spawn_life_flow ~red ~from_ ~to_ ~start =
                   circle x y (2.6 *. (1. -. (u *. 0.4))) (col c_tail al))
               done))))
 
-let spawn_phosphor ~from_ ~targets ~start =
+(* The colours a phosphor ray is drawn in.  Quantumancer's Wall of Sealing
+   throws green; the Technomage's Wall of Distortion throws the same shape in
+   silver and purple. *)
+type phosphor_palette = {
+  p_glow : float * float * float;
+  p_core : float * float * float;
+  p_spoke : float * float * float;
+  p_ray_wide : float * float * float;
+  p_ray_mid : float * float * float;
+  p_ray_hot : float * float * float;
+  p_hit : float * float * float;
+  p_hit_hot : float * float * float;
+}
+
+let phosphor_green =
+  {
+    p_glow = (0.2, 1., 0.35);
+    p_core = (0.7, 1., 0.55);
+    p_spoke = (0.35, 1., 0.4);
+    p_ray_wide = (0.12, 0.85, 0.22);
+    p_ray_mid = (0.45, 1., 0.4);
+    p_ray_hot = (0.9, 1., 0.75);
+    p_hit = (0.4, 1., 0.35);
+    p_hit_hot = (0.85, 1., 0.7);
+  }
+
+let phosphor_silver =
+  {
+    p_glow = (0.55, 0.45, 1.);
+    p_core = (0.88, 0.82, 1.);
+    p_spoke = (0.7, 0.6, 1.);
+    p_ray_wide = (0.45, 0.32, 0.85);
+    p_ray_mid = (0.72, 0.62, 1.);
+    p_ray_hot = (0.96, 0.94, 1.);
+    p_hit = (0.72, 0.55, 1.);
+    p_hit_hot = (0.95, 0.9, 1.);
+  }
+
+let spawn_phosphor ~from_ ~targets ?(palette = phosphor_green) ~start () =
   let duration = 0.7 in
+  let rgb3 (r, g, b) a = rgb r g b a in
   mk ~start ~duration (fun ~age ->
       let fade = Float.min 1. ((duration -. age) /. 0.16) in
       if fade > 0.02 then
@@ -246,8 +285,9 @@ let spawn_phosphor ~from_ ~targets ~start =
             let t = age in
             let open_ = Float.min 1. (t /. 0.12) in
             let pulse = 0.7 +. (0.3 *. sin (t *. 18.)) in
-            circle from_.x from_.y (22. +. (10. *. open_)) (rgb 0.2 1. 0.35 (fade *. 0.28 *. open_ *. pulse));
-            circle from_.x from_.y 7. (rgb 0.7 1. 0.55 (fade *. 0.5 *. open_));
+            circle from_.x from_.y (22. +. (10. *. open_))
+              (rgb3 palette.p_glow (fade *. 0.28 *. open_ *. pulse));
+            circle from_.x from_.y 7. (rgb3 palette.p_core (fade *. 0.5 *. open_));
             for k = 0 to 7 do
               let ang = (t *. 2.2) +. (float k *. (Float.pi /. 4.)) in
               let len = (18. +. (8. *. sin ((t *. 9.) +. float k))) *. open_ in
@@ -255,7 +295,7 @@ let spawn_phosphor ~from_ ~targets ~start =
                 (from_.x +. (cos ang *. len))
                 (from_.y +. (sin ang *. len))
                 2.2
-                (rgb 0.35 1. 0.4 (fade *. 0.45))
+                (rgb3 palette.p_spoke (fade *. 0.45))
             done;
             Array.iteri
               (fun id to_ ->
@@ -269,17 +309,197 @@ let spawn_phosphor ~from_ ~targets ~start =
                   let ox = if len < 1. then 0. else nx /. len *. wobble in
                   let oy = if len < 1. then 0. else ny /. len *. wobble in
                   let mx = ((from_.x +. x1) *. 0.5) +. ox and my = ((from_.y +. y1) *. 0.5) +. oy in
-                  line from_.x from_.y mx my 7.5 (rgb 0.12 0.85 0.22 (fade *. 0.28));
-                  line mx my x1 y1 7.5 (rgb 0.12 0.85 0.22 (fade *. 0.28));
-                  line from_.x from_.y mx my 2.6 (rgb 0.45 1. 0.4 (fade *. 0.7));
-                  line mx my x1 y1 2.6 (rgb 0.45 1. 0.4 (fade *. 0.7));
-                  line from_.x from_.y mx my 1.1 (rgb 0.9 1. 0.75 fade);
-                  line mx my x1 y1 1.1 (rgb 0.9 1. 0.75 fade);
+                  line from_.x from_.y mx my 7.5 (rgb3 palette.p_ray_wide (fade *. 0.28));
+                  line mx my x1 y1 7.5 (rgb3 palette.p_ray_wide (fade *. 0.28));
+                  line from_.x from_.y mx my 2.6 (rgb3 palette.p_ray_mid (fade *. 0.7));
+                  line mx my x1 y1 2.6 (rgb3 palette.p_ray_mid (fade *. 0.7));
+                  line from_.x from_.y mx my 1.1 (rgb3 palette.p_ray_hot fade);
+                  line mx my x1 y1 1.1 (rgb3 palette.p_ray_hot fade);
                   if grow > 0.85 then (
                     let hit = (grow -. 0.85) /. 0.15 in
-                    circle to_.x to_.y (8. +. (hit *. 16.)) (rgb 0.4 1. 0.35 (fade *. (1. -. hit) *. 0.55));
-                    circle to_.x to_.y 4. (rgb 0.85 1. 0.7 (fade *. (1. -. hit))))))
+                    circle to_.x to_.y (8. +. (hit *. 16.)) (rgb3 palette.p_hit (fade *. (1. -. hit) *. 0.55));
+                    circle to_.x to_.y 4. (rgb3 palette.p_hit_hot (fade *. (1. -. hit))))))
               targets))
+
+(* Wall of Daggers: every foe creature takes a thrown dagger, the blades fanned
+   out from the wall and landing a moment apart. *)
+let dagger_volley_duration = 0.95
+
+let spawn_daggers ~from_ ~targets ~start =
+  let duration = dagger_volley_duration in
+  let fly = 0.32 and step = 0.04 in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.18) in
+      if fade > 0.02 then
+        additive (fun () ->
+            if age < 0.2 then (
+              let b = 1. -. (age /. 0.2) in
+              circle from_.x from_.y (9. +. (13. *. (1. -. b))) (rgb 0.85 0.88 0.98 (fade *. b *. 0.35)));
+            Array.iteri
+              (fun id to_ ->
+                let t = age -. (float id *. step) in
+                let dx = to_.x -. from_.x and dy = to_.y -. from_.y in
+                let span = Float.max 1. (hypot dx dy) in
+                let ux = dx /. span and uy = dy /. span in
+                let u = clamp01 (t /. fly) in
+                if t >= 0. && u < 1. then (
+                  let x = from_.x +. (dx *. u) and y = from_.y +. (dy *. u) in
+                  let nx = -.uy and ny = ux in
+                  for k = 1 to 4 do
+                    let tu = Float.max 0. (u -. (float k *. 0.05)) in
+                    circle (from_.x +. (dx *. tu)) (from_.y +. (dy *. tu)) (2.4 -. (float k *. 0.4))
+                      (rgb 0.6 0.66 0.8 (fade *. 0.35 *. (1. -. (float k /. 5.))))
+                  done;
+                  tri
+                    (x +. (nx *. 1.6)) (y +. (ny *. 1.6))
+                    (x -. (nx *. 1.6)) (y -. (ny *. 1.6))
+                    (x +. (ux *. 13.)) (y +. (uy *. 13.))
+                    (rgb 0.86 0.9 1. fade);
+                  line (x -. (ux *. 5.)) (y -. (uy *. 5.)) x y 2.6 (rgb 0.35 0.38 0.48 (fade *. 0.9));
+                  line
+                    (x -. (ux *. 2.) +. (nx *. 4.)) (y -. (uy *. 2.) +. (ny *. 4.))
+                    (x -. (ux *. 2.) -. (nx *. 4.)) (y -. (uy *. 2.) -. (ny *. 4.))
+                    2.2 (rgb 0.5 0.45 0.4 fade);
+                  circle (x +. (ux *. 7.)) (y +. (uy *. 7.)) 1.6 (rgb 0.95 0.97 1. (fade *. 0.8)))
+                else if t > 0. then (
+                  let hit = clamp01 ((t -. fly) /. 0.3) in
+                  circle to_.x to_.y (5. +. (hit *. 14.)) (rgb 0.8 0.85 1. ((1. -. hit) *. fade *. 0.45));
+                  for k = 0 to 4 do
+                    let ang = (float k *. (Float.pi /. 2.5)) +. 0.4 in
+                    let r0 = 4. +. (hit *. 10.) in
+                    line
+                      (to_.x +. (cos ang *. r0)) (to_.y +. (sin ang *. r0))
+                      (to_.x +. (cos ang *. (r0 +. 6.))) (to_.y +. (sin ang *. (r0 +. 6.)))
+                      1.6 (rgb 0.9 0.93 1. ((1. -. hit) *. fade *. 0.7))
+                  done))
+              targets))
+
+(* Rocket Battery: a single rocket leaves the battery, arcs across the board
+   on a tail of smoke and flame, and bursts on the creature that struck. *)
+let rocket_flight = 0.34
+let rocket_boom = 0.4
+let rocket_duration = rocket_flight +. rocket_boom
+
+let spawn_rocket ~from_ ~to_ ~start =
+  let duration = rocket_duration in
+  let cy = to_.y -. 20. in
+  let arc = 64. in
+  let path p =
+    ( lerp from_.x to_.x p,
+      lerp from_.y cy p -. (arc *. 4. *. p *. (1. -. p)) )
+  in
+  mk ~start ~duration (fun ~age ->
+      if age < rocket_flight then (
+        let p = clamp01 (age /. rocket_flight) in
+        let x, y = path p in
+        let x2, y2 = path (Float.min 1. (p +. 0.02)) in
+        let dx = x2 -. x and dy = y2 -. y in
+        let len = Float.max 1. (hypot dx dy) in
+        let ux = dx /. len and uy = dy /. len in
+        let nx = -.uy and ny = ux in
+        (* smoke trail *)
+        for k = 1 to 9 do
+          let back = float k *. 9. in
+          let a = (1. -. (float k /. 10.)) *. 0.34 in
+          circle (x -. (ux *. back)) (y -. (uy *. back)) (3. +. (float k *. 0.9)) (rgb 0.55 0.55 0.58 a)
+        done;
+        (* glowing exhaust *)
+        additive (fun () ->
+            for k = 0 to 7 do
+              let back = float k *. 7. in
+              let a = 1. -. (float k /. 8.) in
+              circle (x -. (ux *. back)) (y -. (uy *. back)) (6. -. (float k *. 0.55))
+                (rgb 1. 0.5 0.1 (a *. 0.8))
+            done;
+            circle x y 10. (rgb 1. 0.8 0.4 0.45));
+        (* body, nose cone and fins *)
+        let tx = x -. (ux *. 26.) and ty = y -. (uy *. 26.) in
+        line tx ty x y 7. (rgb 0.78 0.8 0.84 1.);
+        line tx ty x y 3. (rgb 0.95 0.96 1. 1.);
+        tri
+          (x +. (ux *. 4.) +. (nx *. 4.)) (y +. (uy *. 4.) +. (ny *. 4.))
+          (x +. (ux *. 4.) -. (nx *. 4.)) (y +. (uy *. 4.) -. (ny *. 4.))
+          (x +. (ux *. 15.)) (y +. (uy *. 15.)) (rgb 0.9 0.35 0.2 1.);
+        let fxs = x -. (ux *. 20.) and fys = y -. (uy *. 20.) in
+        tri fxs fys
+          (fxs -. (ux *. 11.) +. (nx *. 9.)) (fys -. (uy *. 11.) +. (ny *. 9.))
+          (fxs -. (ux *. 11.)) (fys -. (uy *. 11.)) (rgb 0.85 0.3 0.16 1.);
+        tri fxs fys
+          (fxs -. (ux *. 11.) -. (nx *. 9.)) (fys -. (uy *. 11.) -. (ny *. 9.))
+          (fxs -. (ux *. 11.)) (fys -. (uy *. 11.)) (rgb 0.85 0.3 0.16 1.))
+      else
+        let te = age -. rocket_flight in
+        let p = clamp01 (te /. rocket_boom) in
+        let q = 1. -. p in
+        let x = to_.x and y = cy in
+        if p > 0.1 then
+          for k = 0 to 4 do
+            let s = noise k 7 13 in
+            let ps = clamp01 ((p -. 0.1) /. 0.9) in
+            circle (x +. ((s -. 0.5) *. 40.)) (y -. (ps *. (24. +. (40. *. s)))) (10. +. (ps *. 14.))
+              (rgb 0.16 0.13 0.12 (q *. 0.5))
+          done;
+        additive (fun () ->
+            if p < 0.3 then
+              circle x y ((40. *. (1. -. (p /. 0.3))) +. 8.)
+                (rgb 1. 0.92 0.72 ((1. -. (p /. 0.3)) ** 2.));
+            let r = 12. +. (26. *. ease_out p) in
+            circle x y r (rgb 1. 0.45 0.06 (q *. 0.8));
+            circle x y (r *. 0.6) (rgb 1. 0.78 0.25 (q *. 0.85));
+            circle x y (r *. 0.28) (rgb 1. 0.97 0.85 (q *. 0.9))))
+
+(* Raging Flame: a fast bolt of fire leaps from the tower to the creature it
+   burns, then bursts into flame on the card.  Short and blocking so the end
+   of the turn does not stall. *)
+let fire_shot_flight = 0.24
+let fire_shot_boom = 0.3
+let fire_shot_duration = fire_shot_flight +. fire_shot_boom
+
+let spawn_fire_shot ~from_ ~to_ ~start =
+  let duration = fire_shot_duration in
+  let cy = to_.y -. 16. in
+  let arc = 26. in
+  let path p =
+    ( lerp from_.x to_.x p,
+      lerp from_.y cy p -. (arc *. 4. *. p *. (1. -. p)) )
+  in
+  mk ~start ~duration (fun ~age ->
+      if age < fire_shot_flight then (
+        let p = clamp01 (age /. fire_shot_flight) in
+        let x, y = path p in
+        let x1, y1 = path (Float.max 0. (p -. 0.03)) in
+        let len = Float.max 1. (hypot (x -. x1) (y -. y1)) in
+        let ux = (x -. x1) /. len and uy = (y -. y1) /. len in
+        (* ember trail *)
+        additive (fun () ->
+            for k = 1 to 8 do
+              let back = float k *. 6. in
+              let a = 1. -. (float k /. 9.) in
+              circle (x -. (ux *. back)) (y -. (uy *. back)) (5. -. (float k *. 0.4))
+                (rgb 1. 0.45 0.08 (a *. 0.7))
+            done;
+            circle x y 11. (rgb 1. 0.5 0.1 0.5);
+            circle x y 6.5 (rgb 1. 0.85 0.4 0.85);
+            circle x y 3. (rgb 1. 0.98 0.9 1.)))
+      else
+        let te = age -. fire_shot_flight in
+        let p = clamp01 (te /. fire_shot_boom) in
+        let q = 1. -. p in
+        additive (fun () ->
+            if p < 0.35 then
+              circle to_.x to_.y ((30. *. (1. -. (p /. 0.35))) +. 6.)
+                (rgb 1. 0.9 0.62 ((1. -. (p /. 0.35)) ** 2.));
+            let r = 8. +. (18. *. ease_out p) in
+            circle to_.x to_.y r (rgb 1. 0.42 0.05 (q *. 0.8));
+            circle to_.x to_.y (r *. 0.55) (rgb 1. 0.72 0.2 (q *. 0.85)));
+        (* flame licks climbing off the card *)
+        let hot = q *. (1. -. (Float.abs (0.5 -. p) *. 2.)) in
+        if hot > 0.05 then
+          for k = 0 to 3 do
+            let fx = to_.x +. ((float k -. 1.5) *. 8.) in
+            flame_column ~x:fx ~y:(to_.y +. 8.) ~height:(26. *. (0.5 +. (0.5 *. q))) ~fat:0.7
+              ~hot:1. ~alpha:hot ~t:age ~id:k ~licks:2 ~push:0.
+          done)
 
 let spawn_bats ~from_ ~to_ ~start =
   let duration = 1.02 in
@@ -4856,3 +5076,111 @@ let draw_focus_box ~at ~age =
    rather than filtered through blue glass. *)
 let spawn_focus_box ~at ~start =
   mk ~start ~duration:focus_box_duration (fun ~age -> draw_focus_box ~at ~age)
+
+(* ------------------------------------------------------------ fortification *)
+
+(* Fortification: every elemental creature is turned to stone where it stands.
+   The shell creeps over the card -- reported to the board's petrify shader --
+   seams split open glowing with the creature's own element, and then the stone
+   breaks apart in smoke and shards, leaving the tower in its place. *)
+let fortification_petrify = 0.5
+let fortification_crack = 0.8
+let fortification_break = 0.95
+let fortification_duration = 1.35
+let fortification_card = (86., 98.)
+let fortification_seams = 7
+let fortification_shards = 12
+
+(* One jagged seam from the middle of the card out to its rim: a dark split with
+   the element glowing in it, widening as the stone sets. *)
+let draw_fortification_seam (p : spot) ~num ~k ~grow ~fade (r, g, b) =
+  let seed = (num * 31) + k in
+  let ang = (float k /. float fortification_seams *. Float.pi *. 2.) +. ((noise seed 1 3 -. 0.5) *. 0.9) in
+  let len = (40. +. (noise seed 2 5 *. 20.)) *. grow in
+  let steps = 6 in
+  let px = ref p.x and py = ref p.y in
+  for s = 1 to steps do
+    let u = float s /. float steps in
+    let wob = (noise seed (s + 3) 7 -. 0.5) *. 16. in
+    let x = p.x +. (cos ang *. len *. u) -. (sin ang *. wob *. u) in
+    let y = p.y +. (sin ang *. len *. u) +. (cos ang *. wob *. u) in
+    line !px !py x y (2.6 *. (1. -. (0.35 *. u))) (rgb 0.05 0.04 0.04 (0.85 *. fade));
+    line !px !py x y (1.2 *. (1. -. (0.35 *. u))) (rgb r g b (0.9 *. fade *. grow));
+    px := x;
+    py := y
+  done
+
+(* The shards of the shell, thrown out and up from the card and tumbling down. *)
+let draw_fortification_shards (p : spot) ~num ~bt ~fade =
+  let w, h = fortification_card in
+  for k = 0 to fortification_shards - 1 do
+    let seed = (num * 73) + k in
+    let n1 = noise seed 1 11 and n2 = noise seed 2 13 and n3 = noise seed 3 17 in
+    let ox = (n1 -. 0.5) *. w *. 0.9 in
+    let oy = (n2 -. 0.5) *. h *. 0.9 in
+    let dir = atan2 oy ox in
+    let x = p.x +. ox +. (cos dir *. (30. +. (n3 *. 70.)) *. bt) in
+    let y = p.y +. oy +. (sin dir *. (30. +. (n1 *. 60.)) *. bt) -. ((70. +. (n2 *. 70.)) *. bt) +. (300. *. bt *. bt) in
+    let rad = (4. +. (n2 *. 8.)) *. (1. -. (0.3 *. bt)) in
+    let spin = dir +. (bt *. (5. +. (n3 *. 9.))) in
+    let ga = fade *. (1. -. clamp01 (bt /. 0.8)) in
+    if ga > 0.02 then rock ~tint:(0.4, 0.38, 0.35) ~seed x y rad spin ga
+  done
+
+(* Grey smoke pouring off the stone as it splits, drawn with plain blending. *)
+let draw_fortification_smoke (p : spot) ~num ~lt ~fade =
+  let _, h = fortification_card in
+  for i = 0 to 11 do
+    let seed = (num * 41) + i in
+    let born = fortification_crack -. 0.12 +. (float i *. 0.045) +. (noise seed 1 19 *. 0.08) in
+    let a = lt -. born in
+    if a > 0. then (
+      let life = 0.7 +. (noise seed 2 23 *. 0.45) in
+      if a < life then (
+        let u = a /. life in
+        let x = p.x +. ((noise seed 3 29 -. 0.5) *. 52.) +. (sin ((u *. 5.) +. float i) *. 9. *. u) in
+        let y = p.y +. (h *. 0.15) -. (u *. 76.) in
+        let rad = 7. +. (u *. 25.) in
+        let al = fade *. sin (Float.pi *. clamp01 (u *. 1.15)) in
+        circle x y rad (rgb 0.24 0.23 0.24 (al *. 0.4));
+        circle (x +. 3.) (y -. 2.) (rad *. 0.6) (rgb 0.42 0.41 0.4 (al *. 0.3))))
+  done
+
+(* The element flares out of the broken stone as the tower takes its place. *)
+let draw_fortification_flash (p : spot) ~lt ~fade (r, g, b) =
+  let t = lt -. fortification_break in
+  if t > 0. then
+    let u = clamp01 (t /. 0.38) in
+    additive (fun () ->
+        circle p.x p.y (28. +. (u *. 26.)) (rgb r g b ((1. -. u) *. fade *. 0.3));
+        circle p.x p.y (9. +. (u *. 12.)) (rgb 1. 1. 1. ((1. -. u) *. fade *. 0.22)))
+
+let spawn_fortification ~pid ~slots ~start =
+  let duration = fortification_duration in
+  List.iter (fun (num, _, _) -> add_shake pid num ~start ~duration:0.6 ~strength:0.4) slots;
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.25) in
+      List.iteri
+        (fun i (num, house, p) ->
+          let delay = float i *. 0.08 in
+          let lt = age -. delay in
+          if lt >= 0. && fade > 0.001 then (
+            let col = prism_element_color house in
+            let pet = ease_out (clamp01 (lt /. fortification_petrify)) in
+            mark_petrify p pet (noise num 1 37);
+            (* the seams open once the stone has set *)
+            let grow =
+              clamp01
+                ((lt -. (fortification_petrify *. 0.5))
+                /. (fortification_crack -. (fortification_petrify *. 0.5)))
+            in
+            if grow > 0. then
+              for k = 0 to fortification_seams - 1 do
+                draw_fortification_seam p ~num ~k ~grow ~fade col
+              done;
+            (* the shell comes apart *)
+            let bt = clamp01 ((lt -. fortification_break) /. 0.6) in
+            if bt > 0. then draw_fortification_shards p ~num ~bt ~fade;
+            draw_fortification_smoke p ~num ~lt ~fade;
+            draw_fortification_flash p ~lt ~fade col))
+        slots)

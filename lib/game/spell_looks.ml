@@ -85,6 +85,7 @@ let looks =
     ("blacksmith.cloakanddagger", look Shadow Own_target 0.45 0.35 0.55 ());
     ("beastlord.ritual", look Rise Own_slots 0.5 0.85 0.4 ());
     ("chaospriest.deepmeditation", look Rise Own_life 0.55 0.4 0.9 ());
+    ("technomage.repair", look Rise Own_slots 0.95 0.8 0.4 ~power:1.15 ());
   ]
 
 (* Spells the GUI draws itself, either from [for_spell] (a bespoke case on the
@@ -151,6 +152,7 @@ let custom =
     "beastlord.poison";
     "chaospriest.shockwave";
     "chaospriest.unstablehealing";
+    "technomage.fortification";
     (* Focus has no cast overlay: the boxes over the creatures it reads, and the
        arc of their mana, are the whole effect (see [for_ability]). *)
     "zen.focus";

@@ -82,6 +82,20 @@ let langs_json langs =
 (* a house's playable cards, plus the tokens it summons *)
 let cards_of (h : house) = h.h_cards @ h.h_additional_cards
 
+(* The page shows a card once.  A class may print the same key twice for the
+   shuffled build (Technomage's Workpiece fills the deck's opening quarter),
+   but the two entries are the same card and read as a duplicate in the list,
+   so the first one wins. *)
+let dedup_by_key cards =
+  let seen = Hashtbl.create 256 in
+  List.filter
+    (fun (_, (c : card)) ->
+      if Hashtbl.mem seen c.key then false
+      else (
+        Hashtbl.add seen c.key ();
+        true))
+    cards
+
 (* A card description may end in a value read off the live board (Apocalypse:
    "8 + fire mana [{0}]"). A static list has no board, so the value goes rather
    than printing a raw placeholder. *)
@@ -372,7 +386,10 @@ let () =
           (fun (h : house) -> not (List.mem h.h_key hidden_houses))
           (List.sort (fun a b2 -> String.compare (house_name a) (house_name b2)) Catalog.all)
       in
-      let cards = List.concat_map (fun (h : house) -> List.map (fun c -> (h, c)) (cards_of h)) houses in
+      let cards =
+        List.concat_map (fun (h : house) -> List.map (fun c -> (h, c)) (cards_of h)) houses
+        |> dedup_by_key
+      in
       List.iter (fun (_, (c : card)) -> if art_name c = None then missing := c.key :: !missing) cards;
       let json =
         `Assoc

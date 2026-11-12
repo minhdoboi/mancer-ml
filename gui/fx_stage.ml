@@ -629,6 +629,22 @@ let for_spell layout (c : command) =
          effect, and they are announced when the spell resolves (see
          [for_ability]). *)
       None
+  | "technomage.fortification" ->
+      (* every elemental creature is turned to stone where it stands, the stone
+         breaks apart, and the tower of its own element is left behind *)
+      let slots =
+        List.filter_map
+          (fun n ->
+            match layout.slot_house player n with
+            | Some h when h < special_house_index -> Some (n, h, layout.slot_center player n)
+            | _ -> None)
+          base_slot_list
+      in
+      if slots = [] then None
+      else
+        Some
+          (recipe ~duration:fortification_duration ~blocking:true (fun ~start ->
+               spawn_fortification ~pid:player ~slots ~start))
   | _ -> Option.map (look_recipe layout c) (Spell_looks.get c.cmd_card.key)
 
 (* Contextual mana: arcs from a creature to the house labels it moved. *)
@@ -711,7 +727,44 @@ let for_ability layout ~kind ~player ~num ~target =
       in
       Some
         (recipe ~duration:0.7 ~blocking:true (fun ~start ->
-             spawn_phosphor ~from_:(layout.slot_center player num) ~targets:hits ~start))
+             spawn_phosphor ~from_:(layout.slot_center player num) ~targets:hits ~start ()))
+  | "technomage.daggers" ->
+      (* the wall throws a dagger at every foe creature it can see, and its own
+         attack straight at the opponent *)
+      let foe = other player in
+      let hits = layout.occupied foe |> List.map (layout.slot_center foe) |> Array.of_list in
+      let targets = Array.append hits [| layout.life foe |] in
+      Some
+        (recipe ~sound:"shadowscythe" ~duration:dagger_volley_duration ~blocking:true
+           (fun ~start ->
+             spawn_daggers ~from_:(layout.slot_center player num) ~targets ~start))
+  | "technomage.distortion" ->
+      (* every foe creature reels from the wall's wound: the phosphor shape,
+         thrown in silver and purple *)
+      let foe = other player in
+      let hits = layout.occupied foe |> List.map (layout.slot_center foe) |> Array.of_list in
+      Some
+        (recipe ~sound:"warpreality" ~duration:0.7 ~blocking:true (fun ~start ->
+             spawn_phosphor ~palette:phosphor_silver ~from_:(layout.slot_center player num)
+               ~targets:hits ~start ()))
+  | "technomage.battery" ->
+      (* the battery launches one rocket at the attacker it caught *)
+      Option.map
+        (fun (tp, tn) ->
+          recipe ~sound:"scatterbomb" ~duration:rocket_duration ~blocking:true (fun ~start ->
+              add_shake tp tn ~start:(start +. rocket_flight) ~duration:0.35 ~strength:0.8;
+              spawn_rocket ~from_:(layout.slot_center player num)
+                ~to_:(layout.slot_center tp tn) ~start))
+        target
+  | "technomage.flame" ->
+      (* the flame tower spits a bolt of fire at the weakest foe it can see *)
+      Option.map
+        (fun (tp, tn) ->
+          recipe ~sound:"flamewave" ~duration:fire_shot_duration ~blocking:true (fun ~start ->
+              add_shake tp tn ~start:(start +. fire_shot_flight) ~duration:0.22 ~strength:0.55;
+              spawn_fire_shot ~from_:(layout.slot_center player num)
+                ~to_:(layout.slot_center tp tn) ~start))
+        target
   | "emotion.coward" ->
       Some
         (recipe ~duration:0.58 ~blocking:true (fun ~start ->
@@ -938,6 +991,7 @@ let demo_names =
     "naturecare";
     "kojiro";
     "hunter";
+    "fortify";
   ]
 
 let spawn_demo layout name =
@@ -1040,7 +1094,7 @@ let spawn_demo layout name =
   | "warcry" -> go (spawn_warcry ~source:own_life ~foe ~foe_life ~foe_pid:opponent ~start:now)
   | "bats" -> go (spawn_bats ~from_:own.(1) ~to_:own.(4) ~start:now)
   | "harvest" -> go (spawn_harvest ~from_:foe.(2) ~to_:own_life ~souls:3 ~start:now)
-  | "phosphor" -> go (spawn_phosphor ~from_:own.(3) ~targets:foe ~start:now)
+  | "phosphor" -> go (spawn_phosphor ~from_:own.(3) ~targets:foe ~start:now ())
   | "victory" -> victory layout ~winner:(Some owner) ~you:true ~start:now
   | "blackmass" -> go (spawn_black_mass ~source:own.(2) ~target:foe.(0) ~w:500. ~h:100. ~start:now)
   | "poison" -> go (spawn_poison ~own:own.(2) ~facing:foe.(2) ~smoke:[| own.(2); foe.(2) |] ~start:now)
@@ -1145,4 +1199,9 @@ let spawn_demo layout name =
   | "hunter" ->
       (* the Bounty hunter's summon strike: a short gash on the opposite creature *)
       go (spawn_blade_strike ~at:foe.(2) ~pid:opponent ~num:2 ~start:now)
+  | "fortify" ->
+      (* Technomage's Fortification: elemental creatures turn to stone and break
+         into the tower of their own element *)
+      let slots = [ (1, 0, own.(1)); (2, 1, own.(2)); (4, 2, own.(4)); (5, 3, own.(5)) ] in
+      go (spawn_fortification ~pid:owner ~slots ~start:now)
   | _ -> ()

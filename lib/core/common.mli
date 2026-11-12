@@ -34,6 +34,9 @@ val run_all_strikes :
 val is_multi_run : run_attack -> bool
 val is_multi_card : card -> bool
 val is_bridled : slot_state -> bool
+val once : bool ref -> (unit -> unit) -> unit
+(** Run the body at most once while the flag is set, clearing it afterwards.
+    Wraps reactions that feed damage back into the board. *)
 
 val creature :
   key:string ->

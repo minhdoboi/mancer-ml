@@ -201,6 +201,11 @@
  (libraries mancer support alcotest))
 
 (test
+ (name technomage)
+ (modules technomage)
+ (libraries mancer support alcotest))
+
+(test
  (name update)
  (modules update)
  (libraries mancer alcotest))

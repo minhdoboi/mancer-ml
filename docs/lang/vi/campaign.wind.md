@@ -1,9 +1,10 @@
 # Aelwyn, **Gió** — `campaign.wind`
 
 Fiche de langue pour le combat de campagne `wind` (chapitre *day*, débloqué
-après `mountainking` ; bot `lecturer`). Aelwyn ne parle que de souffle et de
-vent — et, dans le `win`, glisse une image d'examen universitaire : une thèse,
-une soutenance. Le personnage est fait pour le cerveau `lecturer`.
+après n'importe lequel de `mountainking`, `technomage` ; bot `lecturer`).
+Aelwyn ne parle que de souffle et de vent — et, dans le `win`, glisse une image
+d'examen universitaire : une thèse, une soutenance. Le personnage est fait pour
+le cerveau `lecturer`.
 
 **Ton.** Aelwyn souffle plutôt qu'elle ne menace ; tout est dans le rythme et le
 souffle.

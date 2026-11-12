@@ -510,8 +510,13 @@ let push_frame ui ~silent =
   ui.last_frame <- st
 
 let fx_layout ui : Fx.layout =
+  (* [last_frame] is the newest snapshot the engine published: a run-flag
+     creature can be summoned and attack in one submit, so [view] (the frame
+     the animation has reached) still lacks it when its wound triggers an
+     ability.  Targeting the freshest board keeps an all-creatures effect from
+     skipping the creature that just arrived. *)
   let occupied pid =
-    let p = (view ui).players.(pid) in
+    let p = ui.last_frame.players.(pid) in
     List.filter (fun n -> Option.is_some p.ps_slots.(n)) p.ps_slot_list
   in
   let scarecrow pid =
@@ -1178,6 +1183,12 @@ let with_dissolve r ~amount ~seed draw =
   | None -> draw r
   | Some shader -> with_painted_shader shader ~set:(fun () -> Fx.dissolve_uniforms ~amount ~seed) r draw
 
+(* Fortification: the card keeps its shape but is painted as stone, at the amount the effect reports. *)
+let with_petrify r ~amount ~seed draw =
+  match Fx.petrify_shader () with
+  | None -> draw r
+  | Some shader -> with_painted_shader shader ~set:(fun () -> Fx.petrify_uniforms ~amount ~seed) r draw
+
 (* Barbarians: a creature's second face opens while the owner's life is at or
    below its threshold.  The frame takes on a red taint while it is raging, in
    the hand and on the board alike. *)
@@ -1224,6 +1235,13 @@ let draw_slot ui pid num =
          else (
            let spot = (fx_layout ui).slot_center pid num in
            let eaten = eaten_state ui pid num st spot in
+           (* Fortification petrifies only an elemental creature; the tower it
+              leaves behind is a special card and must not be painted as stone. *)
+           let petrified =
+             match Fx.petrify_state spot with
+             | Some (amount, seed) when st.card.c_card.house_index < special_house_index -> Some (amount, seed)
+             | _ -> None
+           in
            (* an eaten creature leaves its well behind, as an empty slot does *)
            let eating = Option.is_some eaten in
            if fade < 0.999 || eating then draw_slot_well r;
@@ -1269,7 +1287,10 @@ let draw_slot ui pid num =
                if not gone then (
                  (match eaten with
                  | Some (amount, seed) -> with_dissolve r ~amount ~seed face
-                 | None -> if warp > 0.02 then with_warp r warp face else face r);
+                 | None -> (
+                     match petrified with
+                     | Some (amount, seed) -> with_petrify r ~amount ~seed face
+                     | None -> if warp > 0.02 then with_warp r warp face else face r));
                  draw_aura_outline r active_auras;
                  if not !decorated then
                    let flags = flag_names st in

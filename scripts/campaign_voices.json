@@ -233,6 +233,7 @@
     "farmer": { "gender": "man", "age": "mature", "tone": "warm" },
     "porter": { "gender": "man", "age": "mature", "tone": "warm" },
     "conjurer": { "gender": "man", "age": "mature", "tone": "warm" },
+    "technomage": { "gender": "man", "age": "mature", "tone": "clear" },
     "shadowmage": { "gender": "man", "age": "mature", "tone": "clear" },
     "tinker": { "gender": "man", "age": "mature", "tone": "clear" },
     "zen": { "gender": "man", "age": "mature", "tone": "clear" },

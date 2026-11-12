@@ -177,6 +177,19 @@ let dissolve_state p =
   | Some (a, seed, t) when R.get_time () -. t < 0.3 -> Some (a, seed)
   | _ -> None
 
+(* Fortification turns an elemental creature to stone: the effect reports every
+   frame how far the stone has crept over the card and its noise seed, and the
+   board paints the card through the petrify shader.  A mark a frame or two old
+   is still used, since the board draws the cards before the effect runs. *)
+let petrify_marks : (int * int, float * float * float) Hashtbl.t = Hashtbl.create 8
+
+let mark_petrify p amount seed = Hashtbl.replace petrify_marks (warp_key p) (amount, seed, R.get_time ())
+
+let petrify_state p =
+  match Hashtbl.find_opt petrify_marks (warp_key p) with
+  | Some (a, seed, t) when R.get_time () -. t < 0.12 -> Some (a, seed)
+  | _ -> None
+
 let powder_spots : spot list ref = ref []
 
 let powder_occupied : spot list ref =
@@ -551,6 +564,75 @@ let dissolve_shader () =
       Hashtbl.replace shaders "dissolve" s;
       s
 
+(* Petrify: the card keeps its shape but takes on the colour of stone -- a
+   grainy mottle over it and dark veins where the rock has split -- while the
+   creature's own light survives, so the subject still reads.  [u_amount] is how
+   far the stone has crept over the card, [u_seed] its noise. *)
+let petrify_vs = dissolve_vs
+
+let petrify_fs =
+  {|#version 330
+
+in vec2 fragTexCoord;
+in vec4 fragColor;
+
+uniform sampler2D texture0;
+uniform vec4 colDiffuse;
+uniform float u_amount;
+uniform float u_seed;
+
+out vec4 finalColor;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash(i);
+  float b = hash(i + vec2(1.0, 0.0));
+  float c = hash(i + vec2(0.0, 1.0));
+  float d = hash(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+  return 0.55 * vnoise(p) + 0.3 * vnoise(p * 2.13) + 0.15 * vnoise(p * 4.37);
+}
+
+void main() {
+  vec4 tex = texture(texture0, fragTexCoord) * fragColor * colDiffuse;
+  float a = clamp(u_amount, 0.0, 1.0);
+  float lum = dot(tex.rgb, vec3(0.3, 0.59, 0.11));
+  // the creature's light survives in the stone, so its shape still reads
+  vec3 stone = mix(vec3(0.20, 0.19, 0.18), vec3(0.70, 0.68, 0.62), lum);
+  vec2 q = fragTexCoord * 8.0 + vec2(u_seed * 19.0, u_seed * 7.0);
+  float grain = fbm(q);
+  stone *= 0.80 + 0.40 * grain;
+  // dark veins split the rock, opening further as the stone sets
+  float vein = fbm(fragTexCoord * 5.0 + vec2(u_seed * 3.0, u_seed));
+  float crack = smoothstep(0.03, 0.0, abs(vein - 0.5)) * smoothstep(0.25, 1.0, a);
+  stone = mix(stone, stone * 0.25, crack * 0.9);
+  // a cold sheen from the upper left
+  stone += vec3(0.10, 0.10, 0.09) * (1.0 - fragTexCoord.x) * (1.0 - fragTexCoord.y);
+  vec3 col = mix(tex.rgb, stone, a);
+  finalColor = vec4(col, tex.a);
+}
+|}
+
+let petrify_shader () =
+  match Hashtbl.find_opt shaders "petrify" with
+  | Some s -> s
+  | None ->
+      let s =
+        let sh = R.load_shader_from_memory petrify_vs petrify_fs in
+        if R.is_shader_valid sh then Some { sh; locs = Hashtbl.create 8 } else None
+      in
+      Hashtbl.replace shaders "petrify" s;
+      s
+
 let white_px : R.Texture.t option ref = ref None
 
 let white_tex () =
@@ -659,6 +741,7 @@ let clear () =
   Hashtbl.reset frost_levels;
   frost_spots := [];
   Hashtbl.reset dissolve_marks;
+  Hashtbl.reset petrify_marks;
   scroll_y := 0.;
   shakes := []
 

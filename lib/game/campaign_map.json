@@ -136,6 +136,22 @@
       }
     },
     {
+      "id": "technomage",
+      "chapter": "day",
+      "x": 0.92,
+      "y": 0.87,
+      "after": [
+        "barbarians"
+      ],
+      "fight": {
+        "house_key": "technomage",
+        "passable": false,
+        "bot_id": "gambler",
+        "portrait_id": "technomage",
+        "life": 50
+      }
+    },
+    {
       "id": "pug",
       "chapter": "day",
       "x": 0.41,
@@ -427,8 +443,8 @@
     {
       "id": "powermancer",
       "chapter": "day",
-      "x": 0.73,
-      "y": 0.745,
+      "x": 0.71,
+      "y": 0.73,
       "after": [
         "gardener"
       ],
@@ -495,8 +511,9 @@
       "chapter": "day",
       "x": 0.8,
       "y": 0.86,
-      "after": [
-        "mountainking"
+      "after_any": [
+        "mountainking",
+        "technomage"
       ],
       "fight": {
         "house_key": "wind",
@@ -1102,6 +1119,10 @@
       "to": "mountainking"
     },
     {
+      "from": "technomage",
+      "to": "wind"
+    },
+    {
       "from": "disciples",
       "to": "farmer"
     },
@@ -1228,6 +1249,10 @@
     {
       "from": "rogue",
       "to": "fishman"
+    },
+    {
+      "from": "barbarians",
+      "to": "technomage"
     },
     {
       "from": "barbarians",

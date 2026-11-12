@@ -81,6 +81,16 @@ let warp_uniforms ~amount =
       Fx_core.set_float s "u_time" (Raylib.get_time ()))
     (Fx_core.load_named "warp")
 
+let petrify_state = Fx_core.petrify_state
+let petrify_shader () = Option.map (fun s -> s.Fx_core.sh) (Fx_core.petrify_shader ())
+
+let petrify_uniforms ~amount ~seed =
+  Option.iter
+    (fun s ->
+      Fx_core.set_float s "u_amount" amount;
+      Fx_core.set_float s "u_seed" seed)
+    (Fx_core.petrify_shader ())
+
 let set_trap_spots spots = Fx_core.trap_spots := spots
 let set_frost_spots spots = Fx_core.frost_spots := spots
 let trap_center = Fx_core.trap_center_of

@@ -31,6 +31,17 @@ let run_all_strikes (strike : int -> int list -> damage -> player_update -> bool
 
 let is_multi_run (ra : run_attack) = ra.is_multi_target
 
+(* Run [f] at most once while [busy] is set.  Reactions that feed damage back
+   into the board (a wall answering a blow) wrap their body in this, so a
+   mirrored wall or a reflected hit cannot ping-pong forever.  The flag is
+   cleared when the outermost call returns, which makes the effect fire once
+   per top-level resolution rather than once per nested wound. *)
+let once (busy : bool ref) f =
+  if !busy then ()
+  else (
+    busy := true;
+    Fun.protect ~finally:(fun () -> busy := false) f)
+
 let is_multi_card (c : card) =
   match c.creature_body with Some b -> is_multi_run b.b_run_attack | None -> false
 

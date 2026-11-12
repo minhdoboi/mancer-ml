@@ -79,6 +79,19 @@ val easy_bonus : int
 val easy_bonus_big : int
 (** The easy difficulty: the player gets 5 more life on the day chapter, and 10 on its hardest fights. *)
 
+val top_tier_classes : string list
+(** The campaign's strongest special houses, by [h_key]: a player wielding one of them needs no warning
+    before the mountains. *)
+
+val is_top_tier_class : string -> bool
+
+val rabbit_warning_key : string
+val beaver_warning_key : string
+(** The second line an NPC gives a player whose class is not {!top_tier_classes}. *)
+
+val meeting_warning_key : class_key:string -> string -> string option
+(** [Some key] when the meeting node's own message is followed by a second line for that class. *)
+
 val node_bot : difficulty:string -> node -> fight -> string
 (** The bot a node names at the given difficulty: the diviner plays every day node on {!hard_difficulty},
     the node's own [bot_id] otherwise. *)

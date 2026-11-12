@@ -192,36 +192,41 @@ let martyr_reaction () =
 
 let phosphor_reaction () =
   let r = Reaction.default () in
+  let busy = ref false in
   {
     r with
     on_my_damage =
       (fun d ->
-        if not (is_effect d) then
+        (* A spell is not an attack and still bounces off; a creature's ability
+           (the Boar's summon, say) counts like a swing.  [busy] stops a pair
+           of mirrored walls from answering each other forever. *)
+        if (not d.is_spell) && not !busy then
           match d.context.ctx_card with
           | Some c when c.cost > 0 ->
-              let me = Reaction.bound_slot r in
-              let foe = other_player me.slots.player in
-              let hits =
-                Array.to_list foe.slots_update.slot_updates
-                |> List.filter_map (fun s -> if Option.is_some s.value then Some s.num else None)
-              in
-              emit me.slots.player.updater
-                (Ev_ability
-                   {
-                     kind = "quantumancer.phosphor";
-                     player = me.slots.player.pid;
-                     num = me.num;
-                     target = (match hits with n :: _ -> Some (foe.pid, n) | [] -> None);
-                   });
-              let ctx =
-                {
-                  ctx_player = me.slots.player.pid;
-                  ctx_card = Option.map (fun st -> st.card.c_card) me.value;
-                  ctx_selected = me.num;
-                }
-              in
-              Slots.foreach foe.slots_update (fun s -> Slot.inflict s (mk_damage ~is_ability:true c.cost ctx));
-              focus_slot me
+              once busy (fun () ->
+                  let me = Reaction.bound_slot r in
+                  let foe = other_player me.slots.player in
+                  let hits =
+                    Array.to_list foe.slots_update.slot_updates
+                    |> List.filter_map (fun s -> if Option.is_some s.value then Some s.num else None)
+                  in
+                  emit me.slots.player.updater
+                    (Ev_ability
+                       {
+                         kind = "quantumancer.phosphor";
+                         player = me.slots.player.pid;
+                         num = me.num;
+                         target = (match hits with n :: _ -> Some (foe.pid, n) | [] -> None);
+                       });
+                  let ctx =
+                    {
+                      ctx_player = me.slots.player.pid;
+                      ctx_card = Option.map (fun st -> st.card.c_card) me.value;
+                      ctx_selected = me.num;
+                    }
+                  in
+                  Slots.foreach foe.slots_update (fun s -> Slot.inflict s (mk_damage ~is_ability:true c.cost ctx));
+                  focus_slot me)
           | _ -> ());
   }
 

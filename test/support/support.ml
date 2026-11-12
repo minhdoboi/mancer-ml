@@ -57,6 +57,7 @@ let all_houses =
     Lightstave.house;
     Barbarians.house;
     Chaospriest.house;
+    Technomage.house;
   ]
 
 let init_all_houses () =
@@ -110,7 +111,8 @@ let init_all_houses () =
   Game.init_cards ~cost_fn:Beastlord.cost_fn Beastlord.house;
   Game.init_cards Lightstave.house;
   Game.init_cards ~cost_fn:Barbarians.cost_fn Barbarians.house;
-  Game.init_cards ~cost_fn:Chaospriest.cost_fn Chaospriest.house
+  Game.init_cards ~cost_fn:Chaospriest.cost_fn Chaospriest.house;
+  Game.init_cards ~cost_fn:Technomage.cost_fn Technomage.house
 
 let card_by_key key =
   all_houses
