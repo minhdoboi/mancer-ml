@@ -4,8 +4,8 @@ Fiche de langue pour le combat de campagne `sower` (chapitre *day*, débloqué
 après `emotion` ; bot `summoner`, 30 points de vie). Marrow est un semeur
 patient : boue, racines, germes. Sous la patience, un désir presque tendre —
 un arbre fruitier, un plaqueminier — et, quand il perd, l'aveu d'une
-déception. La dernière réplique, elle, glisse une fleur carnivore : la
-patience a des dents.
+déception, mais aussi d'une sève qui monte malgré lui. La dernière réplique,
+elle, glisse une fleur carnivore : la patience a des dents.
 
 **Ton.** Marrow n'élève jamais la voix ; il attend, comme le marais.
 
@@ -13,11 +13,11 @@ patience a des dents.
 
 ## 1. `message` — s'enraciner et voir
 
-> Cắm rễ trong bùn rồi xem cây gì mọc lên. Ta kiên nhẫn lắm - đầm lầy cũng kiên nhẫn. Ta muốn một cây ăn quả - biết đâu là cây hồng?
+> Cắm rễ trong bùn rồi xem cây gì mọc lên. Ta kiên nhẫn lắm - đầm lầy cũng kiên nhẫn. Giá mà là một cây hồng thì sao? Ta mong nó đã lâu lắm rồi. Ngươi nghĩ nó có mọc lên không?
 
 *Plante-toi dans la boue et regarde ce qui pousse. Je suis très patient — le
-marais l'est aussi. Je voudrais un arbre fruitier — un plaqueminier, peut-être
-?*
+marais l'est aussi. Et si c'était un plaqueminier ? J'en veux un depuis si
+longtemps. Va-t-il pousser, à ton avis ?*
 
 ### `cắm rễ` — prendre racine, s'enraciner
 
@@ -46,20 +46,38 @@ marais l'est aussi. Je voudrais un arbre fruitier — un plaqueminier, peut-êtr
 - `đầm` : marais, étang (**purement vietnamien**). `lầy` : bourbeux, fangeux.
 - `đầm lầy` = le marais. Il devient un personnage : lui aussi sait attendre.
 
-### `cây ăn quả` — l'arbre fruitier
+### `giá mà` — si seulement, et si
 
-- `cây` : arbre (**purement vietnamien**). `ăn` : manger (native) ; `quả` :
-  fruit (native).
-- Littéralement « l'arbre dont on mange le fruit ». Composé descriptif et
-  concret, à l'opposé du savant `mộc` (`木`).
+- Tournure figée **purement vietnamienne** : `giá` (« prix », mais aussi
+  « supposé ») + `mà` (particule de contraste). `giá mà` = « si seulement »,
+  regret mêlé d'hypothèse.
+- `giá mà là một cây hồng thì sao ?` = « et si c'était un plaqueminier ? ».
+  Marrow ne demande plus, il espère : le souhait est devenu question posée à
+  voix basse.
 
-### `biết đâu` — qui sait, peut-être
+### `mong` — espérer, désirer
 
-- Tournure figée : `biết` (« savoir », purement vietnamien) + `đâu`
-  (« où »), littéralement « sait-on où ». Marque le possible lointain, presque
-  le souhait.
-- Ici, la question `biết đâu là cây hồng ?` flotte : Marrow ne demande rien, il
-  laisse l'image pousser.
+- **Purement vietnamien.** `mong` = attendre avec espoir, souhaiter. Plus
+  doux que `muốn` (« vouloir ») : c'est le mot de celui qui patiente.
+- `ta mong nó` = « je l'espère / je le désire ». Le désir passe de l'arbre
+  abstrait (`cây hồng`) à la faveur de la question qui suit : le désir porte
+  désormais sur *cet* arbre précis.
+
+### `đã lâu lắm rồi` — depuis très longtemps
+
+- `đã` : marqueur du passé accompli (**purement vietnamien**). `lâu` :
+  longtemps. `lắm` : très (intensif). `rồi` : déjà, marque l'achèvement.
+- `ta mong nó đã lâu lắm rồi` = « je le désire depuis très longtemps ». La
+  triple insistance (`lâu` + `lắm` + `rồi`) dit une attente sans fond, à
+  l'image du marais.
+
+### `ngươi nghĩ` — tu penses, à ton avis
+
+- `nghĩ` : penser (**purement vietnamien**). `ngươi` : tu — le tutoiement de
+  Marrow, déjà dans `cắm rễ` et au § 2.
+- `ngươi nghĩ nó có mọc lên không ?` = « crois-tu qu'il poussera ? ». Premier
+  vrai échange : le semeur demande l'avis du joueur, comme on consulte le sol.
+  Rappelle `mọc lên` (ci-dessus).
 
 ### `cây hồng` — le plaqueminier (kaki)
 
@@ -71,12 +89,13 @@ marais l'est aussi. Je voudrais un arbre fruitier — un plaqueminier, peut-êtr
 
 ---
 
-## 2. `win` — ne pas s'être enraciné
+## 2. `win` — la sève qui monte
 
-> Ngươi không bám rễ. Ta buồn biết bao — chẳng có cây nào cho ta. Được vậy - đi tiếp đi, và cẩn thận lau sậy.
+> Ngươi không bám rễ. Ta buồn biết bao — chẳng có cây nào cho ta. Ta cảm thấy nhựa cây đang dâng lên — và nó muốn mọc lên. Được vậy - đi tiếp đi, và cẩn thận lau sậy.
 
-*Tu ne t'es pas enraciné. Comme je suis triste — pas d'arbre pour moi. Bien —
-passe ton chemin, et prends garde aux roseaux.*
+*Tu ne t'es pas enraciné. Comme je suis triste — pas d'arbre pour moi. Je sens
+la sève monter — et elle veut pousser. Bien — passe ton chemin, et prends garde
+aux roseaux.*
 
 ### `bám rễ` — s'accrocher par les racines
 
@@ -95,11 +114,28 @@ passe ton chemin, et prends garde aux roseaux.*
 ### `chẳng có cây nào cho ta` — pas d'arbre pour moi
 
 - `chẳng` : négation emphatique (**purement vietnamien**), plus forte que
-  `không`. `có` : avoir, il y a. `cây` : arbre (voir `cây ăn quả`, § 1). `nào` :
+  `không`. `có` : avoir, il y a. `cây` : arbre (voir `cây hồng`, § 1). `nào` :
   aucun. `cho` : pour. `ta` : moi.
-- `chẳng có cây nào cho ta` = « il n'y a aucun arbre pour moi ». Écho direct au
-  souhait du `message` (`Ta muốn một cây ăn quả`) et au `cây hồng` : le
+- `chẳng có cây nào cho ta` = « il n'y a aucun arbre pour moi ». Écho direct à
+  l'espoir du `message` (`ta mong nó đã lâu lắm rồi`) et au `cây hồng` : le
   plaqueminier ne viendra pas.
+
+### `nhựa cây dâng lên` — la sève qui monte
+
+- `nhựa` : sève, résine (**purement vietnamien**), le suc qui travaille dans la
+  plante. `cây` : arbre (voir `cây hồng`, § 1). `dâng lên` : monter, s'élever
+  (native ; `dâng` a la douceur d'une offrande).
+- L'image est celle d'une sève qui pousse toute seule : Marrow ne décide pas de
+  ce désir, il le sent monter. Le semeur est à son tour traversé par la poussée
+  qu'il impose au joueur.
+
+### `nó muốn mọc lên` — elle veut pousser
+
+- `nó` : il / elle (pronom neutre). `muốn` : vouloir (native). `mọc lên` :
+  pousser, germer — voir `mọc lên` au § 1.
+- La sève a sa propre volonté ; l'écho du `message` (`xem cây gì mọc lên`) rend
+  le besoin plus inquiétant qu'attendrissant. À rapprocher de `tự mọc răng`
+  (« se pousser des dents », § 3) : la croissance comme appétit.
 
 ### `đi tiếp` — continuer sa route
 

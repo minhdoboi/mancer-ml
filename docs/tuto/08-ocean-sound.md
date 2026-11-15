@@ -6,9 +6,10 @@ of a small browser toy (the "beach wave loop generator"). This document walks
 through it in the order the signal flows: noise → shaping → filter → buffer →
 stream.
 
-Turn it on or off with **Settings → Sound → Ocean ambience in the lobby**. It is on by
+Turn it on or off with **Settings → Sound → Ambient sound**. It is on by
 default (`sound.ambient` in the prefs file, `Prefs.ambient_sound`) and plays only
-while the lobby is on screen.
+while the lobby is on screen. Its volume is the **Ambient** slider
+(`sound.ambient.level`, `Prefs.ambient_level`).
 
 ## 1. The big idea: a sound is a function of time
 
@@ -170,8 +171,8 @@ and 0.5 per chunk down, and is **interpolated linearly across each chunk**, so
 the gain ramps smoothly instead of stepping. Fade-in takes about 0.75 s,
 fade-out about 0.4 s.
 
-**Level refresh.** The sound level lives in the prefs file. Reading a file on
-every chunk would be wasteful, so `update` re-reads it every fifth chunk
+**Level refresh.** The ambience level lives in the prefs file. Reading a file
+on every chunk would be wasteful, so `update` re-reads it every fifth chunk
 (about once a second).
 
 ## 7. Getting the samples to the speakers
@@ -213,7 +214,7 @@ Everything is driven from the main loop, not from an audio thread:
 ```ocaml
 (* bin/gui.ml, once per frame *)
 Ocean.update ~active:(match !screen with Lobby l -> l.gs.ocean | _ -> false)
-             ~volume:sound_level
+             ~volume:ambient_level
 ```
 
 `update` creates the stream lazily the first time it is wanted, keeps filling it
@@ -259,7 +260,7 @@ Things worth knowing before you tune:
 ```sh
 dune build
 dune exec ./bin/gui.exe
-# lobby -> Settings -> Sound -> tick "Ocean ambience in the lobby"
+# lobby -> Settings -> Sound -> tick "Ambient sound" and set the Ambient slider
 ```
 
 To hear what one ingredient contributes, set `wind_level` to `0.` (waves only),

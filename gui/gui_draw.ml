@@ -165,21 +165,88 @@ let load_fonts () =
         loaded_fonts := f :: !loaded_fonts;
         f
   in
-  let fonts = "/usr/share/fonts/truetype/" in
-  regular := load 64 [ fonts ^ "noto/NotoSans-Regular.ttf"; fonts ^ "dejavu/DejaVuSans.ttf" ];
-  bold := load 64 [ fonts ^ "noto/NotoSans-Bold.ttf"; fonts ^ "dejavu/DejaVuSans-Bold.ttf" ];
+  (* The UI sans and the paper serif ship in the assets; these system homes
+     are the fallback when one cannot be read. Name each OS's font folders, or
+     a packaged build with a missing bundled face finds nothing and raylib's
+     blocky bitmap default shows through as the "square" menu font. *)
+  let font_roots =
+    match Sys.os_type with
+    | "Win32" | "Cygwin" ->
+        let windir = Option.value (Sys.getenv_opt "WINDIR") ~default:"C:/Windows" in
+        let user =
+          match Sys.getenv_opt "LOCALAPPDATA" with
+          | Some p -> [ Filename.concat p "Microsoft/Windows/Fonts" ]
+          | None -> []
+        in
+        Filename.concat windir "Fonts" :: user
+    | _ ->
+        let home = Option.value (Sys.getenv_opt "HOME") ~default:"" in
+        if Sys.file_exists "/System/Library/Fonts" then
+          [
+            "/System/Library/Fonts";
+            "/System/Library/Fonts/Supplemental";
+            "/Library/Fonts";
+            Filename.concat home "Library/Fonts";
+          ]
+        else
+          [
+            "/usr/share/fonts/truetype/noto";
+            "/usr/share/fonts/truetype/dejavu";
+            "/usr/share/fonts/truetype/liberation";
+            "/usr/share/fonts/truetype";
+            "/usr/local/share/fonts";
+            Filename.concat home ".local/share/fonts";
+          ]
+  in
+  let candidates names =
+    List.concat_map (fun root -> List.map (Filename.concat root) names) font_roots
+  in
+  (* The sans the UI draws is Noto Sans, shipped with the assets so every OS
+     shows the same face; the machine's fonts are only a fallback if the
+     bundled file is gone. *)
+  let bundled name = Filename.concat (Assets.root ()) ("fonts/" ^ name) in
+  regular :=
+    load 64
+      (bundled "NotoSans-Regular.ttf"
+       :: candidates
+            [
+              "NotoSans-Regular.ttf";
+              "DejaVuSans.ttf";
+              "LiberationSans-Regular.ttf";
+              "Arial.ttf";
+              "arial.ttf";
+              "segoeui.ttf";
+              "verdana.ttf";
+            ]);
+  bold :=
+    load 64
+      (bundled "NotoSans-Bold.ttf"
+       :: candidates
+            [
+              "NotoSans-Bold.ttf";
+              "DejaVuSans-Bold.ttf";
+              "LiberationSans-Bold.ttf";
+              "Arial Bold.ttf";
+              "arialbd.ttf";
+              "segoeuib.ttf";
+              "verdanab.ttf";
+            ]);
   (* IM Fell English has neither Cyrillic nor Vietnamese, so those locales use
      a system serif on parchment too (Scala [I18n.useCommonSkin]). *)
-  let paper_paths =
-    let system_serif =
+  let system_serif =
+    candidates
       [
-        fonts ^ "noto/NotoSerif-Regular.ttf";
-        fonts ^ "dejavu/DejaVuSerif.ttf";
-        fonts ^ "liberation/LiberationSerif-Regular.ttf";
-        fonts ^ "noto/NotoSans-Regular.ttf";
-        fonts ^ "dejavu/DejaVuSans.ttf";
+        "NotoSerif-Regular.ttf";
+        "DejaVuSerif.ttf";
+        "LiberationSerif-Regular.ttf";
+        "Georgia.ttf";
+        "georgia.ttf";
+        "Times New Roman.ttf";
+        "times.ttf";
+        "constan.ttf";
       ]
-    in
+  in
+  let paper_paths =
     match Assets.lang () with
     | "ru" | "vi" -> system_serif
     | _ -> Filename.concat (Assets.root ()) "fonts/IMFellEnglish.ttf" :: system_serif
@@ -317,13 +384,16 @@ let sound name =
       s
 
 (* Scala ScreenResources.playSound: clip volume scaled by the persisted sound
-   level. The prefs file is tiny; read it per play like Storage does. *)
-let sound_level () = try Prefs.load () |> Prefs.sound_level with _ -> 1.
+   level. The prefs file is tiny; read it per play like Storage does. Each
+   channel (game, voice, ambient) has its own level. *)
+let game_level () = try Prefs.load () |> Prefs.sound_level with _ -> 1.
+let voice_level () = try Prefs.load () |> Prefs.voice_level with _ -> 1.
+let ambient_level () = try Prefs.load () |> Prefs.ambient_level with _ -> 1.
 
 let play_sound ?(volume = 0.7) name =
   Option.iter
     (fun s ->
-      R.set_sound_volume s (volume *. sound_level ());
+      R.set_sound_volume s (volume *. game_level ());
       R.play_sound s)
     (sound name)
 

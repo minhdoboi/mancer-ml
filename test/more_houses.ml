@@ -348,7 +348,7 @@ let janus_strikes_on_summon () =
   let life = player_life u 0 and fire = mana u 0 0 in
   play u 0 "snowblood.janus" ~input:(Some 0) ~cost:7;
   check_int "neighbour healed" (neighbour + 2) (life_at u 0 1);
-  check_int "other slot hit" (other - 1) (life_at u 0 4);
+  check_int "other slot hit" (other - 2) (life_at u 0 4);
   check_int "owner heals" (life + 1) (player_life u 0);
   check_int "owner gains fire mana" (fire + 1) (mana u 0 0)
 
@@ -362,7 +362,7 @@ let janus_feeds_on_its_own_board () =
   let life = player_life u 0 and fire = mana u 0 0 in
   step u (fun () -> Player.apply_effects (player u 0) On_turn);
   check_int "neighbour healed" (neighbour + 2) (life_at u 0 1);
-  check_int "other slot hit" (other - 1) (life_at u 0 4);
+  check_int "other slot hit" (other - 2) (life_at u 0 4);
   check_int "owner heals" (life + 1) (player_life u 0);
   check_int "owner gains fire mana" (fire + 1) (mana u 0 0)
 
@@ -441,6 +441,28 @@ let guide_announces_the_span () =
     (List.mem
        (Ev_ability { kind = "snowblood.guide.1"; player = 0; num = 0; target = Some (1, 1) })
        !events)
+
+(* Echo cycles the guide's direct effect, so its banner can fly again. *)
+let guide_recharges_with_echo () =
+  let u = new_game ~mana:all_mana ~special:Snowblood.house () in
+  place u 0 "snowblood.guide" 0;
+  place u 1 "anger.dragon" 0;
+  place u 1 "anger.dragon" 1;
+  place u 1 "anger.dragon" 2;
+  let charged () =
+    match (slot u 0 0).value with Some st -> Snowblood.guide_charging st | None -> false
+  in
+  let a = life_at u 1 1 in
+  check_bool "guide starts charged" true (charged ());
+  play u 0 "anger.dragon" ~input:(Some 1) ~cost:6;
+  check_int "first blast" (a - 9) (life_at u 1 1);
+  check_bool "guide is spent after the blast" false (charged ());
+  play u 0 "anger.dragon" ~input:(Some 4) ~cost:6;
+  check_int "spent guide stays quiet" (a - 9) (life_at u 1 1);
+  play u 0 "snowblood.echo" ~input:None ~cost:4;
+  check_bool "echo recharges the guide" true (charged ());
+  play u 0 "anger.dragon" ~input:(Some 3) ~cost:6;
+  check_int "charged guide fires again" (a - 18) (life_at u 1 1)
 
 (* -------------------------------------------------------------------- warp *)
 
@@ -865,6 +887,7 @@ let () =
           test_case "amaterasu arrival" `Quick amaterasu_arrival;
           test_case "guide hit" `Quick guide_hits_with_the_next_summon;
           test_case "guide slash" `Quick guide_announces_the_span;
+          test_case "guide recharge" `Quick guide_recharges_with_echo;
         ] );
       ( "warp",
         [

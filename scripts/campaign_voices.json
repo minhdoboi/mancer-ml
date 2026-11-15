@@ -217,6 +217,7 @@
     "disciples": { "gender": "man", "age": "older", "tone": "deep" },
     "barbarians": { "gender": "man", "age": "older", "tone": "straight" },
     "antimancer": { "gender": "man", "age": "older", "tone": "deep" },
+    "innkeeper": { "gender": "man", "age": "older", "tone": "deep" },
     
     "chaospriest": { "gender": "man", "age": "mature", "tone": "fluid" },
     "junk": { "gender": "man", "age": "mature", "tone": "fluid" },
@@ -232,6 +233,7 @@
     "blacksmith": { "gender": "man", "age": "mature", "tone": "steady" },
     "farmer": { "gender": "man", "age": "mature", "tone": "warm" },
     "porter": { "gender": "man", "age": "mature", "tone": "warm" },
+    "chronicler": { "gender": "man", "age": "older", "tone": "warm" },
     "conjurer": { "gender": "man", "age": "mature", "tone": "warm" },
     "technomage": { "gender": "man", "age": "mature", "tone": "clear" },
     "shadowmage": { "gender": "man", "age": "mature", "tone": "clear" },

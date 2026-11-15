@@ -50,7 +50,7 @@ maison (Mithril Spear, Mithril Bow, Mithril Shield, Flying Chariot, Pegasus,
 Cloak and Dagger) n'a aucun clip : `Assets.sound` renvoie `None` et la lecture
 est sautée ; jouer ces cartes est simplement silencieux.
 
-Le volume est `0.9 · sound_level ()`, le curseur Level de Réglages → Son, lu
+Le volume est `0.9 · game_level ()`, le curseur Jeu de Réglages → Son, lu
 dans le fichier de préférences. Les sons sont décodés une fois dans un cache
 `Hashtbl` (`gui/gui_draw.ml:233`) et libérés à la fermeture
 (`bin/gui.ml:499`).

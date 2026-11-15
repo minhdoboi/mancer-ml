@@ -214,6 +214,8 @@ let check_assets () =
   let under dir name = Filename.concat (Filename.concat root dir) name in
   need "i18n/en.properties" (under "i18n" "en.properties");
   need "fonts/IMFellEnglish.ttf" (under "fonts" "IMFellEnglish.ttf");
+  need "fonts/NotoSans-Regular.ttf" (under "fonts" "NotoSans-Regular.ttf");
+  need "fonts/NotoSans-Bold.ttf" (under "fonts" "NotoSans-Bold.ttf");
   need_dir "cards" (under "" "cards");
   need_dir "portraits" (under "" "portraits");
   need_dir "sounds" (under "" "sounds");
@@ -397,13 +399,13 @@ let () =
     let wind_board = match !screen with Game ui -> (backdrop_house ui).h_key = "wind" | _ -> false in
     Ocean.update
       ~active:(match !screen with Lobby _ -> !ambient_on | Game _ -> !ambient_on && wind_board | _ -> false)
-      ~wind:wind_board ~volume:sound_level;
+      ~wind:wind_board ~volume:ambient_level;
     let quake_board =
       match !screen with Game ui -> (backdrop_house ui).h_key = "elementalist" | _ -> false
     in
-    Rumble.update ~active:(!ambient_on && quake_board) ~volume:sound_level;
+    Rumble.update ~active:(!ambient_on && quake_board) ~volume:ambient_level;
     let limbo_board = match !screen with Game ui -> (backdrop_house ui).h_key = "limbo" | _ -> false in
-    Choir.update ~active:(!ambient_on && limbo_board) ~volume:sound_level;
+    Choir.update ~active:(!ambient_on && limbo_board) ~volume:ambient_level;
     fit_frame ();
     Fx.set_transform ~scale:!scale ~off_x:!off_x ~off_y:!off_y;
     pending := None;

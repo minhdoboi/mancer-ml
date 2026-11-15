@@ -2,28 +2,30 @@
 
 Fiche de langue pour le combat de campagne `powermancer` (chapitre *day*,
 débloqué après `gardener` ; bot `gambler`, 50 points de vie ; nœud passable).
-Shams vient d'un pays de soleil et tient le pouvoir pour une énergie qui se
-puise, se transforme et circule à l'intérieur de soi. Son texte est une courte
-leçon de magie appliquée, presque un cours.
+Shams vient d'un pays de soleil et tient le pouvoir pour une énergie qui ne se
+donne pas : quand elle s'y sent ouverte, elle l'accueille, le transforme et le
+garde vivant en elle. Son texte est une courte leçon de magie appliquée,
+presque un cours — mais une leçon vécue à la première personne.
 
 **Ton.** Elle appelle le joueur `kẻ lữ hành` (« voyageur ») et parle posément,
 sans éclat : c'est une théoricienne, pas une menace — jusqu'à la dernière
 phrase, qui quitte la leçon pour la pique : `Cố mà theo kịp`. La supériorité
-tranquille du maître qui daigne donner un duel. Le nom de la maison,
+tranquille du maître qui daigne donner un duel. Le texte parle au « je » : la puissance n'y est pas une loi
+qu'elle énonce, mais une expérience qu'elle décrit. Le nom de la maison,
 `Sức mạnh sư`, est un composé forgé — « maître de la puissance » — sur le
 modèle savant `… sư` (`pháp sư`, `họa sư`).
 
 ---
 
-## 1. `message` — puiser et faire circuler
+## 1. `message` — accueillir la puissance en soi
 
-> Xin chào, kẻ lữ hành, ta là Shams. Ta đến từ một đất nước nơi mặt trời luôn rực rỡ. Dù vậy, quyền lực không phải thứ có thể ban cho; nó được rút ra, và giữ lại bởi những kẻ biết cách biến đổi nó và duy trì nó luân chuyển bên trong chính họ. Ta sẽ cho ngươi một thoáng nhìn. Cố mà theo kịp — hoặc ít nhất là cố đừng tự làm mình bẽ mặt.
+> Xin chào, kẻ lữ hành. Ta là Shams. Ta đến từ một đất nước nơi mặt trời luôn rực rỡ. Dù vậy, ta cho rằng quyền lực không phải thứ có thể ban cho. Khi ta cảm thấy rộng mở với nó, ta đón nhận nó, biến đổi nó, và giữ nó sống động bên trong ta. Ta sẽ cho ngươi một thoáng nhìn. Cố mà theo kịp — hoặc ít nhất là đừng tự làm mình bẽ mặt.
 
-*Salut, voyageur, je suis Shams. Je viens d'un pays où le soleil brille
-toujours. Pourtant, le pouvoir n'est pas une chose qu'on puisse donner ; il est
-tiré, puis retenu par ceux qui savent le transformer et le maintenir en
-circulation à l'intérieur d'eux-mêmes. Je t'en donnerai un aperçu. Essaie de
-suivre — ou du moins, tâche de ne pas te ridiculiser.*
+*Salut, voyageur. Je suis Shams. Je viens d'un pays où le soleil brille
+toujours. Pourtant, je pense que la puissance ne se donne pas. Quand je me sens
+ouverte à elle, je l'accueille, je la transmute et je la garde vivante en moi.
+Je t'en donnerai un aperçu. Essaie de suivre — ou du moins, tâche de ne pas te
+ridiculiser.*
 
 ### `Xin chào` — bonjour, salut
 
@@ -68,6 +70,13 @@ suivre — ou du moins, tâche de ne pas te ridiculiser.*
 - `dù` : bien que, malgré (**purement vietnamien**). `vậy` : ainsi.
 - `Dù vậy` = « même ainsi ». Marque le tournant : de la lumière au pouvoir.
 
+### `cho rằng` — penser, estimer que
+
+- `cho` : donner, et dans `cho rằng`, « tenir pour, estimer » (**purement
+  vietnamien**). `rằng` : que (conjonction, native).
+- `ta cho rằng` = « je pense que ». Introduit l'opinion personnelle ; le « je »
+  assume le jugement au lieu de poser une loi.
+
 ### `quyền lực` — le pouvoir
 
 - `quyền` : droit, autorité (**sino-vietnamien `權`**). `lực` : force
@@ -80,17 +89,27 @@ suivre — ou du moins, tâche de ne pas te ridiculiser.*
 - `ban` : octroyer, conférer (**sino-vietnamien `頒`**). `cho` : donner
   (**purement vietnamien**).
 - `không phải thứ có thể ban cho` = « pas une chose qu'on puisse donner ». Le
-  pouvoir ne se reçoit pas : il se prend.
+  pouvoir ne s'octroie pas d'en haut : encore faut-il s'y ouvrir.
 
-### `rút ra` — tirer, extraire
+### `cảm thấy` — sentir, éprouver
 
-- `rút` : retirer, tirer (**purement vietnamien**). `ra` : hors de.
-- `nó được rút ra` = « il est tiré ». Première étape de la méthode : prélever.
+- `cảm` : ressentir (**sino-vietnamien `感`**). `thấy` : voir, percevoir
+  (**purement vietnamien**).
+- `ta cảm thấy` = « je sens (que) ». Le verbe fait entrer le corps dans la
+  théorie : la puissance se mesure aussi au ressenti.
 
-### `giữ lại` — retenir, garder
+### `rộng mở` — ouvert, largement ouvert
 
-- `giữ` : garder (**purement vietnamien**). `lại` : sur place.
-- `giữ lại` = retenir en soi. Deuxième étape : ne pas dissiper.
+- `rộng` : large, spacieux (**purement vietnamien**). `mở` : ouvert (native).
+- `rộng mở với nó` = « ouvert à elle ». Image de la porte ou du cœur qui ne se
+  force pas : on s'ouvre à ce qui vient.
+
+### `đón nhận` — accueillir, recevoir
+
+- `đón` : aller au-devant, recevoir un hôte (**purement vietnamien**).
+  `nhận` : recevoir, accepter (native).
+- `đón nhận` = accueillir avec bienveillance. Le pouvoir n'est pas saisi de
+  force : il est reçu comme un hôte.
 
 ### `biến đổi` — transformer, transmuer
 
@@ -99,23 +118,18 @@ suivre — ou du moins, tâche de ne pas te ridiculiser.*
 - `biến đổi` = transformer. La transmutation est ici une opération
   intérieure, pas un sort.
 
-### `duy trì` — maintenir
+### `giữ nó sống động` — le garder vivant
 
-- **Sino-vietnamien `維持`** : `duy` 維 (« tenir, lier ») + `trì` 持
-  (« garder »). Registre soutenu.
+- `giữ` : garder (**purement vietnamien**). `sống` : vivre (native) ; `động` :
+  se mouvoir (**sino-vietnamien `動`**).
+- `sống động` = vivant, animé. L'énergie n'est pas stockée inerte : elle reste
+  en mouvement, entretenue comme une flamme.
 
-### `luân chuyển` — faire circuler, faire tourner
+### `bên trong ta` — à l'intérieur de moi
 
-- **Sino-vietnamien `輪轉`** : `luân` 輪 (« roue ») + `chuyển` 轉 (« tourner,
-  transférer »).
-- `duy trì nó luân chuyển bên trong chính họ` = « le maintenir en circulation
-  à l'intérieur d'eux-mêmes ». Image du flux, de la roue d'énergie.
-
-### `bên trong chính họ` — à l'intérieur d'eux-mêmes
-
-- `bên trong` : à l'intérieur. `chính` : même, en personne
-  (**sino-vietnamien `正`**). `họ` : eux.
-- `chính họ` insiste : le réservoir, c'est eux, pas un objet extérieur.
+- `bên trong` : à l'intérieur. `ta` : moi.
+- L'énergie ne circule pas hors de soi : elle vit dans le réceptacle intime de
+  celui qui l'accueille.
 
 ### `một thoáng nhìn` — un aperçu, un coup d'œil
 
@@ -156,9 +170,11 @@ suivre — ou du moins, tâche de ne pas te ridiculiser.*
 
 ## 2. `win` — la charge épuisée
 
-> Năng lượng của ta cạn, của ngươi thì chưa. Ngọn núi mở cho ngươi.
+> Năng lượng của ta cạn, của ngươi thì chưa. Năng lượng đã chảy, nhưng phần lớn về phía ngươi. Ta không gọi đó là một chiến thắng. Dù vậy — ngọn núi mở cho ngươi.
 
-*Mon énergie est à sec, la tienne pas encore. La montagne s'ouvre à toi.*
+*Mon énergie est à sec, la tienne pas encore. L'énergie a coulé, mais surtout
+vers toi. Je n'appelle pas cela une victoire. Pourtant — la montagne s'ouvre à
+toi.*
 
 ### `năng lượng` — l'énergie
 
@@ -177,6 +193,45 @@ suivre — ou du moins, tâche de ne pas te ridiculiser.*
 - Construction elliptique thématique (`của ngươi` = « la tienne », `thì` =
   thème, `chưa` = pas encore). Économie propre au vietnamien ; l'ellipse rend
   le verdict plus net.
+
+### `đã chảy` — a coulé, s'est écoulé
+
+- `chảy` : couler, s'écouler (**purement vietnamien**) — se dit de l'eau, des
+  larmes, du sang.
+- `Năng lượng đã chảy` = « l'énergie a coulé ». Reprise de l'image
+  hydraulique du `message` : ce qui était réservoir redevient courant, et le
+  courant va « vers » (`về phía`) le joueur.
+
+### `phần lớn` — la plupart, en majorité
+
+- `phần` : part (**sino-vietnamien `分`**). `lớn` : grand (**purement
+  vietnamien**). `phần lớn` = « la plus grande partie ».
+- Nuance : que le flux ait pris surtout la direction du joueur est presque une
+  excuse — elle ne concède pas une défaite, seulement un transfert.
+
+### `về phía ngươi` — dans ta direction, vers toi
+
+- `về` : vers, en direction de. `phía` : côté, direction
+  (**purement vietnamien**).
+- Marque le sens du flux : l'énergie n'a pas disparu, elle a changé de camp.
+
+### `gọi` — appeler, nommer
+
+- **Purement vietnamien.** `không gọi đó là` = « je n'appelle pas cela … ».
+- Le verbe introduit le verdict : Shams nomme — ou refuse de nommer ; ici elle
+  récuse le mot « victoire ».
+
+### `chiến thắng` — la victoire
+
+- **Sino-vietnamien `戰勝`** : `chiến` 戰 (« combat ») + `thắng` 勝
+  (« vaincre »). Registre soutenu, presque militaire.
+- `một chiến thắng` = « une victoire ». Refuser ce nom, c'est reconnaître le
+  gain sans l'honneur : la supériorité tranquille du maître.
+
+### `Dù vậy` — malgré cela, pourtant
+
+- Expliqué au § 1. Ici la conjonction rouvre la porte après le verdict : le
+  chemin importe plus que le vainqueur.
 
 ### `Ngọn núi` — la montagne
 
@@ -203,7 +258,7 @@ de nouveau.*
 
 ### `rút cạn` — drainer jusqu'à la lie
 
-- `rút` : tirer (§ 1). `cạn` : épuiser (§ 2). Paire verbale : « tirer à sec »,
+- `rút` : tirer, retirer (**purement vietnamien**). `cạn` : épuiser (§ 2). Paire verbale : « tirer à sec »,
   vider complètement.
 
 ### `tia lửa` — l'étincelle
@@ -245,8 +300,8 @@ de nouveau.*
 
 ### `phần lớn` — la plupart, en majorité
 
-- `phần` : part (**sino-vietnamien `分`**). `lớn` : grand. `phần lớn` = « la
-  plus grande partie ».
+- Expliqué au § 2. Ici, la part majoritaire : le pouvoir des mages de la nuit
+  vient de la lune, rare en plein jour.
 
 ### `mặt trăng` — la lune
 

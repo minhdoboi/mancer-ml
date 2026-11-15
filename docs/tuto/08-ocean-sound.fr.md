@@ -7,9 +7,11 @@ de navigateur (le « beach wave loop generator »). Ce document le parcourt dans
 l'ordre où circule le signal : bruit → mise en forme → filtre → tampon →
 flux.
 
-Pour l'activer ou le désactiver : **Réglages → Son → Ambiance de l'océan dans le hall**. C'est
+Pour l'activer ou le désactiver : **Réglages → Son → Son ambient**. C'est
 activé par défaut (`sound.ambient` dans le fichier de préférences,
 `Prefs.ambient_sound`), et le son ne joue que lorsque le lobby est à l'écran.
+Son volume est le curseur **Ambiance** (`sound.ambient.level`,
+`Prefs.ambient_level`).
 
 ## 1. L'idée centrale : un son est une fonction du temps
 
@@ -231,7 +233,7 @@ Tout est piloté par la boucle principale, pas par un thread audio :
 ```ocaml
 (* bin/gui.ml, once per frame *)
 Ocean.update ~active:(match !screen with Lobby l -> l.gs.ocean | _ -> false)
-             ~volume:sound_level
+             ~volume:ambient_level
 ```
 
 `update` crée le flux paresseusement la première fois qu'on en a besoin, le
@@ -278,7 +280,7 @@ Tous les réglages sont des constantes en tête de `gui/ocean.ml` :
 ```sh
 dune build
 dune exec ./bin/gui.exe
-# lobby -> Réglages -> Son -> cocher « Ambiance de l'océan dans le hall »
+# lobby -> Réglages -> Son -> cocher « Son ambient » et régler le curseur Ambiance
 ```
 
 Pour entendre ce qu'apporte un ingrédient, mettez `wind_level` à `0.`

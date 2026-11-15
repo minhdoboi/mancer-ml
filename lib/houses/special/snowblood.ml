@@ -212,13 +212,19 @@ let kojiro_turn : card_effect =
 
 (* ------------------------------------------------------------------ guide *)
 
-let guide_used st = match st.data with Custom "used" -> true | _ -> false
+(* Scala keeps a Boolean in the slot data: FALSE is "not yet" (charged), TRUE is
+   "done" (spent).  The guide starts charged and looses its blast on the next
+   summon.  Its direct effect re-raises the flag, so Echo can charge it again
+   and the blast becomes reusable. *)
+let guide_charging st = match st.data with Custom "spent" -> false | _ -> true
 
-(* Scala keeps a Boolean in the slot data: No_data is "not yet", Custom "used" is "done". *)
+let guide_charge : card_effect =
+ fun env -> Slot.set_data (own_slot_of_env env) (Custom "charging")
+
 let guide_summoned (me : slot_update) (slot : slot_update) =
   if me != slot then
     match me.value with
-    | Some mst when not (guide_used mst) ->
+    | Some mst when guide_charging mst ->
         Option.iter
           (fun s ->
             let d =
@@ -247,7 +253,7 @@ let guide_summoned (me : slot_update) (slot : slot_update) =
                        target = Some (op.pid, first);
                      }));
             List.iter (fun n -> Slot.inflict op.slots_update.slot_updates.(n) d) nums;
-            Slot.set_data me (Custom "used"))
+            Slot.set_data me (Custom "spent"))
           slot.value
     | _ -> ()
 
@@ -260,7 +266,7 @@ let janus_turn : card_effect =
  fun env ->
   let p = player_of_env env in
   let me = own_slot_of_env env in
-  let d = ability_damage env 1 in
+  let d = ability_damage env 2 in
   List.iter (fun s -> Slot.heal s 2) (me :: Slot.adjacent me);
   let hit = ref false in
   Slots.foreach p.slots_update (fun s ->
@@ -361,7 +367,10 @@ let cards =
       ()
   in
   let guide =
-    creature ~key:"snowblood.guide" ~attack:(attack 4) ~life:19 ~description:"snowblood.guide.description" ()
+    creature ~key:"snowblood.guide" ~attack:(attack 4) ~life:19 ~description:"snowblood.guide.description"
+      ~data:(Custom "charging")
+      ~effects:(effects [ (Direct, guide_charge) ])
+      ()
   in
   let amat =
     creature ~key:"snowblood.amaterasu" ~attack:(attack 7) ~life:30

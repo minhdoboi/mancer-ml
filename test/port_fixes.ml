@@ -63,6 +63,27 @@ let manipulator_steals_into_own_slot () =
   check_bool "stolen" true (occupant u 0 5 = Some "anger.dragon");
   check_bool "left the opponent" true (is_empty u 1 0)
 
+let manipulator_does_not_steal_invincibility () =
+  let u = new_duel ~special0:Snowblood.house ~special1:Kinetician.house () in
+  place u 0 "snowblood.tracker" 1;
+  place u 1 "kinetician.manipulator" 0;
+  play u 0 "anger.werewolf" ~input:(Some 2) ~cost:1;
+  check_bool "stolen" true (occupant u 1 2 = Some "anger.werewolf");
+  check_bool "left the owner" true (is_empty u 0 2);
+  check_bool "no shield on the new side" false
+    (has_flag (Option.get (slot u 1 2).value) invincible_flag);
+  step u (fun () -> Player.apply_effects (player u 0) On_turn);
+  check_bool "shield never returns" false
+    (has_flag (Option.get (slot u 1 2).value) invincible_flag)
+
+let cross_side_move_drops_every_flag () =
+  let u = new_game () in
+  place u 0 "anger.werewolf" 0;
+  check_bool "charged before" true (has_flag (Option.get (slot u 0 0).value) run_flag);
+  step u (fun () -> Slots.move ~dest_player:(player u 1) (player u 0).slots_update 0 0);
+  check_bool "landed" true (occupant u 1 0 = Some "anger.werewolf");
+  check_int "no flags carried" 0 (Option.get (slot u 1 0).value).status
+
 let warlock_uses_printed_cost () =
   let u = new_game ~mana:ten ~special:Darksider.house () in
   place u 0 "darksider.warlock.name" 2;
@@ -141,6 +162,8 @@ let () =
           test_case "crimson skips hydra" `Quick crimson_skips_hydra_player_hits;
           test_case "babi mana all" `Quick babi_damages_total_growth;
           test_case "manipulator full board" `Quick manipulator_steals_into_own_slot;
+          test_case "manipulator drops shield" `Quick manipulator_does_not_steal_invincibility;
+          test_case "cross-side move drops flags" `Quick cross_side_move_drops_every_flag;
           test_case "warlock printed cost" `Quick warlock_uses_printed_cost;
           test_case "extremophile snapshot" `Quick extremophile_spawns_once;
           test_case "ring after submit" `Quick ring_buffs_when_played;

@@ -13,6 +13,14 @@ let house_id = 45
 
 let is_huntress (c : card) = c.house_id = house_id
 
+(* Pack Ambush may only target a huntress: [Select_owner] makes
+   [Game.available_commands] offer nothing else. *)
+let huntress_slots pid (state : game_state) =
+  let ps = state.players.(pid) in
+  List.filter
+    (fun n -> match ps.ps_slots.(n) with Some st -> is_huntress st.card.c_card | None -> false)
+    ps.ps_slot_list
+
 let filled_total (p : player_update) =
   Slots.foldl p.slots_update p.pstate.ps_life (fun total s -> total + (Slot.get s).life)
 
@@ -175,10 +183,10 @@ let head_summon : card_effect =
 let cards =
   [
     spell ~key:"kahjivir.hunger" ~description:"kahjivir.hunger.description"
-      ~input_spec:Select_owner_creature ~effects:(effects [ (Direct, hunger) ])
+      ~input_spec:(Select_owner huntress_slots) ~effects:(effects [ (Direct, hunger) ])
       ();
     spell ~key:"kahjivir.ambush" ~description:"kahjivir.ambush.description"
-      ~input_spec:Select_owner_creature ~effects:(effects [ (Direct, ambush) ])
+      ~input_spec:(Select_owner huntress_slots) ~effects:(effects [ (Direct, ambush) ])
       ();
     creature ~key:"kahjivir.stalker" ~attack:(attack 5) ~life:20
       ~description:"kahjivir.stalker.description" ~effects:(effects [ (Direct, stalker_summon) ])

@@ -115,7 +115,7 @@ let make_voices () =
       ~phase:4.2;
   |]
 
-let create () =
+let create ~volume () =
   R.set_audio_stream_buffer_size_default chunk;
   let stream = R.load_audio_stream sample_rate 16 2 in
   R.play_audio_stream stream;
@@ -130,7 +130,7 @@ let create () =
       fade = 0.;
       lp_l = (0., 0.);
       lp_r = (0., 0.);
-      level = 1.;
+      level = volume;
       level_age = 0;
     }
 
@@ -233,7 +233,7 @@ let fill o ~target ~volume =
   R.update_audio_stream o.stream (Ctypes.to_voidp (Ctypes.CArray.start o.buf)) chunk
 
 let update ~active ~volume =
-  (match !state with None when active -> state := create () | _ -> ());
+  (match !state with None when active -> state := create ~volume:(volume ()) () | _ -> ());
   Option.iter
     (fun o ->
       if R.is_audio_stream_processed o.stream && (active || o.fade > 0.) then (

@@ -369,22 +369,35 @@ let inertia_does_not_heal_on_a_full_board () =
          | _ -> false)
        !events)
 
-let fighter_grows_when_the_owner_is_hit () =
+let current_attack_at u pid num = Slots.current_attack (slot u pid num) (Slot.get (slot u pid num))
+
+let fighter_absorbs_seven () =
   let u = new_game ~special:Zen.house () in
-  (player u 0).pstate.ps_life <- 40;
   place u 0 "zen.fighter" 2;
   step u (fun () ->
       Slot.inflict (slot u 0 2)
         (mk_damage ~is_ability:true 10 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
-  check_int "absorb 7 of 10" 23 (life_at u 0 2);
-  step u (fun () ->
-      Player.inflict (player u 0) (mk_damage 4 { ctx_player = 1; ctx_card = None; ctx_selected = 0 });
-      Player.inflict (player u 0)
-        (mk_damage ~is_spell:true 3 { ctx_player = 1; ctx_card = None; ctx_selected = 0 }));
-  check_int "fighter attack up" 7 (attack_at u 0 2);
-  check_int "player life" 33 (player_life u 0);
-  step u (fun () -> Player.apply_effects (player u 0) On_end_turn);
-  check_int "bonus over" 5 (attack_at u 0 2)
+  check_int "absorb 7 of 10" 23 (life_at u 0 2)
+
+let fighter_grows_for_unopposed_foes () =
+  let u = new_game ~special:Zen.house () in
+  place u 0 "zen.fighter" 2;
+  place u 1 "anger.werewolf" 1;
+  check_int "unopposed foe +1" 6 (current_attack_at u 0 2)
+
+let fighter_grows_for_a_foe_held_by_a_cheaper_creature () =
+  let u = new_game ~special:Zen.house () in
+  place u 0 "zen.fighter" 0;
+  place u 0 "anger.werewolf" 2;
+  place u 1 "anger.sentinel" 2;
+  check_int "cost 1 holds cost 3: +1" 6 (current_attack_at u 0 0)
+
+let fighter_ignores_a_foe_held_by_a_pricier_creature () =
+  let u = new_game ~special:Zen.house () in
+  place u 0 "zen.fighter" 0;
+  place u 0 "anger.sentinel" 2;
+  place u 1 "anger.werewolf" 2;
+  check_int "cost 3 does not hold cost 1" 5 (current_attack_at u 0 0)
 
 let inertia_ignores_spells_with_matter () =
   let u = new_game ~special:Zen.house () in
@@ -825,7 +838,10 @@ let () =
           test_case "inertia heal flow" `Quick inertia_heal_shows_the_life_travelling;
           test_case "inertia heals its owner" `Quick inertia_heals_its_owner;
           test_case "inertia skips heal on a full board" `Quick inertia_does_not_heal_on_a_full_board;
-          test_case "fighter owner hits" `Quick fighter_grows_when_the_owner_is_hit;
+          test_case "fighter absorbs seven" `Quick fighter_absorbs_seven;
+          test_case "fighter grows for unopposed foes" `Quick fighter_grows_for_unopposed_foes;
+          test_case "fighter grows against a cheaper holder" `Quick fighter_grows_for_a_foe_held_by_a_cheaper_creature;
+          test_case "fighter ignores a pricier holder" `Quick fighter_ignores_a_foe_held_by_a_pricier_creature;
           test_case "inertia ignores spells with matter" `Quick inertia_ignores_spells_with_matter;
           test_case "inertia spell hits without matter" `Quick inertia_spell_hits_without_matter;
           test_case "redlight strikes opponent strongest" `Quick redlight_strikes_opponent_strongest;

@@ -9,10 +9,22 @@
     {
       "id": "porter",
       "chapter": "day",
-      "x": 0.24,
-      "y": 0.19,
+      "x": 0.20,
+      "y": 0.18,
       "meeting": {
         "portrait_id": "porter"
+      }
+    },
+    {
+      "id": "chronicler",
+      "chapter": "day",
+      "x": 0.24,
+      "y": 0.18,
+      "after": [
+        "porter"
+      ],
+      "meeting": {
+        "portrait_id": "chronicler"
       }
     },
     {
@@ -21,7 +33,7 @@
       "x": 0.22,
       "y": 0.28,
       "after": [
-        "porter"
+        "chronicler"
       ],
       "fight": {
         "house_key": "entomologist",
@@ -197,7 +209,7 @@
       "x": 0.37,
       "y": 0.16,
       "after": [
-        "porter"
+        "chronicler"
       ],
       "fight": {
         "house_key": "meteomancer",
@@ -382,6 +394,22 @@
         "bot_id": "strategist",
         "portrait_id": "strategist-2",
         "life": 40
+      }
+    },
+    {
+      "id": "innkeeper",
+      "chapter": "day",
+      "x": 0.41,
+      "y": 0.50,
+      "after": [
+        "dudes"
+      ],
+      "meeting": {
+        "portrait_id": "innkeeper",
+        "choices": [
+          "accept",
+          "pass"
+        ]
       }
     },
     {
@@ -625,10 +653,11 @@
     {
       "id": "chronomaster",
       "chapter": "night",
-      "x": 0.62,
-      "y": 0.83,
-      "after": [
-        "conjurer"
+      "x": 0.67,
+      "y": 0.74,
+      "after_any": [
+        "catwoman",
+        "to_mountain"
       ],
       "fight": {
         "house_key": "chronomaster",
@@ -639,11 +668,10 @@
     {
       "id": "shaman",
       "chapter": "night",
-      "x": 0.67,
-      "y": 0.74,
-      "after_any": [
-        "catwoman",
-        "to_mountain"
+      "x": 0.62,
+      "y": 0.83,
+      "after": [
+        "conjurer"
       ],
       "fight": {
         "house_key": "shaman",
@@ -1012,6 +1040,10 @@
     },
     {
       "from": "porter",
+      "to": "chronicler"
+    },
+    {
+      "from": "chronicler",
       "to": "entomologist"
     },
     {
@@ -1029,7 +1061,7 @@
       "via": "avoid_city"
     },
     {
-      "from": "porter",
+      "from": "chronicler",
       "to": "meteomancer"
     },
     {
@@ -1099,6 +1131,10 @@
     {
       "from": "chaospriest",
       "to": "mountainking"
+    },
+    {
+      "from": "dudes",
+      "to": "innkeeper"
     },
     {
       "from": "dudes",
@@ -1190,7 +1226,7 @@
     },
     {
       "from": "conjurer",
-      "to": "chronomaster"
+      "to": "shaman"
     },
     {
       "from": "chronomaster",
@@ -1202,7 +1238,7 @@
     },
     {
       "from": "catwoman",
-      "to": "shaman"
+      "to": "chronomaster"
     },
     {
       "from": "shaman",
@@ -1226,7 +1262,7 @@
     },
     {
       "from": "girl",
-      "to": "shaman",
+      "to": "chronomaster",
       "via": "to_mountain"
     },
     {

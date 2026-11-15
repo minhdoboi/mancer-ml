@@ -1,9 +1,8 @@
 # Okorro, **Tam pháp** — `campaign.shaman`
 
 Fiche de langue pour le combat de campagne `shaman` (chapitre *night*, débloqué
-par `catwoman`, ou par le choix `to_mountain` fait au nœud `girl` — unlock
-`after_any` ; bot `gambler`, **vie pleine, 60 points de vie** — le nœud ne fixe
-aucune valeur ; nœud non passable). Okorro est un chamane des morts : il lit
+après `conjurer` ; bot `gambler`, **vie pleine, 60 points de vie** — le nœud ne
+fixe aucune valeur ; nœud non passable). Okorro est un chamane des morts : il lit
 l'avenir dans les os et parle au nom des ancêtres. Il ne menace pas, il constate
 le verdict rendu d'avance par les morts.
 

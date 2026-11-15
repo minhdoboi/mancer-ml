@@ -11,12 +11,15 @@ let has_not done_ id = not (has done_ id)
 let open_at_start () = Alcotest.check ss "start" [ "porter" ] (available [])
 
 let duckwoman_fork () =
-  let after = [ "porter"; "entomologist" ] in
+  let after = [ "porter"; "chronicler"; "entomologist" ] in
   Alcotest.check ss "after entomologist" [ "duckwoman"; "meteomancer" ] (available after);
-  check_bool "porter gates entomologist" true (has_not [] "entomologist");
-  check_bool "porter gates meteomancer" true (has_not [] "meteomancer");
-  check_bool "porter opens both" true
-    (has [ "porter" ] "entomologist" && has [ "porter" ] "meteomancer");
+  check_bool "porter gates chronicler" true (has_not [] "chronicler");
+  check_bool "porter gates entomologist" true (has_not [ "porter" ] "entomologist");
+  check_bool "porter gates meteomancer" true (has_not [ "porter" ] "meteomancer");
+  check_bool "porter opens the chronicler" true (has [ "porter" ] "chronicler");
+  check_bool "chronicler opens both" true
+    (has [ "porter"; "chronicler" ] "entomologist"
+    && has [ "porter"; "chronicler" ] "meteomancer");
   check_bool "no farmer" true (has_not after "farmer");
   check_bool "no disciples" true (has_not after "disciples");
   check_bool "no dudes" true (has_not after "dudes");
@@ -156,6 +159,21 @@ let meteomancer_path () =
   check_bool "king after lightstave and priest" true
     (has (faerie @ [ "ram"; "lightstave"; "chaospriest" ]) "mountainking");
   check_bool "ram meeting" true (not (Campaign.is_fight (Campaign.node "ram")))
+
+let innkeeper_node () =
+  let n = Campaign.node "innkeeper" in
+  check_bool "not a fight" true (not (Campaign.is_fight n));
+  check_bool "day chapter" true (n.chapter = Campaign.Day);
+  check_bool "registered npc" true (List.mem "innkeeper" Campaign.npcs);
+  Alcotest.(check (option string))
+    "portrait" (Some "innkeeper")
+    (Option.map (fun (m : Campaign.meeting) -> m.portrait_id) n.meeting);
+  Alcotest.check ss "choices" [ "accept"; "pass" ]
+    (match n.meeting with
+    | Some m -> List.map (fun (c : Campaign.choice) -> c.id) m.choices
+    | None -> []);
+  check_bool "after dudes" true (has [ "dudes" ] "innkeeper");
+  check_bool "no innkeeper before dudes" true (has_not [ "entomologist" ] "innkeeper")
 
 let dudes_path () =
   let done_ = [ "entomologist"; "dudes" ] in
@@ -309,14 +327,14 @@ let antimancer_path () =
     (available (done_ @ [ "zen"; "fisherman" ]));
   Alcotest.check ss "after kahjivir" [ "catwoman"; "fisherman" ]
     (available (done_ @ [ "zen"; "kahjivir" ]));
-  Alcotest.check ss "after catwoman" [ "fisherman"; "shaman" ]
+  Alcotest.check ss "after catwoman" [ "chronomaster"; "fisherman" ]
     (available (done_ @ [ "zen"; "kahjivir"; "catwoman" ]));
-  Alcotest.check ss "fisherman branch" [ "chronomaster"; "kahjivir" ]
+  Alcotest.check ss "fisherman branch" [ "kahjivir"; "shaman" ]
     (available (done_ @ [ "zen"; "fisherman"; "conjurer" ]));
   Alcotest.check ss "kahjivir branch" [ "fisherman"; "limbo" ]
-    (available (done_ @ [ "zen"; "kahjivir"; "catwoman"; "shaman" ]));
-  Alcotest.check ss "after chrono" [ "kahjivir"; "limbo" ]
-    (available (done_ @ [ "zen"; "fisherman"; "conjurer"; "chronomaster" ]));
+    (available (done_ @ [ "zen"; "kahjivir"; "catwoman"; "chronomaster" ]));
+  Alcotest.check ss "after shaman" [ "kahjivir"; "limbo" ]
+    (available (done_ @ [ "zen"; "fisherman"; "conjurer"; "shaman" ]));
   check_bool "crowd meeting" true (not (Campaign.is_fight (Campaign.node "crowd")))
 
 let faerie_path () =
@@ -338,8 +356,8 @@ let warp_fork () =
   check_bool "kinetician" true (has (done_ @ [ "elder" ]) "kinetician");
   check_bool "girl" true (has (done_ @ [ "elder"; "kinetician" ]) "girl");
   let girl = done_ @ [ "elder"; "kinetician"; "girl" ] in
-  check_bool "no shaman yet" true (has_not girl "shaman");
-  check_bool "mountain shaman" true (has (girl @ [ Campaign.to_mountain ]) "shaman");
+  check_bool "no chronomaster yet" true (has_not girl "chronomaster");
+  check_bool "mountain chronomaster" true (has (girl @ [ Campaign.to_mountain ]) "chronomaster");
   check_bool "mountain no darksider" true (has_not (girl @ [ Campaign.to_mountain ]) "darksider");
   check_bool "valley darksider" true (has (girl @ [ Campaign.to_valley ]) "darksider");
   check_bool "patou" true (has [ "wind"; "darksider" ] "patou");
@@ -425,11 +443,30 @@ let porter_node () =
     (Option.map (fun (m : Campaign.meeting) -> m.portrait_id) n.meeting);
   check_bool "no choices" true
     (match n.meeting with Some m -> m.choices = [] | None -> false);
-  check_bool "opens the day" true (has [ "porter" ] "entomologist");
+  check_bool "opens the day" true (has [ "porter" ] "chronicler");
   if Option.is_some (Assets.portrait "ember") then
     match Assets.portrait "porter" with
     | Some _ -> ()
     | None -> Alcotest.fail "porter missing portrait file"
+
+let chronicler_node () =
+  let n = Campaign.node "chronicler" in
+  check_bool "not a fight" true (not (Campaign.is_fight n));
+  check_bool "day chapter" true (n.chapter = Campaign.Day);
+  check_bool "registered npc" true (List.mem "chronicler" Campaign.npcs);
+  Alcotest.(check (option string))
+    "portrait" (Some "chronicler")
+    (Option.map (fun (m : Campaign.meeting) -> m.portrait_id) n.meeting);
+  check_bool "no choices" true
+    (match n.meeting with Some m -> m.choices = [] | None -> false);
+  check_bool "after porter" true (has [ "porter" ] "chronicler");
+  check_bool "waits for the porter" true (has_not [] "chronicler");
+  check_bool "gates the day's first forks" true
+    (has_not [ "porter" ] "entomologist" && has_not [ "porter" ] "meteomancer");
+  if Option.is_some (Assets.portrait "ember") then
+    match Assets.portrait "chronicler" with
+    | Some _ -> ()
+    | None -> Alcotest.fail "chronicler missing npc portrait"
 
 let end_lines () =
   let keys = function
@@ -519,6 +556,9 @@ let i18n_keys () =
       "campaign.antimancer.wake";
       Campaign.rabbit_warning_key;
       Campaign.beaver_warning_key;
+      "campaign.innkeeper.rest";
+      "campaign.innkeeper.wake.title";
+      "campaign.innkeeper.wake";
     ]
     (* Every fight node carries its own win/lose text, so
        {!Campaign.end_message_key}'s per-bot fallback never fires and no
@@ -680,6 +720,7 @@ let () =
           Alcotest.test_case "disciples path" `Quick disciples_path;
           Alcotest.test_case "meteomancer path" `Quick meteomancer_path;
           Alcotest.test_case "dudes path" `Quick dudes_path;
+          Alcotest.test_case "innkeeper" `Quick innkeeper_node;
           Alcotest.test_case "junk to king" `Quick junk_to_king;
           Alcotest.test_case "lightstave" `Quick lightstave_node;
           Alcotest.test_case "priest between king and stave" `Quick priest_between_king_and_stave;
@@ -706,6 +747,7 @@ let () =
           Alcotest.test_case "houses" `Quick houses_resolve;
           Alcotest.test_case "portraits" `Quick portraits_exist;
           Alcotest.test_case "porter" `Quick porter_node;
+          Alcotest.test_case "chronicler" `Quick chronicler_node;
           Alcotest.test_case "end lines" `Quick end_lines;
           Alcotest.test_case "i18n" `Quick i18n_keys;
           Alcotest.test_case "i18n font" `Quick i18n_font_coverage;

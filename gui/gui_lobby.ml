@@ -103,7 +103,9 @@ type game_settings = {
   mutable budget_ms : int;
   mutable seed_text : string;
   mutable seed_focus : bool;
-  mutable sound : float;
+  mutable voice : float;
+  mutable game : float;
+  mutable ambient_volume : float;
   mutable ambient_enabled : bool;
   mutable lang : string;
   mutable debug : bool;
@@ -144,7 +146,9 @@ let game_settings_from_prefs () =
     budget_ms = Prefs.setup_budget prefs;
     seed_text = "";
     seed_focus = false;
-    sound = Prefs.sound_level prefs;
+    voice = Prefs.voice_level prefs;
+    game = Prefs.sound_level prefs;
+    ambient_volume = Prefs.ambient_level prefs;
     ambient_enabled = Prefs.ambient_sound prefs;
     lang = Prefs.language prefs;
     debug = Prefs.debug_mode prefs;
@@ -636,10 +640,20 @@ let set_budget gs ms on_budget =
   (try Prefs.set_setup_budget (Prefs.load ()) ms with _ -> ());
   on_budget ms
 
-let set_sound gs v =
+let set_voice gs v =
   let v = Float.max 0. (Float.min 1. v) in
-  gs.sound <- v;
+  gs.voice <- v;
+  try Prefs.set_voice_level (Prefs.load ()) v with _ -> ()
+
+let set_game gs v =
+  let v = Float.max 0. (Float.min 1. v) in
+  gs.game <- v;
   try Prefs.set_sound_level (Prefs.load ()) v with _ -> ()
+
+let set_ambient_volume gs v =
+  let v = Float.max 0. (Float.min 1. v) in
+  gs.ambient_volume <- v;
+  try Prefs.set_ambient_level (Prefs.load ()) v with _ -> ()
 
 let set_lang gs code =
   gs.lang <- code;
@@ -725,30 +739,40 @@ let draw_game_settings gs ~show_seed ~on_budget ~close =
         (campaign_classes ()) (Table.campaign_class_of (Prefs.campaign_class prefs))
         (fun key -> Prefs.set_campaign_class (Prefs.load ()) key)
   | 3 ->
-      text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) (box.y +. 220.)
-        (Assets.text "sound.level");
-      let minus_w = paper_btn_w ~size:18. "-" in
-      pbutton ~size:18.
-        (rect (box.x +. 24.) (box.y +. 248.) minus_w 30.)
-        "-"
-        (fun () -> set_sound gs (gs.sound -. 0.1));
-      text_c ~font:paper_font ~size:20. ~color:ink
-        (rect (box.x +. 24. +. minus_w) (box.y +. 248.) 64. 30.)
-        (box.y +. 252.)
-        (Printf.sprintf "%d%%" (int_of_float ((gs.sound *. 100.) +. 0.5)));
-      let plus_x = box.x +. 24. +. minus_w +. 64. in
-      let plus_w = paper_btn_w ~size:18. "+" in
-      pbutton ~size:18.
-        (rect plus_x (box.y +. 248.) plus_w 30.)
-        "+"
-        (fun () -> set_sound gs (gs.sound +. 0.1));
-      pbutton ~size:16.
-        (rect (plus_x +. plus_w +. 6.) (box.y +. 248.) (paper_btn_w ~size:16. "test") 30.)
-        "test"
-        (fun () ->
-          set_sound gs gs.sound;
-          play_sound "move");
-      checkbox ~checked:gs.ambient_enabled ~x:(box.x +. 24.) ~y:(box.y +. 296.) ~max_w:(box.w -. 48.)
+      (* Each channel has its own level: the campaign voice-over, the game's
+         effects (move, hit, spell, win), and the ambience. Ambience also keeps
+         its on/off switch, which the Scala lobby still writes. *)
+      let volume_row ~y ~label ~value ~set ~test =
+        text ~font:paper_font ~size:20. ~color:ink_soft (box.x +. 24.) y label;
+        let minus_w = paper_btn_w ~size:18. "-" in
+        pbutton ~size:18.
+          (rect (box.x +. 24.) (y +. 28.) minus_w 30.)
+          "-" (fun () -> set (value -. 0.1));
+        text_c ~font:paper_font ~size:20. ~color:ink
+          (rect (box.x +. 24. +. minus_w) (y +. 28.) 64. 30.)
+          (y +. 32.)
+          (Printf.sprintf "%d%%" (int_of_float ((value *. 100.) +. 0.5)));
+        let plus_x = box.x +. 24. +. minus_w +. 64. in
+        let plus_w = paper_btn_w ~size:18. "+" in
+        pbutton ~size:18.
+          (rect plus_x (y +. 28.) plus_w 30.)
+          "+" (fun () -> set (value +. 0.1));
+        match test with
+        | Some name ->
+            pbutton ~size:16.
+              (rect (plus_x +. plus_w +. 6.) (y +. 28.) (paper_btn_w ~size:16. "test") 30.)
+              "test" (fun () ->
+                set value;
+                play_sound name)
+        | None -> ()
+      in
+      volume_row ~y:(box.y +. 108.) ~label:(Assets.text "sound.voice") ~value:gs.voice
+        ~set:(set_voice gs) ~test:None;
+      volume_row ~y:(box.y +. 164.) ~label:(Assets.text "sound.game") ~value:gs.game
+        ~set:(set_game gs) ~test:(Some "move");
+      volume_row ~y:(box.y +. 220.) ~label:(Assets.text "sound.ambient.level") ~value:gs.ambient_volume
+        ~set:(set_ambient_volume gs) ~test:None;
+      checkbox ~checked:gs.ambient_enabled ~x:(box.x +. 24.) ~y:(box.y +. 300.) ~max_w:(box.w -. 48.)
         (Assets.text "sound.ambient") (fun () ->
           gs.ambient_enabled <- not gs.ambient_enabled;
           try Prefs.set_ambient_sound (Prefs.load ()) gs.ambient_enabled with _ -> ())

@@ -295,22 +295,33 @@ let inertia_reaction () =
         if not d.is_spell || not matter_in_play then Slot.damage_slot s d);
   }
 
+(* Zen Fighter: attack grows with the enemies that run free.  Read live off
+   the board, so it follows summons and deaths without a trigger: +1 for every
+   opponent creature unopposed, or opposed by an owner creature of lower
+   cost. *)
+let fighter_bonus : attack_source =
+  Attack_slot_state_func (fun atk slot ->
+      let mine = slot.slots.slot_updates in
+      let foes = (other_player slot.slots.player).slots_update.slot_updates in
+      let gain =
+        Array.fold_left
+          (fun acc foe ->
+            match foe.value with
+            | None -> acc
+            | Some foe_st -> (
+                match mine.(foe.num).value with
+                | None -> acc + 1
+                | Some mine_st ->
+                    if mine_st.card.c_card.cost < foe_st.card.c_card.cost then acc + 1 else acc))
+          0 foes
+      in
+      atk + gain)
+
+let fighter_attack = { base = Some 5; sources = [ fighter_bonus ] }
+
 let fighter_reaction () =
   let r = Reaction.default () in
-  {
-    r with
-    self_protect = (fun d -> if is_effect d then { d with amount = max 0 (d.amount - 7) } else d);
-    on_protect =
-      (fun e ->
-        if Option.is_none e.de_target && e.de_damage.amount > 0 then (
-          let me = Reaction.bound_slot r in
-          Updater.focus me.slots.player.updater me.num me.slots.player.pid false;
-          (* +1 attack until the end of the owner's turn *)
-          let bonus = Attack_func (fun a -> a + 1) in
-          add_attack me bonus;
-          Player.add_effect me.slots.player (On_end_turn, one_time_player_effect (remove_attack bonus)));
-        e.de_damage);
-  }
+  { r with self_protect = (fun d -> if is_effect d then { d with amount = max 0 (d.amount - 7) } else d) }
 
 let eguard =
   creature ~key:"zen.guard" ~attack:(attack 3) ~life:22 ~description:"zen.guard.description"
@@ -326,7 +337,7 @@ let mimic =
 let () = mimic_ref := Some mimic
 
 let fighter =
-  creature ~key:"zen.fighter" ~attack:(attack 5) ~life:26 ~description:"zen.fighter.description"
+  creature ~key:"zen.fighter" ~attack:fighter_attack ~life:26 ~description:"zen.fighter.description"
     ~new_reaction:fighter_reaction
     ~effects:(effects [ (On_turn, zen_effect) ])
     ()

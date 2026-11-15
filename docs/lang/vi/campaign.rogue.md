@@ -2,7 +2,8 @@
 
 Fiche de langue pour le combat de campagne `rogue` (chapitre *night*, débloqué
 après `wind` ; bot `lecturer`). Vael est voleur : la bourse ou la vie, et la
-leçon se paie. Le ton est méprisant, familier, presque désinvolte.
+dette se règle tôt ou tard. Le ton est méprisant, familier, presque
+désinvolte.
 
 **Ton.** Le classificateur `tên` rabaisse le joueur au rang d'« individu ». Ce
 n'est pas un duel chevaleresque : c'est un vol organisé.
@@ -11,10 +12,10 @@ n'est pas un duel chevaleresque : c'est un vol organisé.
 
 ## 1. `message` — la bourse ou la vie
 
-> Lại một tên du khách. Làm rỗng túi, hoặc mất mạng - ta chưa quyết định. Nhảy trước đi. Ngươi sẽ không cảm thấy đau.
+> Lại một tên du khách. Làm rỗng túi, hoặc mất mạng - ta chưa quyết định. Hay là nhảy trước đã; sẽ đỡ đau hơn.
 
 *Encore un voyageur. Vider les poches, ou perdre la vie — je n'ai pas encore
-décidé. Danse le premier. Tu ne sentiras rien.*
+décidé. Dansons d'abord, peut-être ; ça fera moins mal.*
 
 ### `tên` — classificateur méprisant
 
@@ -47,28 +48,29 @@ décidé. Danse le premier. Tu ne sentiras rien.*
   (**sino-vietnamien `命`** ; désigne aussi le « réseau »).
 - `mất mạng` = mourir de mort violente. Le mot est cru et concret.
 
-### `Nhảy trước đi` — danse / fais le premier pas
+### `Hay là nhảy trước đã` — ou bien dansons d'abord
 
-- `nhảy` : sauter, danser, s'élancer (**purement vietnamien**). `đi` renforce
-  l'impératif.
-- Ici, « à toi d'ouvrir le bal » : Vael laisse le joueur jouer en premier, avec
-  une désinvolture provocante.
+- `hay là` : ou bien, peut-être (**purement vietnamien**), propose une
+  alternative sans la commander. `nhảy` : danser, s'élancer. `trước` : avant.
+  `đã` : particule qui pose l'action comme un premier pas.
+- L'ancienne réplique ordonnait (`Nhảy trước đi`) ; ici Vael suggère, presque
+  nonchalamment — la menace n'en est que plus désinvolte.
 
-### `cảm thấy` — ressentir
+### `đỡ đau hơn` — ça fera moins mal
 
-- `cảm` : voir `campaign.emotion.md`. `thấy` : voir, sentir (purement
-  vietnamien).
-- `sẽ không cảm thấy đau` = « tu ne sentiras pas la douleur ». Fausse douceur :
-  c'est la promesse du coup fatal.
+- `đỡ` : soulager, amoindrir (**purement vietnamien**). `đau` : douleur
+  (native). `hơn` : plus.
+- Fausse douceur : danser est la seule alternative à la mort, et la promesse
+  d'épargner la douleur est le sourire du couteau.
 
 ---
 
-## 2. `win` — le prix complet
+## 2. `win` — le visage retenu
 
-> Túi lẫn mạng - giữ được cả hai, du khách. Ngươi đã trả trọn giá cho bài học này.
+> Túi lẫn mạng - giữ được cả hai, du khách. Ta sẽ nhớ mặt ngươi.
 
-*Bourse et vie — tu as gardé les deux, voyageur. Tu as payé le prix entier pour
-cette leçon.*
+*Bourse et vie — tu as gardé les deux, voyageur. Je me souviendrai de ton
+visage.*
 
 ### `lẫn` — et, mêlé à
 
@@ -76,36 +78,30 @@ cette leçon.*
   bourse et la vie (à la fois) », les deux ensemble.
 - Nuance subtile : non pas « ou » (la menace), mais « et » (la réussite).
 
-### `trọn giá` — le prix entier
+### `nhớ mặt` — se souvenir du visage
 
-- `trọn` : entier, complet (**purement vietnamien**). `giá` : prix
-  (**sino-vietnamien `價`**).
-- `trả trọn giá` = payer le prix complet. Le joueur a gagné, mais la leçon a
-  coûté.
-
-### `bài học` — la leçon
-
-- `bài` : classificateur de leçon, de texte. `học` : apprendre
-  (**sino-vietnamien `學`**).
-- `bài học này` = cette leçon. Le vocabulaire de l'école revient, comme chez
-  Ysolde et Aelwyn — mais ici, la leçon est une arnaque.
+- `nhớ` : se souvenir (**purement vietnamien**). `mặt` : visage, face (native).
+- `Ta sẽ nhớ mặt ngươi` = « je me souviendrai de ton visage ». Ni bénédiction
+  ni menace : une fiche qu'on garde. Voir `campaign.plaguebringer.md` (`nhớ`)
+  et `núi nhớ` dans `campaign.mountainking.md`.
 
 ---
 
 ## 3. `lose` — la bourse
 
-> Ta đã quyết: là túi. Làm rỗng túi đi, học kỹ phố phường, rồi quay lại mua lại bài học của ngươi.
+> Ta đã quyết: là túi. Làm rỗng túi đi, học xem phố phường giá bao nhiêu, rồi quay lại trả món nợ của ngươi.
 
-*J'ai décidé : la bourse. Vide tes poches, apprends bien les rues, puis reviens
-racheter ta leçon.*
+*J'ai décidé : la bourse. Vide tes poches, apprends ce que coûtent les rues,
+puis reviens régler ta dette.*
 
-(`làm rỗng túi` et `bài học` sont expliqués aux § 1 et § 2.)
+(`làm rỗng túi` est expliqué au § 1.)
 
-### `học kỹ` — bien apprendre, étudier à fond
+### `học xem` — apprendre à voir, comprendre
 
-- `kỹ` : soigneusement, à fond (**sino-vietnamien**).
-- `học kỹ phố phường` = « apprends bien les rues ». Conseils de survie d'un
-  voleur à sa victime.
+- `học` : apprendre (**sino-vietnamien `學`**). `xem` : regarder, voir
+  (**purement vietnamien**).
+- `học xem` = « apprendre en regardant ». Le savoir du voleur s'acquiert à
+  même la rue.
 
 ### `phố phường` — les rues, la ville
 
@@ -114,8 +110,23 @@ racheter ta leçon.*
 - La paire redoublée `phố phường` désigne le milieu urbain, la rue comme école
   de vie et de débrouille.
 
-### `mua lại` — racheter
+### `giá bao nhiêu` — combien ça coûte
 
-- `mua` : acheter (**purement vietnamien**). `lại` : de nouveau.
-- `mua lại bài học của ngươi` = « racheter ta leçon ». Tout se monnaye : même
-  la connaissance se rachète.
+- `giá` : prix (**sino-vietnamien `價`**). `bao nhiêu` : combien (**purement
+  vietnamien**).
+- `học xem phố phường giá bao nhiêu` = « apprends ce que coûtent les rues ».
+  Tout a un prix, surtout l'expérience.
+
+### `trả` — payer, régler
+
+- **Purement vietnamien.** Payer, rendre, s'acquitter : `trả nợ` = régler une
+  dette, `trả giá` = payer le prix.
+- `quay lại trả món nợ` = « revenir régler sa dette ». Le verbe est direct,
+  sans l'idée de rachat : la dette se solde, elle ne s'efface pas.
+
+### `món nợ` — une dette
+
+- `món` : classificateur des plats et des choses délimitées (**purement
+  vietnamien**). `nợ` : dette (native).
+- `món nợ` = une dette qu'on porte comme un plat qu'on doit. `bài học` a fait
+  place à `nợ` : l'école devient le crédit.

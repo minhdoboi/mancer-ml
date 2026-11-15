@@ -1,8 +1,9 @@
 # Yuelan, **Tam pháp thời gian** — `campaign.chronomaster`
 
 Fiche de langue pour le combat de campagne `chronomaster` (chapitre *night*,
-débloqué après `conjurer` ; bot `gambler` ; **vie pleine, 60 points de vie** — le
-nœud ne fixe aucune valeur ; nœud non passable). Yuelan est un maître du temps :
+débloqué par `catwoman`, ou par le choix `to_mountain` fait au nœud `girl` —
+unlock `after_any` ; bot `gambler` ; **vie pleine, 60 points de vie** — le nœud
+ne fixe aucune valeur ; nœud non passable). Yuelan est un maître du temps :
 ses trois répliques sont un compte, une dette et un sablier. Le vocabulaire est
 celui de la comptabilité — on ne combat pas le temps, on le paie.
 
