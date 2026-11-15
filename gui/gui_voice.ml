@@ -12,7 +12,7 @@ open Mancer
 let cache : (string, R.Sound.t option) Hashtbl.t = Hashtbl.create 16
 let current : R.Sound.t option ref = ref None
 
-let volume () = try Prefs.load () |> Prefs.sound_level with _ -> 1.
+let volume () = try Prefs.load () |> Prefs.voice_level with _ -> 1.
 
 (* Silence the line already playing, so a new one does not layer on top. *)
 let stop () =

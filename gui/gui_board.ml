@@ -135,13 +135,13 @@ let make_game ?(campaign = None) (setup : Table.setup) portraits table_of =
         if c.cmd_card.key = "conjurer.pain" then
           Option.iter
             (fun s ->
-              R.set_sound_volume s (0.3 *. sound_level ());
+              R.set_sound_volume s (0.3 *. game_level ());
               R.play_sound s)
             (Scream.sound ())
         else if c.cmd_card.key = "battlemage.warcry" then
           Option.iter
             (fun s ->
-              R.set_sound_volume s (0.85 *. sound_level ());
+              R.set_sound_volume s (0.85 *. game_level ());
               R.play_sound s)
             (Warcry.sound ())
     | _ -> ());
@@ -880,13 +880,15 @@ let draw_blacksmith_marks r st =
             | Some t -> image_at t (box fr (3. +. (float i *. (side +. 1.)), 7., side, side) s)))
       marks
 
-(* Zen Fighter: while the creature opposite it shows more attack or life, its
-   stance is paying off, so a small star sits in the corner of the card.  The
-   comparison mirrors [zen_effect] in lib/houses/special/zen.ml. *)
+(* Zen Fighter: while the creature opposite it shows more than 5 attack or
+   more life than it, its stance is paying off, so a small star sits in the
+   corner of the card.  The comparison mirrors [zen_effect] in
+   lib/houses/special/zen.ml: the attack bar is a fixed 5, not the fighter's
+   own (dynamic) attack. *)
 let zen_fighter_charged ui pid num (st : slot_state) =
   st.card.c_card.key = "zen.fighter"
   && match (view ui).players.(other pid).ps_slots.(num) with
-     | Some opposite -> opposite.attack > st.attack || opposite.life > st.life
+     | Some opposite -> opposite.attack > 5 || opposite.life > st.life
      | None -> false
 
 let draw_zen_star r =
@@ -913,6 +915,30 @@ let draw_redlight r =
   disk ((side +. (3. *. s)) /. 2.) (rgba 235 55 40 110);
   disk (side /. 2.) (rgba 225 35 25 240);
   disk ((side -. (6. *. s)) /. 2.) (rgba 255 180 150 235)
+
+(* Snowblood War guide: while its blast is charged, a small pennant — a plain
+   triangle — marks the top-left corner of the card.  It is drawn over the
+   frame, like the disease marker, so it stays readable; a dark triangle just
+   behind it keeps the red edge legible on bright or busy art.  The pennant
+   comes down when the blast goes off, and Echo's direct effect raises it
+   again. *)
+let draw_guide_flag r =
+  let nw, nh = creature_native in
+  let fr, s = fit_in r nw nh in
+  let ax, ay, _, _ = creature_art_box in
+  let x = fr.x +. ((ax +. 6.) *. s) in
+  let y = fr.y +. ((ay +. 6.) *. s) in
+  let w = 11. *. s and h = 9. *. s in
+  let tri dx dy col =
+    (* DrawTriangle culls clockwise faces: wind the pennant counter-clockwise. *)
+    R.draw_triangle
+      (pos (x +. dx) (y +. dy))
+      (pos (x +. dx) (y +. dy +. h))
+      (pos (x +. dx +. w) (y +. dy +. (h /. 2.)))
+      (alpha_color col)
+  in
+  tri (-1. *. s) (-1. *. s) (rgba 22 12 10 205);
+  tri 0. 0. (rgba 236 64 48 255)
 
 (* Lightstaves: an Aura is shown as a coloured outline around its target and
    a small badge with the turns it has left.  The same badge sits on the greyed
@@ -1307,6 +1333,8 @@ let draw_slot ui pid num =
                      | None -> if warp > 0.02 then with_warp r warp face else face r));
                  draw_aura_outline r active_auras;
                  draw_disease_marker r (Plaguebringer.counters_on (view ui) st.slot_id);
+                 if st.card.c_card.key = "snowblood.guide" && Snowblood.guide_charging st then
+                   draw_guide_flag r;
                  if not !decorated then
                    let flags = flag_names st in
                    if flags <> "" then

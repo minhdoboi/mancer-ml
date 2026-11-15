@@ -48,6 +48,26 @@ let enemy_ids (p : player_update) =
   Array.to_list (other_player p).slots_update.slot_updates
   |> List.filter_map (fun s -> match s.value with Some st -> Some st.slot_id | None -> None)
 
+(* A consumer announces which creatures it tore counters out of, so the board
+   can tie the consumer's card to every victim with a sickly thread and throb a
+   red filter over each one.  The victim slots ride in the kind, one per
+   dot-separated segment, because the event carries a single target. *)
+let emit_drain (env : env) ids =
+  match ids with
+  | [] -> ()
+  | first :: _ ->
+      let op = other_of_env env in
+      emit env.env_updater
+        (Ev_ability
+           {
+             kind =
+               "plaguebringer.drain"
+               ^ String.concat "" (List.map (fun n -> "." ^ string_of_int n) ids);
+             player = env.env_player;
+             num = env.env_selected;
+             target = Some (op.pid, first);
+           })
+
 (* ------------------------------------------------------------ infection *)
 
 (* The passive.  [st] is the state captured before the blow, so its slot_id is
@@ -132,27 +152,51 @@ let infest_effect : card_effect =
         set_counter p id 3)
       else (
         set_counter p id 0;
+        (* a spell has no card on the board: the thread runs from the caster's
+           portrait to the victim instead *)
+        emit env.env_updater
+          (Ev_ability
+             {
+               kind = "plaguebringer.consume";
+               player = env.env_player;
+               num = slot.num;
+               target = Some ((other_of_env env).pid, slot.num);
+             });
         Slot.inflict slot (spell_damage env (5 * n)))
 
 (* Flying Injector: a plague cloud that chips every enemy creature each turn
    and then burns the ones that have built up a full infection. *)
 let injector_turn : card_effect =
  fun env ->
+  (* a drop of poison for every creature the cloud chips *)
+  emit env.env_updater
+    (Ev_ability
+       {
+         kind = "plaguebringer.injector";
+         player = env.env_player;
+         num = env.env_selected;
+         target = None;
+       });
   Slots.inflict_creatures (other_of_env env).slots_update (ability_damage env 1)
 
 let injector_end : card_effect =
  fun env ->
   let p = player_of_env env in
   let op = other_of_env env in
-  List.iter
-    (fun id ->
-      let n = counter_of p id in
-      if n >= 4 then (
-        set_counter p id 0;
-        match Slots.find_slot_id op.slots_update id with
-        | Some s -> Slot.inflict s (ability_damage env (4 * n))
-        | None -> ()))
-    (enemy_ids p)
+  let burned =
+    List.filter_map
+      (fun id ->
+        let n = counter_of p id in
+        if n >= 4 then (
+          set_counter p id 0;
+          match Slots.find_slot_id op.slots_update id with
+          | Some s -> Some (n, s)
+          | None -> None)
+        else None)
+      (enemy_ids p)
+  in
+  emit_drain env (List.map (fun (_, s) -> s.num) burned);
+  List.iter (fun (n, s) -> Slot.inflict s (ability_damage env (4 * n))) burned
 
 (* Desecrator: on arrival it drains every enemy creature's infection and
    burns each for 5 a counter. *)
@@ -160,15 +204,20 @@ let desecrator_effect : card_effect =
  fun env ->
   let p = player_of_env env in
   let op = other_of_env env in
-  List.iter
-    (fun id ->
-      let n = counter_of p id in
-      if n > 0 then (
-        set_counter p id 0;
-        match Slots.find_slot_id op.slots_update id with
-        | Some s -> Slot.inflict s (ability_damage env (5 * n))
-        | None -> ()))
-    (enemy_ids p)
+  let burned =
+    List.filter_map
+      (fun id ->
+        let n = counter_of p id in
+        if n > 0 then (
+          set_counter p id 0;
+          match Slots.find_slot_id op.slots_update id with
+          | Some s -> Some (n, s)
+          | None -> None)
+        else None)
+      (enemy_ids p)
+  in
+  emit_drain env (List.map (fun (_, s) -> s.num) burned);
+  List.iter (fun (n, s) -> Slot.inflict s (ability_damage env (5 * n))) burned
 
 (* Titanclaw: on arrival it crushes every enemy creature carrying three or
    more counters.  No damage, so no counter is added by the sweep. *)
@@ -199,10 +248,20 @@ let soul_leech_reaction () =
         let me = Reaction.bound_slot r in
         let p = me.slots.player in
         let n = counter_of p dead.d_slot.slot_id in
-        if n > 0 then
+        if n > 0 then (
+          (* the leech drinks the soul: it rises off the dead creature and is
+             cast at the foe's portrait, which takes the wound *)
+          emit p.updater
+            (Ev_ability
+               {
+                 kind = "plaguebringer.soulleech";
+                 player = p.pid;
+                 num = me.num;
+                 target = Some (dead.d_player.pid, dead.d_num);
+               });
           Player.inflict (other_player p)
             (mk_damage ~is_ability:true n
-               { ctx_player = p.pid; ctx_card = !soul_leech_ref; ctx_selected = me.num }));
+               { ctx_player = p.pid; ctx_card = !soul_leech_ref; ctx_selected = me.num })));
   }
 
 (* Broodmother: every enemy death turns its counters into Disease power (the

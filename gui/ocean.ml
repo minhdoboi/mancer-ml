@@ -72,7 +72,7 @@ type t = {
 
 let state : t option ref = ref None
 
-let create () =
+let create ~volume () =
   (* the default is the size of ONE sub-buffer; the stream has two, and each
      update must fill exactly one *)
   R.set_audio_stream_buffer_size_default chunk;
@@ -93,7 +93,7 @@ let create () =
       fade = 0.;
       lp_l = (0., 0.);
       lp_r = (0., 0.);
-      level = 1.;
+      level = volume;
       level_age = 0;
     }
 
@@ -149,7 +149,7 @@ let fill o ~target ~waves_target ~volume =
    [volume] reads the persisted sound level (cached, the prefs file is re-read
    about once a second). *)
 let update ~active ~wind ~volume =
-  (match !state with None when active -> state := create () | _ -> ());
+  (match !state with None when active -> state := create ~volume:(volume ()) () | _ -> ());
   Option.iter
     (fun o ->
       if R.is_audio_stream_processed o.stream && (active || o.fade > 0.) then (

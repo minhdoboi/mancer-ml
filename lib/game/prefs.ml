@@ -29,6 +29,8 @@ let key_campaign_class = "campaign.class"
 let key_campaign_difficulty = "campaign.difficulty"
 let key_debug_mode = "debug.mode"
 let key_ambient_sound = "sound.ambient"
+let key_voice_level = "sound.voice"
+let key_ambient_level = "sound.ambient.level"
 let key_language = "language"
 
 (* Extra keys for the OCaml setup screens (seats, single specials, bot
@@ -43,7 +45,9 @@ let default_server_port = "12345"
 let default_card_theme = "vibe"
 let default_ai_opponent = "summoner"
 let default_player_portrait = "van-loc"
-let default_sound_level = 1.0
+let default_sound_level = 0.3
+let default_voice_level = 1.0
+let default_ambient_level = 0.3
 let default_ocean_sound = true
 let default_ambient_sound = default_ocean_sound
 let default_campaign_position = "day_start"
@@ -127,17 +131,31 @@ let set_language t v =
 let saved_language () =
   match get (load ()) key_language with Some v when String.trim v <> "" -> Some (String.trim v) | _ -> None
 
-let sound_level t =
-  match get t key_sound_level with
-  | None -> default_sound_level
+(* A persisted [0..1] level: a missing or unparsable value reads as [default]. *)
+let level t key default =
+  match get t key with
+  | None -> default
   | Some v -> (
       match float_of_string_opt (String.trim v) with
       | Some f -> Float.max 0. (Float.min 1. f)
-      | None -> default_sound_level)
+      | None -> default)
 
-let set_sound_level t v =
+let set_level t key v =
   let v = Float.max 0. (Float.min 1. v) in
-  persist t [ (key_sound_level, Printf.sprintf "%.2f" v) ]
+  persist t [ (key, Printf.sprintf "%.2f" v) ]
+
+(* [sound.level] is the game/effect volume: move, hit, win, spell clips. *)
+let sound_level t = level t key_sound_level default_sound_level
+let set_sound_level t v = set_level t key_sound_level v
+
+(* The campaign voice-over, independent from the effects. *)
+let voice_level t = level t key_voice_level default_voice_level
+let set_voice_level t v = set_level t key_voice_level v
+
+(* Lobby and board ambience (ocean, wind, rumble, choir), scaled on top of the
+   [sound.ambient] on/off switch. *)
+let ambient_level t = level t key_ambient_level default_ambient_level
+let set_ambient_level t v = set_level t key_ambient_level v
 
 (* lobby ambient sound, on by default unless the sound tab turns it off *)
 let ambient_sound t = get_bool ~default:default_ambient_sound t key_ambient_sound

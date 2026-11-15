@@ -16,7 +16,9 @@ let defaults () =
       Sys.remove path;
       let p = Prefs.load ~path () in
       check_string "language" "en" (Prefs.language p);
-      check_float "sound" 1.0 (Prefs.sound_level p);
+      check_float "sound" 0.3 (Prefs.sound_level p);
+      check_float "voice" 1.0 (Prefs.voice_level p);
+      check_float "ambient level" 0.3 (Prefs.ambient_level p);
       check_bool "ambient" true (Prefs.ambient_sound p);
       check_string "portrait" "van-loc" (Prefs.player_portrait p);
       check_string "ai" "summoner" (Prefs.ai_opponent p);
@@ -29,6 +31,8 @@ let round_trip () =
       let p = Prefs.load ~path () in
       Prefs.set_language p "fr";
       Prefs.set_sound_level p 0.5;
+      Prefs.set_voice_level p 0.7;
+      Prefs.set_ambient_level p 0.4;
       Prefs.set_ambient_sound p false;
       Prefs.set_setup_seats p ("human", "lecturer");
       Prefs.set_setup_specials p ([ "zen"; "wind" ], [ "Troopers" ]);
@@ -37,6 +41,8 @@ let round_trip () =
       let q = Prefs.load ~path () in
       check_string "language" "fr" (Prefs.language q);
       check_float "sound" 0.5 (Prefs.sound_level q);
+      check_float "voice" 0.7 (Prefs.voice_level q);
+      check_float "ambient level" 0.4 (Prefs.ambient_level q);
       check_bool "ambient" false (Prefs.ambient_sound q);
       check_string "seats" "human,lecturer"
         (let a, b = Prefs.setup_seats q in
@@ -60,6 +66,8 @@ let scala_format () =
       let p = Prefs.load ~path () in
       check_string "language" "fr" (Prefs.language p);
       check_float "sound" 0.5 (Prefs.sound_level p);
+      check_float "voice default" 1.0 (Prefs.voice_level p);
+      check_float "ambient level default" 0.3 (Prefs.ambient_level p);
       check_bool "ambient default" true (Prefs.ambient_sound p);
       check_string "portrait" "gale" (Prefs.player_portrait p))
 
@@ -69,6 +77,10 @@ let clamp_and_fallback () =
       let p = Prefs.load ~path () in
       Prefs.set_sound_level p 9.0;
       check_float "clamped" 1.0 (Prefs.sound_level (Prefs.load ~path ()));
+      Prefs.set_voice_level p 9.0;
+      check_float "voice clamped" 1.0 (Prefs.voice_level (Prefs.load ~path ()));
+      Prefs.set_ambient_level p 9.0;
+      check_float "ambient clamped" 1.0 (Prefs.ambient_level (Prefs.load ~path ()));
       check_bool "unknown seat" true
         (Prefs.parse_seat ~allowed:[ "oracle" ] ~fallback:`Human "greedy" = `Human);
       check_bool "known bot" true

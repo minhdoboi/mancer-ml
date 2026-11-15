@@ -5184,3 +5184,100 @@ let spawn_fortification ~pid ~slots ~start =
             draw_fortification_smoke p ~num ~lt ~fade;
             draw_fortification_flash p ~lt ~fade col))
         slots)
+
+(* ---------------------------------------------------------------- plaguebringer *)
+
+(* Flying Injector: a plague cloud.  Every creature the cloud chips takes a drop
+   of sickly yellow-green poison, spat out of the injector along a short arc. *)
+let injector_duration = 1.4
+
+let spawn_injector_drops ~from_ ~targets ~start =
+  let duration = injector_duration in
+  let bow = 46. in
+  let flight = 0.45 in
+  mk ~start ~duration (fun ~age ->
+      additive (fun () ->
+          Array.iteri
+            (fun i (p : spot) ->
+              let a = age -. (float i *. 0.09) in
+              if a > 0. then (
+                let pt t =
+                  let t = clamp01 t in
+                  ( from_.x +. ((p.x -. from_.x) *. t),
+                    from_.y +. ((p.y -. from_.y) *. t) -. (sin (t *. Float.pi) *. bow) )
+                in
+                let u = clamp01 (a /. flight) in
+                (* the drop and the short tail of motes behind it *)
+                for t = 0 to 5 do
+                  let uu = Float.max 0. (u -. (float t *. 0.045)) in
+                  let x, y = pt uu in
+                  circle x y
+                    (3.6 -. (float t *. 0.55))
+                    (rgb 0.5 0.72 0.08 (0.55 *. (1. -. (float t /. 6.)) *. (1. -. u)))
+                done;
+                let x, y = pt u in
+                circle x y 3.4 (rgb 0.72 0.92 0.18 (1. -. (u *. 0.4)));
+                circle x y 1.6 (rgb 0.95 1. 0.6 (1. -. (u *. 0.3)));
+                (* the splash where the drop lands *)
+                if u >= 1. then (
+                  let s = clamp01 ((a -. flight) /. 0.35) in
+                  let out = 1. -. s in
+                  circle p.x p.y (3. +. (s *. 14.)) (rgb 0.5 0.78 0.05 (out *. 0.35));
+                  circle p.x p.y (1.6 +. (s *. 5.)) (rgb 0.8 1. 0.3 (out *. 0.75)))))
+            targets))
+
+(* Disease consumed: a sickly yellow-green thread runs from the consumer to each
+   creature whose counters it tears out, and a red filter throbs over that card
+   -- pain that appears and vanishes with the drain. *)
+let disease_drain_duration = 1.15
+
+let spawn_disease_drain ~from_ ~targets ~start =
+  let duration = disease_drain_duration in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.35) in
+      if fade > 0.02 then (
+        let pulse_at i =
+          let hit_at = (float i *. 0.1) +. 0.35 in
+          if age < hit_at then 0.
+          else
+            let window = Float.max 0.3 (duration -. hit_at) in
+            let k = clamp01 ((age -. hit_at) /. window) in
+            sin (Float.pi *. k) *. (0.75 +. (0.25 *. sin ((age *. 18.) +. float i)))
+        in
+        (* the thread, in additive light *)
+        additive (fun () ->
+            Array.iteri
+              (fun i (p : spot) ->
+                let growth = ease_out (clamp01 ((age -. (float i *. 0.1)) /. 0.4)) in
+                let n = 24 in
+                let dx = p.x -. from_.x and dy = p.y -. from_.y in
+                let prev = ref None in
+                for k = 0 to n do
+                  let f = float k /. float n in
+                  if f <= growth then (
+                    let wob =
+                      sin ((f *. 11.) -. (age *. 8.) +. float i) *. 4. *. sin (f *. Float.pi)
+                    in
+                    let x = from_.x +. (dx *. f) +. wob in
+                    let y = from_.y +. (dy *. f) in
+                    (match !prev with
+                    | Some (x0, y0) ->
+                        line x0 y0 x y 3.4 (rgb 0.45 0.7 0.08 (fade *. 0.3));
+                        line x0 y0 x y 1.3 (rgb 0.85 1. 0.35 (fade *. 0.85))
+                    | None -> ());
+                    prev := Some (x, y))
+                done;
+                let pulse = pulse_at i in
+                if pulse > 0.02 then (
+                  circle p.x p.y (16. +. (pulse *. 18.)) (rgb 1. 0.15 0.18 (pulse *. fade *. 0.22));
+                  circle p.x p.y (4. +. (pulse *. 6.)) (rgb 1. 0.7 0.7 (pulse *. fade *. 0.5))))
+              targets);
+        (* the filter, multiplied so it tints the card underneath *)
+        multiplied (fun () ->
+            Array.iteri
+              (fun i (p : spot) ->
+                let pulse = pulse_at i in
+                if pulse > 0.01 then
+                  rect (p.x -. 45.) (p.y -. 51.) 90. 102.
+                    (rgb 1. (1. -. (0.65 *. pulse)) (1. -. (0.65 *. pulse)) 1.))
+              targets)))

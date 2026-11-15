@@ -27,6 +27,8 @@ val key_campaign_class : string
 val key_campaign_difficulty : string
 val key_debug_mode : string
 val key_ambient_sound : string
+val key_voice_level : string
+val key_ambient_level : string
 val key_language : string
 val key_setup_seats : string
 val key_setup_specials : string
@@ -61,9 +63,20 @@ val saved_language : unit -> string option
     [$MANCER_LANG] is unset. Never raises. *)
 
 val sound_level : t -> float
-(** [sound.level], clamped to [0..1], else [1]. *)
+(** [sound.level], the game/effect volume, clamped to [0..1], else [0.3]. *)
 
 val set_sound_level : t -> float -> unit
+
+val voice_level : t -> float
+(** [sound.voice], the campaign voice-over volume, clamped to [0..1], else [1]. *)
+
+val set_voice_level : t -> float -> unit
+
+val ambient_level : t -> float
+(** [sound.ambient.level], the ambience volume, clamped to [0..1], else [0.3]. Independent of the
+    {!ambient_sound} on/off switch. *)
+
+val set_ambient_level : t -> float -> unit
 val player_portrait : t -> string
 val set_player_portrait : t -> string -> unit
 val ai_opponent : t -> string

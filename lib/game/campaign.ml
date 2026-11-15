@@ -271,6 +271,7 @@ let end_message_key ~node_id ~bot_id ~won ~has_key =
 let npcs =
   [
     "porter";
+    "chronicler";
     "farmer";
     "duckwoman";
     "pug";
@@ -291,6 +292,7 @@ let npcs =
     "crowd";
     "gardener";
     "pigboy";
+    "innkeeper";
     "night-host";
     "night-soup";
   ]

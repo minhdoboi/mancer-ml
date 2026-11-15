@@ -12,7 +12,9 @@ précisément cet entre-deux qui rend le personnage inquiétant.
 à son inférieur, sans vulgarité mais sans chaleur. Il ne menace pas, il constate
 — c'est un horticulteur devant une greffe réussie. Le joueur est `ngươi` dans
 `message` et `lose`, mais `kẻ lữ hành` dans `win` : l'itinérant anonyme qu'on
-prévient une fois la graine déjà semée.
+laisse partir une fois la graine déjà semée. Le `win` est le seul moment où sa
+voix se relâche : l'infection qui grouillait dans le joueur a cessé de lutter,
+on a *traité* avec elle, et Sarn peut se contenter de refermer la plaie.
 
 ---
 
@@ -78,35 +80,43 @@ va pousser.*
 
 ---
 
-## 2. `win` — le troupeau se retourne
+## 2. `win` — l'accord passé avec ce qui grouille
 
-> Bầy đàn quay lại chống kẻ giữ nó. Hãy bịt vết thương, kẻ lữ hành, trước khi nó nhớ tên ngươi.
+> Ngươi đã đi đến một sự hiểu nhau với những sinh linh từng vùng vẫy trong ngươi. Hãy bịt vết thương, kẻ lữ hành, trước khi nó nhớ tên ngươi.
 
-*Le troupeau se retourne contre celui qui le garde. Referme la blessure,
-voyageur, avant qu'elle ne se souvienne de ton nom.*
+*Tu es parvenu à un accord mutuel avec les vies qui luttaient en toi. Referme
+la plaie, voyageur, avant qu'elle ne se souvienne de ton nom.*
 
-### `Bầy đàn` — le troupeau, la horde
+### `đi đến một sự hiểu nhau` — parvenir à un accord mutuel
 
-- `bầy` : la harde, la nichée (**purement vietnamien**) ; `đàn` : le troupeau,
-  le groupe d'animaux (**purement vietnamien**). `bầy đàn` = la masse grouillante.
-- Le mot revient chez `campaign.beastlord.md` et `campaign.kahjivir.md` pour
-  l'idée de meute. Chez Sarn, le « troupeau » n'est plus extérieur : c'est ce
-  qui habite le joueur.
+- `đi đến` : aller jusqu'à, parvenir à (**purement vietnamien**) : le chemin
+  est littéral — on ne *trouve* pas l'accord, on y arrive, comme on arrive à un
+  lieu. Écho au `kẻ lữ hành` qui clôt la réplique.
+- `sự` : nominalisateur savant (**sino-vietnamien `事`**), qui fait de la
+  proposition un objet d'État ou de contrat.
+- `hiểu nhau` : se comprendre l'un l'autre ; `hiểu` (**sino-vietnamien `曉`**,
+  « comprendre, savoir »), `nhau` : mutuellement (**purement vietnamien**).
+- Le trio `sự` + `hiểu nhau` donne à la trêve un tour presque diplomatique :
+  les vies ne sont plus une vermine à écraser, mais une partie avec qui l'on
+  traite.
 
-### `quay lại chống` — se retourner contre
+### `từng` — qui ont (jadis) fait, autrefois
 
-- `quay lại` : se retourner, revenir (**purement vietnamien**) ; `chống` :
-  résister, aller contre (**purement vietnamien**).
-- Le tableau est double : le bétail revient (vers Sarn, la source) *et* il se
-  dresse contre son gardien. L'infection échappe à son maître — la seule
-  fissure dans l'assurance de Sarn.
+- **Purement vietnamien.** `từng` = marque l'expérience passée révolue : « qui
+  ont un jour fait ».
+- `từng vùng vẫy` = « qui ont lutté » —`từng` rejette la lutte dans le révolu :
+  c'est *désormais* fini, un passé réglé. La concession est grammaticale.
 
-### `kẻ giữ nó` — celui qui le garde
+### `vùng vẫy` — se débattre, lutter
 
-- `kẻ` : classificateur de personne, **légèrement dépréciatif ou distant**
-  (**purement vietnamien**) ; `giữ` : garder, retenir (**purement vietnamien**).
-- `kẻ` reparaît dans `kẻ lữ hành` : Sarn classe le joueur et lui-même dans la
-  même catégorie grammaticale des « individus », sans leur accorder de nom.
+- `vùng` : se dégager d'un coup (**purement vietnamien**), le mouvement brusque
+  de qui veut se libérer ; `vẫy` : agiter (**purement vietnamien**, le même mot
+  que `vẫy tay`, saluer de la main).
+- `vùng vẫy` = se débattre dans l'eau, dans un filet, dans un corps. Le verbe
+  est physique et un peu pitoyable : ce qui grouillait en soi n'était pas
+  tranquille, c'était en train d'étouffer.
+- À rapprocher de `sinh linh bé nhỏ` (§ 1) : les mêmes petites vies, mais vues
+  cette fois du dedans de leur lutte.
 
 ### `bịt vết thương` — étouper la blessure
 
@@ -119,17 +129,19 @@ voyageur, avant qu'elle ne se souvienne de ton nom.*
 
 - `lữ hành` : voyager, **sino-vietnamien `旅行`** ; le registre est un peu
   livresque. Sarn ne nomme pas le joueur par son nom : il l'appelle le passant.
+  Ici le ton s'adoucit : après l'accord passé, le voyageur n'est plus un sol
+  fertile mais quelqu'un qu'on laisse partir.
 - Mot du jeu pour interpeller le joueur, que l'on retrouve dans
   `campaign.meteomancer.md` et `campaign.powermancer.md`.
 
 ### `trước khi nó nhớ tên ngươi` — avant qu'elle ne se souvienne de ton nom
 
 - `trước khi` : avant que ; `trước` (**purement vietnamien**), `khi`
-  (**sino-vietnamien `期`**, le moment).
-- `nhớ` : se souvenir (**purement vietnamien**) — le verbe de la mémoire, déjà
+  (**sino-vietnamien `期`**, le moment).- `nhớ` : se souvenir (**purement vietnamien**) — le verbe de la mémoire, déjà
   exploité pour les racines (`campaign.trappers.md`, `ghi nhớ`), les fées
-  (`campaign.faerie_druid.md`, `nhớ`) et la pierre (`đá sẽ nhớ`, commun à
-  `campaign.mountainking.md` et `campaign.paganist.md`).
+  (`campaign.faerie_druid.md`, `nhớ`) et la pierre (`đá sẽ nhớ` chez
+  `campaign.paganist.md`, `núi nhớ` chez `campaign.mountainking.md`), le visage
+  (`campaign.rogue.md`, `nhớ mặt`).
 - Ici, la blessure devient une mémoire vivante : savoir le nom, c'est pouvoir
   posséder la personne. L'avertissement est presque tendre — c'est la dernière
   offre de Sarn.

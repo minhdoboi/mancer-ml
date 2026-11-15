@@ -349,15 +349,25 @@ module Slots = struct
     st.reaction.selected := Some dest;
     Slot.overwrite_add dest st
 
+  (* A status word (run, stun, invincibility, blocked, paused, cursed) was
+     earned on a board and a turn the creature no longer belongs to: a
+     cross-side move must not carry it over, or a Manipulator steal would
+     hand the opponent a shielded, pre-charged, or still-held creature. *)
+  let reset_transfer_status slot = Slot.update slot (fun st -> { st with status = 0 })
+
   (* The board is painted from snapshots taken when the event fires (see
      gui_board.ml [push_frame]), so the move/swap must already be applied to
      the slots: emitting before the mutation would snapshot the card still on
      its original slot and make it snap back once the slide ends. *)
   let swap slot dest_slot =
+    let cross = slot.slots.player.pid <> dest_slot.slots.player.pid in
     let removed = Slot.remove slot None in
     let removed2 = Slot.remove dest_slot None in
     priv_move removed dest_slot;
     priv_move removed2 slot;
+    if cross then (
+      reset_transfer_status dest_slot;
+      reset_transfer_status slot);
     emit slot.slots.player.updater
       (Ev_swap
          {
@@ -378,6 +388,7 @@ module Slots = struct
           else (
             let removed = Slot.remove su.slot_updates.(num) None in
             priv_move removed dest_slot;
+            if su.player.pid <> dest_p.pid then reset_transfer_status dest_slot;
             emit su.player.updater (Ev_move { num; dest; player = su.player.pid; dest_player = dest_p.pid }))
 end
 

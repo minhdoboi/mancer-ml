@@ -696,11 +696,12 @@ let for_ability layout ~kind ~player ~num ~target =
                ~to_:(layout.life player) ~amount
                ~start:(start +. inertia_heal_duration)))
   | "zen.redlight" ->
-      (* Redlight throws its light at the opponent's weakest creature: red
-         motes ride an arc from the stone onto the card they hit *)
+      (* Redlight throws its light at the opponent's strongest creature: red
+         motes ride an arc from the stone onto the card they hit.  It blocks,
+         so the wound is shown when the motes land, not when they leave. *)
       Option.map
         (fun (tp, tn) ->
-          recipe ~duration:life_flow_duration ~blocking:false (fun ~start ->
+          recipe ~duration:life_flow_duration ~blocking:true (fun ~start ->
               spawn_life_flow ~red:true ~from_:(layout.slot_center player num)
                 ~to_:(layout.slot_center tp tn) ~start))
         target
@@ -920,6 +921,42 @@ let for_ability layout ~kind ~player ~num ~target =
             (recipe ~duration:kojiro_slash_duration ~blocking:true (fun ~start ->
                  spawn_kojiro_slash ~origin:(layout.slot_center foe origin) ~slots
                    ~nums:(Array.of_list ns) ~foe_pid:foe ~start)))
+  | "plaguebringer.injector" ->
+      (* the plague cloud chips every foe creature: one drop of poison for each *)
+      let foe = other player in
+      let targets = layout.occupied foe |> List.map (layout.slot_center foe) |> Array.of_list in
+      if Array.length targets = 0 then None
+      else
+        Some
+          (recipe ~duration:injector_duration ~blocking:true (fun ~start ->
+               spawn_injector_drops ~from_:(layout.slot_center player num) ~targets ~start))
+  | "plaguebringer.consume" ->
+      (* a spell consumer has no card on the board: the pain runs from the
+         caster's portrait to the creature it drained *)
+      Option.map
+        (fun (tp, tn) ->
+          recipe ~duration:disease_drain_duration ~blocking:true (fun ~start ->
+              spawn_disease_drain ~from_:(layout.life player)
+                ~targets:[| layout.slot_center tp tn |] ~start))
+        target
+  | kind when String.starts_with ~prefix:"plaguebringer.drain" kind ->
+      (* a creature consumer ties its own card to every victim named in the kind *)
+      let foe = other player in
+      let nums = kind |> String.split_on_char '.' |> List.filter_map int_of_string_opt in
+      let targets = Array.of_list (List.map (layout.slot_center foe) nums) in
+      if Array.length targets = 0 then None
+      else
+        Some
+          (recipe ~duration:disease_drain_duration ~blocking:true (fun ~start ->
+               spawn_disease_drain ~from_:(layout.slot_center player num) ~targets ~start))
+  | "plaguebringer.soulleech" ->
+      (* Soul Leech drinks the dying creature's soul and casts it at the foe's
+         portrait, the player the counters wound *)
+      Option.map
+        (fun (tp, tn) ->
+          recipe ~duration:0.95 ~blocking:true (fun ~start ->
+              spawn_harvest ~from_:(layout.slot_center tp tn) ~to_:(layout.life tp) ~souls:1 ~start))
+        target
   | _ -> None
 
 let demo_names =

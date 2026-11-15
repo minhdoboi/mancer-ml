@@ -179,7 +179,7 @@ mancer-assets media carries the same license. You may use and modify them in
 open source projects; if you ship a product or hosted service that includes
 this code or the mancer-assets media, you must publish corresponding source
 under the same license. Bundled fonts keep their own terms
-(`assets/fonts/IMFellEnglish-OFL.txt`).
+(`assets/fonts/IMFellEnglish-OFL.txt`, `assets/fonts/NotoSans-OFL.txt`).
 
 ## Assets
 

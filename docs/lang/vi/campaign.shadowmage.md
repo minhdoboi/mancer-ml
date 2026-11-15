@@ -137,10 +137,11 @@ déjà plus là : elle est partie. Je ne suis là que pour ramasser ce qui reste
 
 ## 3. `lose` — l'engloutissement
 
-> Bị nuốt chửng, trong lúc ngươi chỉ thắng trong tưởng tượng. Quay lại khi ngươi tìm thấy bóng của riêng mình.
+> Bị nuốt chửng, trong lúc ngươi chỉ thắng trong tưởng tượng. Chỉ nhìn vào ánh sáng, và ngươi sẽ chỉ thấy Narcissus của riêng mình. Quay lại khi ngươi tìm thấy bóng của riêng mình.
 
 *Englouti tout entier, alors que tu ne gagnais que dans ton imagination.
-Reviens quand tu auras trouvé ton ombre propre.*
+Ne regarde que la lumière, et tu ne verras que ton propre Narcisse. Reviens
+quand tu auras trouvé ton ombre propre.*
 
 ### `Bị nuốt chửng` — englouti tout entier
 
@@ -165,6 +166,31 @@ Reviens quand tu auras trouvé ton ombre propre.*
 - L'ironie renverse le joueur : il a **cru** vaincre. La victoire imaginée
   n'est pas une victoire, et le maître de l'ombre, qui ne collectionne que le
   réel, la range parmi les illusions.
+
+### `Chỉ nhìn vào ánh sáng, và ngươi sẽ chỉ thấy Narcissus của riêng mình` — ne regarde que la lumière, et tu ne verras que ton propre Narcisse
+
+- `chỉ` : seulement (native), déjà vu au § 1 (`Ta chỉ ở đây`). `nhìn vào` :
+  regarder vers, plonger le regard dans (native), repris de l'impératif
+  d'ouverture du `message` (`Nhìn vào bóng tối`). Le geste est le même, l'objet
+  a changé : le maître des ombres renvoie le joueur de l'ombre vers la lumière.
+- `ánh sáng` : la lumière (`ánh` : éclat, rayon, **purement vietnamien** ;
+  `sáng` : clair, lumineux, native) — champ lexical de Veyra
+  (`campaign.shadowcaster.md`). `và` : et (native). `sẽ` : marqueur du futur
+  (native). `thấy` : voir (native), déjà vu plus bas dans `tìm thấy`.
+- `Narcissus` : Narcisse, nom propre du héros grec amoureux de son propre
+  reflet — le seul mot **étranger** de la fiche, et il est là pour ça : il nomme
+  le piège. Voir `campaign.shadowcaster.md`, où la lumière est une créance, et
+  `campaign.lightstave.md`, où elle est chantée.
+- `của riêng mình` : « à soi », « le sien propre » — `của`, `riêng` et `mình`
+  repris tels quels de la phrase suivante (`bóng của riêng mình`). La structure
+  est volontairement **parallèle** : l'ombre propre (`bóng của riêng mình`) est
+  ce qu'il faut retrouver, le Narcisse propre (`Narcissus của riêng mình`) est
+  ce qu'il faut cesser de contempler.
+- Le raisonnement d'Umbral : ne regarder que la lumière, c'est ne plus voir que
+  son reflet — le joueur qui a « gagné dans son imagination » est déjà ce
+  Narcisse penché sur l'eau. La lumière, qui devrait éclairer, devient le miroir
+  de l'ego. Le `message` invitait à regarder les ténèbres ; le `lose` constate
+  que le joueur a préféré la clarté flatteuse et n'y a trouvé que lui-même.
 
 ### `Quay lại khi ngươi tìm thấy bóng của riêng mình` — reviens quand tu auras trouvé ton ombre propre
 

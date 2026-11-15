@@ -191,6 +191,62 @@ let glider_keeps_the_board_legal () =
   on_turn u 0;
   check_bool "the blocked slot stayed empty" true (Option.is_none (slot u 0 4).value)
 
+(* The only empty slot on the board is sealed: the glider has nowhere legal
+   to land and must leave its neighbour alone. *)
+let glider_never_lands_on_a_sealed_slot () =
+  let u = new_game ~special:Chaospriest.house () in
+  place u 0 "chaospriest.glider" 2;
+  place u 0 "anger.werewolf" 1;
+  place u 0 "anger.sentinel" 3;
+  place u 0 "anger.sentinel" 4;
+  place u 0 "anger.sentinel" 5;
+  step u (fun () -> Player.block_slot (player u 0) 0);
+  on_turn u 0;
+  check_bool "the sealed slot stayed empty" true (Option.is_none (slot u 0 0).value);
+  check_bool "the neighbour did not move" true (occupant u 0 1 = Some "anger.werewolf")
+
+(* Same, but the seal comes from the real Unstable Cannon through the turn
+   cycle rather than a direct Player.block_slot. *)
+let glider_ignores_the_cannon_seal () =
+  let u = new_game ~special:Chaospriest.house () in
+  place u 0 "chaospriest.glider" 2;
+  place u 0 "anger.werewolf" 1;
+  place u 0 "anger.sentinel" 3;
+  place u 0 "anger.sentinel" 4;
+  place u 0 "anger.sentinel" 5;
+  place u 1 "chaospriest.unstablecannon" 0;
+  on_turn u 1;
+  on_turn u 0;
+  check_bool "the sealed slot stayed empty" true (Option.is_none (slot u 0 0).value);
+  check_bool "the neighbour did not move" true (occupant u 0 1 = Some "anger.werewolf")
+
+(* A slot an enemy creature faces is blocked too: the glider stays put when
+   the only open slot of its board has a creature in front of it. *)
+let glider_avoids_the_slot_facing_a_creature () =
+  let u = new_game ~special:Chaospriest.house () in
+  place u 0 "chaospriest.glider" 2;
+  place u 0 "anger.werewolf" 1;
+  place u 0 "anger.sentinel" 3;
+  place u 0 "anger.sentinel" 4;
+  place u 0 "anger.sentinel" 5;
+  place u 1 "anger.dragon" 0;
+  on_turn u 0;
+  check_bool "the slot in front of the dragon stayed empty" true (Option.is_none (slot u 0 0).value);
+  check_bool "the neighbour did not move" true (occupant u 0 1 = Some "anger.werewolf")
+
+(* The open slot has no creature in front of it, so the glider uses it. *)
+let glider_uses_the_slot_that_is_not_faced () =
+  let u = new_game ~special:Chaospriest.house () in
+  place u 0 "chaospriest.glider" 2;
+  place u 0 "anger.werewolf" 1;
+  place u 0 "anger.sentinel" 3;
+  place u 0 "anger.sentinel" 4;
+  place u 0 "anger.sentinel" 5;
+  on_turn u 0;
+  check_bool "the open slot now holds a neighbour" true (Option.is_some (slot u 0 0).value);
+  check_int "one neighbour left home" 1
+    (List.length (List.filter (fun n -> Option.is_none (slot u 0 n).value) [ 1; 3 ]))
+
 let witcher_drains_a_power () =
   let u = new_game ~special:Chaospriest.house () in
   play u 0 "chaospriest.witcher" ~input:(Some 2) ~cost:0;
@@ -365,6 +421,10 @@ let () =
           Alcotest.test_case "healer stops when gone" `Quick healer_stops_when_gone;
           Alcotest.test_case "glider" `Quick glider_moves_one_neighbour;
           Alcotest.test_case "glider legality" `Quick glider_keeps_the_board_legal;
+          Alcotest.test_case "glider sealed destination" `Quick glider_never_lands_on_a_sealed_slot;
+          Alcotest.test_case "glider ignores cannon seal" `Quick glider_ignores_the_cannon_seal;
+          Alcotest.test_case "glider avoids a faced slot" `Quick glider_avoids_the_slot_facing_a_creature;
+          Alcotest.test_case "glider uses an unfaced slot" `Quick glider_uses_the_slot_that_is_not_faced;
           Alcotest.test_case "witcher" `Quick witcher_drains_a_power;
           Alcotest.test_case "witcher stops when gone" `Quick witcher_stops_when_gone;
           Alcotest.test_case "distorter summons" `Quick distorter_redirects_summons;

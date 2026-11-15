@@ -116,14 +116,18 @@ let healer_reduction (p : player_update) =
       | None -> 0)
 
 (* Glider: every turn one of its neighbours is carried to a random unblocked
-   empty slot of the owner's board. *)
+   empty slot of the owner's board; a slot an enemy creature faces is blocked,
+   so the glider never lands in front of a creature. *)
 let glider_turn : card_effect =
  fun env ->
   let me = own_slot_of_env env in
   let rng = env.env_updater.rng in
   let neighbours = Slot.filled_adjacent me in
   let empties =
-    List.filter (fun n -> Option.is_none me.slots.slot_updates.(n).value)
+    List.filter
+      (fun n ->
+        let s = me.slots.slot_updates.(n) in
+        Option.is_none s.value && Option.is_none (Slot.opposite s).value)
       me.slots.player.pstate.ps_slot_list
   in
   match (neighbours, empties) with

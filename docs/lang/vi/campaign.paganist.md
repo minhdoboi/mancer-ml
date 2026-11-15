@@ -126,8 +126,9 @@ se souviendront de ton nom.*
 
 ### `đá sẽ nhớ tên ngươi` — les pierres se souviendront de ton nom
 
-- Renvoi direct à Thorgrim (`campaign.mountainking.md`, `Đá sẽ nhớ NGƯƠI`) :
-  plusieurs factions de la campagne tiennent la pierre pour registre des noms.
+- Renvoi à la mémoire minérale de Thorgrim (`campaign.mountainking.md`, `núi
+  nhớ những kẻ cõng nó`) : plusieurs factions de la campagne tiennent la pierre
+  pour registre des noms et des porteurs.
 - Ici la mémoire est une bénédiction ambiguë — on n'oublie pas une offrande.
 
 ---

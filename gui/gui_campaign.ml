@@ -21,6 +21,14 @@ type campaign_dlg =
       button : string;
       ack : unit -> unit;
     }
+  | Camp_scene of {
+      image : string;
+      title : string;
+      body : string;
+      voice : string option;
+      button : string;
+      ack : unit -> unit;
+    }
   | Camp_end of { node : Campaign.node; won : bool }
 
 type campaign_ui = {
@@ -115,11 +123,21 @@ let voice_button ?(top = true) ~key ~box () =
       picon_button ~size:15. (rect x y w 24.) (fun ~cx ~cy ~s -> volume_icon ~cx ~cy ~s ()) (fun () ->
           Gui_voice.play_key key)
 
-let parchment_card ?voice_key ~title ~portrait ~subtitle ~message buttons =
+let parchment_card ?voice_key ?image ~title ~portrait ~subtitle ~message buttons =
   click_full (fun () -> ());
   let msg_w = 400. in
   let face = 112. in
-  let face_h = if Option.is_some portrait then face +. 12. else 0. in
+  (* A campaign picture, if given, fills the card the way a portrait does,
+     keeping its own aspect ratio. *)
+  let pic =
+    match image with Some path -> Option.map (fun t -> (path, t)) (texture (Assets.campaign path)) | None -> None
+  in
+  let pic_h =
+    match pic with
+    | Some (_, t) -> msg_w *. float (R.Texture.height t) /. float (R.Texture.width t)
+    | None -> 0.
+  in
+  let face_h = if pic = None && Option.is_some portrait then face +. 12. else 0. in
   let type_size = 20. in
   let line_h = 26. in
   let lines = wrap ~font:paper_font type_size msg_w message in
@@ -128,21 +146,26 @@ let parchment_card ?voice_key ~title ~portrait ~subtitle ~message buttons =
   let title_h = 32. in
   let sub_h = if subtitle = "" then 0. else 28. in
   let msg_h = float (max 1 nlines) *. line_h in
+  let media_h = if pic_h > 0. then pic_h +. 12. else face_h in
   let box_w = 520. in
   let box_h =
     Float.min (vh -. 16.)
-      (edge +. title_h +. 8. +. face_h +. sub_h +. 8. +. msg_h +. 16. +. btn_h +. edge)
+      (edge +. title_h +. 8. +. media_h +. sub_h +. 8. +. msg_h +. 16. +. btn_h +. edge)
   in
   let box = rect ((vw -. box_w) /. 2.) ((vh -. box_h) /. 2.) box_w box_h in
   paper box;
   on_click box (fun () -> ());
   Option.iter (fun key -> voice_button ~key ~box ()) voice_key;
   text ~font:paper_font ~size:22. ~color:ink (box.x +. 40.) (box.y +. 22.) title;
-  (match portrait with
-  | Some id ->
-      draw_face id (rect (box.x +. ((box.w -. face) /. 2.)) (box.y +. edge +. title_h) face face)
-  | None -> ());
-  let y = ref (box.y +. edge +. title_h +. face_h) in
+  (match pic with
+  | Some (_, t) ->
+      Gui_draw.image t (rect (box.x +. ((box.w -. msg_w) /. 2.)) (box.y +. edge +. title_h) msg_w pic_h)
+  | None -> (
+      match portrait with
+      | Some id ->
+          draw_face id (rect (box.x +. ((box.w -. face) /. 2.)) (box.y +. edge +. title_h) face face)
+      | None -> ()));
+  let y = ref (box.y +. edge +. title_h +. media_h) in
   if subtitle <> "" then (
     text_c ~font:paper_font ~size:type_size ~color:ink box !y subtitle;
     y := !y +. sub_h);
@@ -512,12 +535,42 @@ let draw_campaign (camp : campaign_ui) =
                     in
                     [ (Assets.text "campaign.continue", continue_click) ]
                 | cs ->
+                    let finish (c : Campaign.choice) =
+                      Prefs.complete_campaign (Prefs.load ()) ~extras:[ c.id ] n.id;
+                      camp.dlg <- Camp_none
+                    in
+                    (* The innkeeper offers a bed: accepting shows the room, then
+                       the waking line, before the node completes. *)
+                    let innkeeper_rest () =
+                      camp.dlg <-
+                        Camp_scene
+                          {
+                            image = "innkeeper";
+                            title = Assets.text ("campaign." ^ n.id ^ ".name");
+                            body = Assets.text ("campaign." ^ n.id ^ ".rest");
+                            voice = Some ("campaign." ^ n.id ^ ".rest");
+                            button = Assets.text "campaign.continue";
+                            ack =
+                              (fun () ->
+                                camp.dlg <-
+                                  Camp_note
+                                    {
+                                      title = Assets.text ("campaign." ^ n.id ^ ".wake.title");
+                                      body = Assets.text ("campaign." ^ n.id ^ ".wake");
+                                      portrait = None;
+                                      voice = Some ("campaign." ^ n.id ^ ".wake");
+                                      button = Assets.text "campaign.continue";
+                                      ack =
+                                        (fun () ->
+                                          Prefs.complete_campaign (Prefs.load ()) ~extras:[ "accept" ] n.id);
+                                    });
+                          }
+                    in
                     List.map
                       (fun (c : Campaign.choice) ->
                         ( Assets.text ("campaign." ^ n.id ^ ".choice." ^ c.id),
                           fun () ->
-                            Prefs.complete_campaign (Prefs.load ()) ~extras:[ c.id ] n.id;
-                            camp.dlg <- Camp_none ))
+                            if n.id = "innkeeper" && c.id = "accept" then innkeeper_rest () else finish c ))
                       cs
               in
               parchment_card
@@ -527,6 +580,15 @@ let draw_campaign (camp : campaign_ui) =
                 ~subtitle:(Assets.text ("campaign." ^ n.id ^ ".name"))
                 ~message:(Assets.text ("campaign." ^ n.id ^ ".message"))
                 choices)
+      | Camp_scene s ->
+          parchment_card ?voice_key:s.voice ?image:(Some s.image) ~title:s.title ~portrait:None
+            ~subtitle:"" ~message:s.body
+            [
+              ( s.button,
+                fun () ->
+                  camp.dlg <- Camp_none;
+                  s.ack () );
+            ]
       | Camp_end { node; won } ->
           draw_campaign_end ~final:false ~node ~won
             ~replay:(fun () ->

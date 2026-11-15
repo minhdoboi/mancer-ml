@@ -48,7 +48,7 @@ Mithril Bow, Mithril Shield, Flying Chariot, Pegasus, Cloak and Dagger) has no
 clip at all: `Assets.sound` returns `None` and the play is skipped, so casting
 those cards is simply silent.
 
-The volume is `0.9 · sound_level ()`, the Level slider from Settings → Sound
+The volume is `0.9 · game_level ()`, the Game slider from Settings → Sound
 read from the prefs file. Sounds are decoded once into a `Hashtbl` cache
 (`gui/gui_draw.ml:233`) and unloaded at shutdown (`bin/gui.ml:499`).
 
