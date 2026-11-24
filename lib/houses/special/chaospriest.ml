@@ -170,7 +170,10 @@ let redirect_targets (c : command) (su : slots_update) =
   | None, _ -> []
 
 (* Distorter: a command of the opponent is re-aimed at a random slot of the
-   board it was headed for. *)
+   board it was headed for.  The dice pick the slot, so the front end cannot
+   know before it resolves where the card will land; the event therefore names
+   the Distorter and the slot it chose, and the board draws the white wave
+   running from the one to the other. *)
 let distort (p : player_update) (c : command) =
   match (c.cmd_input, input_board p c) with
   | None, _ | _, None -> c
@@ -180,7 +183,21 @@ let distort (p : player_update) (c : command) =
       | [] -> c
       | _ ->
           let dest = List.nth targets (Dice.int p.updater.rng (List.length targets)) in
-          Option.iter focus_slot (Slots.find_card p.slots_update (Option.get !distorter_ref));
+          (match Slots.find_card p.slots_update (Option.get !distorter_ref) with
+          | Some me ->
+              focus_slot me;
+              (* the board the chosen slot belongs to: the caster's unless the
+                 command was headed for the Distorter's own side *)
+              let target_pid = if su == p.slots_update then p.pid else c.cmd_player in
+              emit p.updater
+                (Ev_ability
+                   {
+                     kind = "chaospriest.distort";
+                     player = p.pid;
+                     num = me.num;
+                     target = Some (target_pid, dest.num);
+                   })
+          | None -> ());
           { c with cmd_input = Some dest.num })
 
 let chaospriest_listener () =

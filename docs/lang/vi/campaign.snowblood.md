@@ -5,7 +5,8 @@ débloqué après `battlemage` ; bot `gambler` ; **vie pleine, 60 points de vie*
 — le nœud ne fixe aucune valeur ; nœud non passable). Frostveil appartient à
 une maison de contrôle froid : chaque mot tourne autour du gel, de la
 conservation et de l'absence de chaleur. Trois répliques, trois températures :
-le froid qui `giữ lấy`, la chaleur rare du `win`, le gel définitif du `lose`.
+le froid qui `giữ lấy`, la chaleur rare du `win`, et, dans le `lose`, la lame dont
+la froideur gagne celui qui s'y abrite.
 
 **Ton.** Frostveil dit `ta` et appelle le joueur `ngươi`, d'une voix égale et
 sans colère — la froideur même. L'image maîtresse est celle du froid qui
@@ -93,10 +94,10 @@ retour pas la moindre chaleur.*
 
 ## 2. `win` — la chaleur conservée
 
-> Ngươi giữ được hơi ấm. Hiếm thật. Đi đi trước khi tuyết đổi ý.
+> Ngươi giữ được hơi ấm. Hiếm thật. Đi đi trước khi nó phai hẳn.
 
-*Tu as gardé ta chaleur. Rare, vraiment. Va-t'en avant que la neige ne change
-d'avis.*
+*Tu as gardé ta chaleur. Rare, vraiment. Va-t'en avant qu'elle ne se fane tout
+à fait.*
 
 (`hơi ấm` et `giữ` sont expliqués au § 1.)
 
@@ -107,42 +108,69 @@ d'avis.*
 - `Hiếm thật` = « c'est rare, pour de bon ». Le laconisme du compliment est
   calculé : deux mots, aucune effusion — l'admiration reste gelée.
 
-### `tuyết` — la neige
+### `nó` — cela
 
-- **Sino-vietnamien `雪`.** Mot savant, présent aussi dans le nom de la maison
-  **Huyết tuyết**.
-- `trước khi tuyết đổi ý` = « avant que la neige ne change d'avis ». La neige
-  devient une entité capricieuse : la métaphore prend le relais du locuteur.
+- Pronom personnel neutre, **purement vietnamien**, qui reprend `hơi ấm`. La
+  chaleur gagnée est désignée comme une chose, non comme une personne : la
+  froideur de Frostveil ne la nomme que pour annoncer sa perte.
 
-### `đổi ý` — changer d'avis
+### `phai hẳn` — se faner tout à fait
 
-- `đổi` : changer (**purement vietnamien**, voir `biến đổi` chez `powermancer`,
-  `campaign.powermancer.md`). `ý` : intention, **sino-vietnamien `意`** (le
-  même que dans `ý thức`).
-- `đổi ý` = « changer d'intention ». L'avertissement est ironique : le joueur
-  a gagné, mais le froid reprendra ses droits s'il s'attarde.
+- `phai` : pâlir, se faner, perdre sa couleur ou sa vigueur (**purement
+  vietnamien**) — un tissu déteint, une couleur qui passe, un sentiment qui
+  s'efface. `hẳn` : complètement, pour de bon (native).
+- `phai hẳn` = « se faner pour de bon ». L'image est celle d'une **teinte qui
+  se décolore**, non d'un feu qui s'éteint : la chaleur se perd comme un drap
+  au soleil. C'est plus lent et plus définitif que `nguội` (refroidir) ou
+  `tàn` (se flétrir) — le froid ne reprend pas la chaleur, il la laisse
+  s'évanouir.
 
 ---
 
-## 3. `lose` — le gel
+## 3. `lose` — la lame et le froid
 
-> Đông cứng ngay tại chỗ. Rã sẽ tới - mong ngươi cũng thế.
+> Một lưỡi dao lạnh cho một trái tim lạnh. Nếu ngươi nấp sau cái lạnh của chính lưỡi dao mình, nó sẽ khiến ngươi lạnh theo. Rã sẽ tới - mong ngươi cũng thế.
 
-*Gelé sur place. Le dégel viendra — puisses-tu en faire autant.*
+*Une lame froide pour un cœur froid. Si tu te tapis derrière la froideur de
+ta propre lame, elle te refroidira à ton tour. Le dégel viendra — puisses-tu en
+faire autant.*
 
-### `Đông cứng` — gelé, figé par le froid
+### `lưỡi dao` — la lame
 
-- `đông` : geler, se congeler, **sino-vietnamien `凍`**. `cứng` : dur, raide
-  (**purement vietnamien**).
-- `đông cứng` = « durci par le gel ». Le corps perd toute souplesse : c'est
-  l'immobilité totale, l'inverse du `đi được bao xa` du `message`.
+- `lưỡi` : langue, puis, par extension, le tranchant d'une arme (**purement
+  vietnamien**) ; `dao` : couteau, lame (native). `lưỡi dao` = la lame du
+  couteau, plus courte et plus concrète que `lưỡi kiếm`, la lame d'épée de
+  `shadowmage` (`campaign.shadowmage.md`).
+- La maison n'a pas d'arme attitrée : la lame est ici une **image** — le froid
+  que l'adversaire manie comme une arme, et qui finit par le tenir.
 
-### `ngay tại chỗ` — sur place, à l'instant même
+### `trái tim lạnh` — le cœur froid
 
-- `ngay` : immédiatement, juste. `tại` : à, en ce lieu (**sino-vietnamien
-  `在`**). `chỗ` : endroit.
-- `ngay tại chỗ` = « là, sur place ». L'expression insiste sur l'absence de
-  tout sursis : le gel frappe sans déplacement.
+- `trái tim` est expliqué au § 1. Frostveil le reprend et l'accouple à `lạnh`,
+  le mot même du `message` : le cœur du joueur est aussi froid que la lame
+  qu'il dresse. La répétition `lạnh … lạnh`, **purement vietnamienne**, scande
+  la sentence comme un proverbe.
+
+### `nấp` — se tapir, se cacher
+
+- **Purement vietnamien**, déjà expliqué chez `pigboy`
+  (`campaign.pigboy.md`). Le geste est bas et animal : se faire petit derrière
+  l'obstacle au lieu d'affronter.
+- L'ironie est que le joueur s'abrite derrière la froideur de sa lame — et que
+  c'est précisément cette cachette qui le glace.
+
+### `chính` — propre, précisément
+
+- **Purement vietnamien.** `chính` insiste : non pas une lame quelconque, mais
+  *ta* lame, celle que tu as choisie. Le possessif `mình` referme la tautologie.
+
+### `lạnh theo` — refroidir à son tour
+
+- `theo` : suivre, accompagner (**purement vietnamien**). `lạnh theo` = « devenir
+  froid à son tour », par contamination.
+- La froideur n'est pas subie de l'extérieur : elle est **transmise** par
+  l'arme qu'on croyait maîtriser. C'est le sens du `in turn` anglais, et la
+  réplique la plus proche d'un avertissement moral.
 
 ### `Rã` — le dégel, la fonte
 

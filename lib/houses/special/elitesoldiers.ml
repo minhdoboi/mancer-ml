@@ -118,7 +118,9 @@ let spearman_reaction () =
   }
 
 (* A hit on a creature also wounds the opponent; a direct hit doubles on the
-   enemy with the most life. *)
+   enemy with the most life.  When the lane is empty the shot passes through and
+   the doubling blow lands on a creature the board cannot predict, so the event
+   names the Slinger and the creature it picked for the thrown stone. *)
 let slinger_attack target d p =
   let op = other_player p in
   match target with
@@ -131,7 +133,16 @@ let slinger_attack target d p =
       else (
         Player.inflict op d;
         match reduce_filled op.slots_update highest_life with
-        | Some s -> Slot.inflict s { d with amount = d.amount * 2 }
+        | Some s ->
+            emit p.updater
+              (Ev_ability
+                 {
+                   kind = "elitesoldiers.sling";
+                   player = p.pid;
+                   num = d.context.ctx_selected;
+                   target = Some (op.pid, s.num);
+                 });
+            Slot.inflict s { d with amount = d.amount * 2 }
         | None -> ())
 
 (* Sweeps every opponent creature; an empty opposing slot lets the shot

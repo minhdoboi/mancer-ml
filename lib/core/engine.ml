@@ -17,6 +17,12 @@ open Sp
 
 let emit (u : updater) e = u.listener e
 
+(* A flavour line for the board, shown with the last-played card.  [key] and
+   every argument are i18n keys the front end resolves.  Effects and reactions
+   call it while a play is resolving; the board appends the lines in order. *)
+let note (u : updater) player key args =
+  emit u (Ev_note { player; note = { note_key = key; note_args = args } })
+
 (* ---------------------------------------------------------------- helpers *)
 
 let other_player (p : player_update) = p.updater.player_updates.(other p.pid)
@@ -601,6 +607,9 @@ module Player = struct
       p.pstate.ps_effects
 
   let submit_command_default p (c : command) =
+    (* The card's static flavour line ([<key>.note]) is not emitted here: the
+       history panel looks it up when it shows the play, so a card that
+       produces no dynamic line still reads.  See [Assets.card_note]. *)
     if c.cmd_card.is_spell then emit p.updater (Ev_spell_played c);
     Houses.incr_mana p.houses_update (-c.cmd_cost) [ c.cmd_card.house_index ];
     emit p.updater (Ev_refresh { silent = true });

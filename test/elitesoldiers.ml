@@ -173,6 +173,26 @@ let slinger_direct_hit_doubles () =
   check_int "opponent took 3" (60 - 3) (player_life u 1);
   check_int "biggest creature took 6" (15 - 6) (life_at u 1 3)
 
+(* The unopposed stone is announced for the animation: the front end throws a
+   rock from the Slinger to the creature with the most life. *)
+let slinger_announces_its_stone () =
+  let u = new_game ~special:Elitesoldiers.house () in
+  place u 0 "elitesoldiers.slinger" 2;
+  place u 1 "sadness.greywolf" 3;
+  let events = ref [] in
+  Updater.listen u (fun e -> events := e :: !events);
+  run_at u 0 2;
+  let thrown =
+    List.filter_map
+      (function
+        | Ev_ability { kind = "elitesoldiers.sling"; player = 0; num = 2; target = Some (1, n) } -> Some n
+        | _ -> None)
+      !events
+  in
+  match thrown with
+  | [ n ] -> check_int "the stone found the biggest creature" 3 n
+  | _ -> Alcotest.fail "the slinger announced no stone"
+
 let crossbow_sweeps () =
   let u = new_game ~special:Elitesoldiers.house () in
   place u 0 "elitesoldiers.crossbowman" 2;
@@ -284,6 +304,7 @@ let () =
           Alcotest.test_case "clubman death blow" `Quick clubman_falls_on_its_sword;
           Alcotest.test_case "slinger splash" `Quick slinger_splashes_on_a_creature;
           Alcotest.test_case "slinger direct" `Quick slinger_direct_hit_doubles;
+          Alcotest.test_case "slinger announces stone" `Quick slinger_announces_its_stone;
           Alcotest.test_case "crossbow sweep" `Quick crossbow_sweeps;
           Alcotest.test_case "crossbow double kill" `Quick crossbow_pays_for_a_double_kill;
           Alcotest.test_case "axeman doubles" `Quick axeman_doubles_and_withers;

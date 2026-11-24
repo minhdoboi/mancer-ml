@@ -1,8 +1,10 @@
 (* Asset text helpers. *)
 
 open Mancer
+open Sp
 
 let check = Alcotest.(check string)
+let check_note = Alcotest.(check (option string))
 
 let format () =
   check "plain" "a 3 b 4" (Assets.format "a {0} b {1}" [ "3"; "4" ]);
@@ -42,10 +44,28 @@ let reload () =
   Assets.reload ();
   check "en after reload" (expected "en" "settings.lang") (Assets.text "settings.lang")
 
+(* The history panel reads a card's static flavour line from [<key>.note]
+   instead of the engine emitting it when the card is played.  A line an
+   effect emits with arguments lives under a different key, so it is not a
+   card note.  The assets checkout is optional, so only assert when its
+   bundle is there. *)
+let card_note () =
+  if Assets.has_key "sadness.retirement.note" then (
+    let spell key = Common.spell ~key ~description:"" ~effects:Engine.no_effects () in
+    let key_of n = Option.map (fun (n : note) -> n.note_key) n in
+    check_note "retirement has a note" (Some "sadness.retirement.note")
+      (key_of (Assets.card_note (spell "sadness.retirement")));
+    check_note "pain druid has a note" (Some "sadness.paindruid.note")
+      (key_of (Assets.card_note (spell "sadness.paindruid")));
+    check_note "schizo's line is an effect" None
+      (key_of (Assets.card_note (spell "warp.schizo")));
+    check_note "a card with no flavour" None (key_of (Assets.card_note (spell "anger.hotspot"))))
+
 let () =
   Alcotest.run "assets"
     [
       ("format", [ Alcotest.test_case "placeholders" `Quick format ]);
       ("basic names", [ Alcotest.test_case "fill" `Quick fill ]);
+      ("card note", [ Alcotest.test_case "lookup" `Quick card_note ]);
       ("language", [ Alcotest.test_case "reload" `Quick reload ]);
     ]

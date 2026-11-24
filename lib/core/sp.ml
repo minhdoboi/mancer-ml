@@ -41,6 +41,11 @@ let on_hold = stun_flag + blocked_flag + paused_flag
 
 type phase = Direct | On_turn | On_end_turn | On_start
 
+(* A short flavour line the board shows under the last-played panel.  Both
+   halves are i18n keys: [note_key] is formatted with [note_args], each of
+   which is itself an i18n key (a card name, usually). *)
+type note = { note_key : string; note_args : string list }
+
 (* One mutually recursive group: input_spec mentions game_state,
    attack_source mentions player_update, creature_body mentions reaction, and
    so on. *)
@@ -468,6 +473,9 @@ and game_event =
   | Ev_mana of { player : player_id; num : int; target : player_id; deltas : (int * int) list }
   | Ev_to_move of { t : int; player : player_id }
   | Ev_submitted of { t : int; player : player_id; command : command option }
+  (* A flavour line for the last-played panel, appended to whatever the played
+     card already carries. Effects and reactions emit it while a play resolves. *)
+  | Ev_note of { player : player_id; note : note }
   | Ev_game_over of { winner : player_id option; reason : string }
 
 and updater = {

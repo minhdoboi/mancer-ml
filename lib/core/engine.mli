@@ -8,6 +8,10 @@ open Sp
 val emit : updater -> game_event -> unit
 (** Sends an event to the updater's listener (Scala's [updateListener]). *)
 
+val note : updater -> player_id -> string -> string list -> unit
+(** Emits {!Sp.Ev_note}: a flavour line shown under the last-played card. [key] and every argument are i18n
+    keys the front end resolves. Effects and reactions call it while a card resolves. *)
+
 val other_player : player_update -> player_update
 
 val make_creature : card -> creature

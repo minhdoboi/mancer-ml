@@ -136,7 +136,9 @@ House keys are the game names, not always the module names: `--special
 Troopers`, `--special Dudes`, `--special reaper` (Soul Reaper also answers
 to `soulreaper`).
 
-Top tier classes, considering that seasons is better than all others:
+#### S-tier classes
+
+Some unreliable ranking to give an idea of the classes.
 
 ```
 dune exec ./bin/main.exe -- --mode houses --special paganist,highpriest,seasons,technomage --games 3 --bots diviner --budget=200
@@ -148,14 +150,34 @@ dune exec ./bin/main.exe -- --mode houses --special paganist,highpriest,seasons,
 |seasons    | 1-2      |   0-3       |  -       |    0-3
 |technomage | 3-0      |   2-1       |  3-0     |    -
 
-houses (4):
 
-|   ratio  |            |              | elo
-|----------|------------|--------------|----------
-|    0.889 |  8-1-0 / 9 |   technomage | 549.9
-|    0.556 |  5-4-0 / 9 |   highpriest | 508.8
-|    0.444 |  4-5-0 / 9 |   paganist   | 1490.9
-|    0.111 |  1-8-0 / 9 |   seasons    | 1450.3
+|   ratio  |      |             | elo
+|----------|------|-------------|--------
+|    0.889 |  8-1 |  technomage | 549.9
+|    0.556 |  5-4 |  highpriest | 508.8
+|    0.444 |  4-5 |  paganist   | 1490.9
+|    0.111 |  1-8 |  seasons    | 1450.3
+
+#### A-tier classes
+
+Another ranking of good classes to give an idea:
+
+|              | antimancer | colors | dreamweaver | quantumancer | darkpriest
+| -------------|------------|--------|-------------|--------------|-----------
+| antimancer   |  -         |    1-2 |     2-1     |        3-0   |    1-2
+| colors       |  2-1       |    -   |     1-2     |        2-1   |    3-0
+| dreamweaver  |  1-2       |    2-1 |     -       |        1-2   |    2-1
+| quantumancer |  0-3       |    1-2 |     2-1     |        -     |    1-2
+| darkpriest   |  2-1       |    0-3 |     1-2     |        2-1   |    -
+
+|   ratio |      |              | elo
+|---------|------|--------------|--------
+|  0.667  |  8-4 |  colors      | 1528.4
+|  0.583  |  7-5 |  antimancer  | 1512.3
+|  0.500  |  6-6 |  dreamweaver | 1498.9
+|  0.417  |  5-7 |  darkpriest  | 1487.0
+|  0.333  |  4-8 |  quantumancer| 1473.4
+
 
 ## Limitations
 

@@ -44,6 +44,11 @@ val describe : ?state:game_state -> ?player:player_id -> card -> string
 (** Card text. When [state] and [player] are given, [{0}] placeholders (Lightning damage, …) are filled from
     the board, as in Scala [card.description]. *)
 
+val card_note : card -> note option
+(** The card's static flavour line [<key>.note], or [None] when the bundle has no such key. The history
+    panel looks this up when it shows a play instead of the engine emitting the line when the card is
+    played; effects that need arguments emit their own line under a different key. *)
+
 val basic_houses : game_state -> player_id -> (string * string) array
 (** The four basic houses of this player's deck, as (name, power noun). The power noun is the
     [<house>.mana] string of the language, or the house name when the language does not need another form. *)

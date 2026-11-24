@@ -541,8 +541,8 @@ let () =
         lay := make_layout ui.table;
         (match peek_smoke_card ui with Some r -> smoke_show r | None -> smoke_hide ());
         Fx.Hover.draw ();
-        (match !(ui.last_played) with
-        | Some { card = Some c; player } when inside (last_played_rect ui) ->
+        (match log_entry ui with
+        | Some { card = Some c; player; _ } when inside (last_played_panel_rect ui) ->
             ui.hover <- Some (Hover_card (c, player, None))
         | _ -> ());
         (* New picks houses from the settings dialog (or the prefs it already

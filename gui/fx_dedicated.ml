@@ -3949,6 +3949,65 @@ let spawn_upgrade_flash ?(hue = Gold) ~at ~start () =
   in
   spawn_pulse_flash ~at ~start ~halo ~mid ~core ~ray ~glint
 
+(* Slinger: when it stands unopposed its stone passes the empty lane and cracks
+   the foe creature with the most life.  A spinning sling stone arcs from the
+   soldier to that creature, trailing dust, and breaks in a puff of grit on the
+   card. *)
+let sling_stone_duration = 0.72
+
+let spawn_sling_stone ~from_ ~to_ ~start =
+  let duration = sling_stone_duration in
+  let fly = 0.3 and impact = 0.42 in
+  let dx = to_.x -. from_.x and dy = to_.y -. from_.y in
+  let arc = 34. in
+  let path u =
+    (from_.x +. (dx *. u), from_.y +. (dy *. u) -. (arc *. 4. *. u *. (1. -. u)))
+  in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. ((duration -. age) /. 0.2) in
+      if fade > 0.02 then
+        if age < fly then (
+          let u = clamp01 (age /. fly) in
+          let x, y = path u in
+          (* the throw: a small flash at the hand while the sling whips *)
+          if age < 0.08 then
+            circle from_.x from_.y (5. +. (age /. 0.08 *. 9.))
+              (rgb 0.72 0.68 0.6 ((1. -. (age /. 0.08)) *. 0.4));
+          (* dust trail behind the stone *)
+          let xb, yb = path (Float.max 0. (u -. 0.08)) in
+          line xb yb x y 3.2 (rgb 0.55 0.5 0.42 (fade *. 0.22));
+          (* the spinning stone: a rough heptagon with a lit facet *)
+          let spin = age *. 16. in
+          let r = 4.4 in
+          let stone pts col =
+            let n = Array.length pts in
+            for i = 0 to n - 1 do
+              let a0 = pts.(i) +. spin and a1 = pts.((i + 1) mod n) +. spin in
+              tri x y
+                (x +. (cos a0 *. r)) (y +. (sin a0 *. r *. 0.92))
+                (x +. (cos a1 *. r)) (y +. (sin a1 *. r *. 0.92))
+                col
+            done
+          in
+          stone [| 0.; 0.9; 1.9; 2.8; 3.7; 4.6; 5.5 |] (rgb 0.42 0.38 0.34 fade);
+          stone [| 0.2; 1.1; 2.1; 3.1 |] (rgb 0.66 0.6 0.5 fade);
+          circle (x -. 1.4) (y -. 1.6) 1.5 (rgb 0.8 0.75 0.66 (fade *. 0.9)))
+        else
+          let p = clamp01 ((age -. fly) /. impact) in
+          let q = 1. -. p in
+          (* impact: a puff of grit and a few chips flying off the card *)
+          circle to_.x to_.y (4. +. (p *. 16.)) (rgb 0.55 0.5 0.42 (q *. 0.3));
+          for k = 0 to 5 do
+            let s = noise k 5 9 in
+            let ang = noise k 1 3 *. 6.28 in
+            let r0 = 2. +. (p *. (10. +. (s *. 12.))) in
+            circle
+              (to_.x +. (cos ang *. r0))
+              (to_.y +. (sin ang *. r0 *. 0.8) -. (p *. 6. *. s))
+              (1.4 +. (q *. 1.6))
+              (rgb 0.5 0.46 0.4 (q *. 0.7))
+          done)
+
 (* Wide Shield: the green pulse settles on the Spearman, and the healing it
    grants rises as motes on the neighbours it mends. *)
 let wide_shield_duration = 1.35

@@ -189,6 +189,95 @@ let spawn_shockwave ~slots ~spared ~foe_pid ~start =
               Option.iter (fun (tip, _) -> train ~age ~fade tip) right_side))
   end
 
+let distort_wave_duration = 0.9
+
+(* Chaos Priest's Distorter: when the foe plays a card the dice throw it at a
+   random slot, and without a cue the card would simply arrive somewhere else.
+   The Distorter is the source, so the wave leaves it: rings of white peel off
+   its stone and a bright crest runs down the line to the slot the dice chose,
+   where it breaks into one last small ring.  The crest keeps a slow waviness --
+   this house serves chaos -- so it reads as a ripple, not a bolt. *)
+let spawn_distort_wave ~from_ ~to_ ~start =
+  let duration = distort_wave_duration in
+  let dx = to_.x -. from_.x and dy = to_.y -. from_.y in
+  let reach = Float.max 1. (hypot dx dy) in
+  let ux = dx /. reach and uy = dy /. reach in
+  let nx = -.uy and ny = ux in
+  let travel = 0.58 in
+  mk ~start ~duration (fun ~age ->
+      let fade = Float.min 1. (age /. 0.06) *. Float.min 1. ((duration -. age) /. 0.28) in
+      if fade > 0.02 then
+        additive (fun () ->
+            (* the emitter: white rings roll off the Distorter one after the
+               other, each a little wavy so they are never a clean stencil *)
+            for k = 0 to 2 do
+              let u = Float.rem ((age /. 0.36) +. (float k /. 3.)) 1. in
+              let rad = 4. +. (u *. 44.) in
+              let a = fade *. (1. -. u) *. (0.46 -. (0.08 *. float k)) in
+              if a > 0.01 then begin
+                let steps = 22 in
+                let wob ang =
+                  rad *. (1. +. (0.07 *. sin ((ang *. 6.) +. (age *. 11.) +. float k)))
+                in
+                for i = 0 to steps - 1 do
+                  let a0 = float i /. float steps *. Float.pi *. 2. in
+                  let a1 = float (i + 1) /. float steps *. Float.pi *. 2. in
+                  line
+                    (from_.x +. (cos a0 *. wob a0))
+                    (from_.y +. (sin a0 *. wob a0 *. 0.78))
+                    (from_.x +. (cos a1 *. wob a1))
+                    (from_.y +. (sin a1 *. wob a1 *. 0.78))
+                    1.7 (rgb 1. 1. 1. a)
+                done
+              end
+            done;
+            (* the crest: a train of short white arcs marching from the
+               Distorter to the chosen slot, the leading one brightest *)
+            let head = clamp01 (age /. travel) *. reach in
+            let waves = 4 and gap = 24. in
+            for k = 0 to waves - 1 do
+              let d = head -. (float k *. gap) in
+              if d > 0. && d < reach then begin
+                let a = fade *. (1. -. (0.17 *. float k)) *. clamp01 (d /. 20.) in
+                if a > 0.01 then begin
+                  let cx = from_.x +. (ux *. d) and cy = from_.y +. (uy *. d) in
+                  let half = 13. +. (5. *. noise k 2 5) in
+                  let bow = 7. +. (3. *. noise k 4 7) in
+                  let shape t = bow *. cos (t *. Float.pi /. 2.) in
+                  let steps = 10 in
+                  for s = 0 to steps - 1 do
+                    let t0 = ((float s /. float steps) *. 2.) -. 1. in
+                    let t1 = ((float (s + 1) /. float steps) *. 2.) -. 1. in
+                    let ax = cx +. (nx *. half *. t0) +. (ux *. shape t0) in
+                    let ay = cy +. (ny *. half *. t0) +. (uy *. shape t0) in
+                    let bx = cx +. (nx *. half *. t1) +. (ux *. shape t1) in
+                    let by = cy +. (ny *. half *. t1) +. (uy *. shape t1) in
+                    line ax ay bx by 2.6 (rgb 0.82 0.88 1. (a *. 0.28));
+                    line ax ay bx by 1.1 (rgb 1. 1. 1. a)
+                  done
+                end
+              end
+            done;
+            (* the slot the dice chose answers with one last small ring *)
+            if age > travel then begin
+              let u = clamp01 ((age -. travel) /. (duration -. travel)) in
+              let a = fade *. (1. -. u) in
+              if a > 0.01 then begin
+                let rad = 4. +. (u *. 20.) in
+                let steps = 20 in
+                for i = 0 to steps - 1 do
+                  let a0 = float i /. float steps *. Float.pi *. 2. in
+                  let a1 = float (i + 1) /. float steps *. Float.pi *. 2. in
+                  line
+                    (to_.x +. (cos a0 *. rad))
+                    (to_.y +. (sin a0 *. rad *. 0.78))
+                    (to_.x +. (cos a1 *. rad))
+                    (to_.y +. (sin a1 *. rad *. 0.78))
+                    1.4 (rgb 1. 1. 1. a)
+                done
+              end
+            end))
+
 type confetti = {
   x0 : float;
   y0 : float;

@@ -88,7 +88,9 @@ let ram : card_effect =
          List.filter (fun i -> i <> house) (List.init (Array.length op.houses_update.hu_value) Fun.id)
        in
        incr_mana_from (own_slot_of_env env) op 1 [ house ];
-       incr_mana_from (own_slot_of_env env) op (-1) others
+       incr_mana_from (own_slot_of_env env) op (-1) others;
+       let p = player_of_env env in
+       note p.updater p.pid "warp.ram.effect" []
 
 (* The Queen silences every enemy creature, hurts them, and lets them go at the end of the next turn *)
 let queen : card_effect =
@@ -266,7 +268,8 @@ let schizo_reaction () =
             (fun (st : slot_state) ->
               ignore (opp.remove_hook None);
               Slot.set_data me (Schizo_target st.slot_id);
-              bridle st opp)
+              bridle st opp;
+              note me.slots.player.updater me.slots.player.pid "warp.schizo.effect" [ st.card.c_card.name ])
             opp.value);
     on_my_remove =
       (fun _ ->

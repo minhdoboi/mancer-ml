@@ -509,6 +509,23 @@ let ram_without_a_target () =
   check_int "no mana moved" 4 (mana u 1 0);
   check_int "no mana moved" 10 (mana u 1 4)
 
+(* Ram's flavour line appears only when it actually hits an opposite creature. *)
+let ram_note () =
+  let u = new_game ~mana:[ 4; 4; 4; 4; 10 ] ~special:Warp.house () in
+  let seen = ref [] in
+  Updater.listen u (function Ev_note { note; _ } -> seen := note :: !seen | _ -> ());
+  place u 1 "anger.hotspot" 0;
+  play u 0 "warp.ram" ~input:(Some 0) ~cost:6;
+  check_int "one flavour line" 1 (List.length !seen);
+  check_string "ram note" "warp.ram.effect" (List.hd !seen).note_key
+
+let ram_without_a_target_has_no_note () =
+  let u = new_game ~mana:[ 4; 4; 4; 4; 10 ] ~special:Warp.house () in
+  let seen = ref [] in
+  Updater.listen u (function Ev_note { note; _ } -> seen := note :: !seen | _ -> ());
+  play u 0 "warp.ram" ~input:(Some 0) ~cost:6;
+  check_int "no flavour line" 0 (List.length !seen)
+
 let queen_silences_for_two_turns () =
   let u = new_game ~special:Warp.house () in
   place u 1 "anger.hotspot" 1;
@@ -595,6 +612,17 @@ let schizo_silences_opposite () =
   kill u 0 0;
   check_bool "released" false (is_bridled u 1 0);
   check_string "still there" "anger.hotspot" (Option.get (occupant u 1 0))
+
+(* Schizo's flavour line names the bridled card. *)
+let schizo_note () =
+  let u = new_game ~special:Warp.house () in
+  let seen = ref [] in
+  Updater.listen u (function Ev_note { note; _ } -> seen := note :: !seen | _ -> ());
+  place u 1 "anger.hotspot" 0;
+  place u 0 "warp.schizo" 0;
+  check_int "one flavour line" 1 (List.length !seen);
+  check_string "schizo note" "warp.schizo.effect" (List.hd !seen).note_key;
+  check_string "names the bridled card" "anger.hotspot" (List.hd (List.hd !seen).note_args)
 
 (* A silenced creature loses the abilities its own listener would otherwise run:
    the Mountain King listener must not make a bridled Berserker swing. *)
@@ -895,12 +923,15 @@ let () =
           test_case "quake special mana" `Quick quake_uses_pre_cast_mana_for_the_special_house;
           test_case "ram" `Quick ram_halves_and_shifts_mana;
           test_case "ram no target" `Quick ram_without_a_target;
+          test_case "ram note" `Quick ram_note;
+          test_case "ram no target no note" `Quick ram_without_a_target_has_no_note;
           test_case "queen" `Quick queen_silences_for_two_turns;
           test_case "cloak" `Quick cloak_adds_the_creature;
           test_case "cloak elemental" `Quick cloak_ignores_elemental_mana_attack;
           test_case "cloak over cloak" `Quick cloak_over_cloak_keeps_the_creature;
           test_case "cloak before the next blow" `Quick cloak_returns_before_the_next_blow;
           test_case "schizo" `Quick schizo_silences_opposite;
+          test_case "schizo note" `Quick schizo_note;
           test_case "schizo bennu" `Quick schizo_does_not_trigger_bennu;
           test_case "schizo berserker" `Quick schizo_stops_berserker;
           test_case "queen berserker" `Quick queen_stops_berserker;

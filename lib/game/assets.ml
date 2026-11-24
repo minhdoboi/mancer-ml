@@ -133,6 +133,14 @@ let describe ?state ?player (c : card) =
   | Some st, Some pid -> fill_basic_houses tmpl (basic_houses st pid)
   | _ -> tmpl
 
+(* A card's static flavour line, looked up at display time rather than stored
+   on the card: [<key>.note].  Effects that produce a line with arguments emit
+   it themselves under a different key (warp.schizo.effect), so [<key>.note]
+   is always a static card note. *)
+let card_note (c : card) =
+  let key = c.key ^ ".note" in
+  if has_key key then Some { note_key = key; note_args = [] } else None
+
 let images = [ ".jpg"; ".png" ]
 
 (* Keys are alphanumerics; vibe files keep spaces ("dark priest.jpg"). *)

@@ -11,7 +11,8 @@ open Gui_campaign
 
 type thinking = { domain : unit Domain.t; result : (command option, exn) result option Atomic.t }
 type mode = Browse | Target of command list
-type last_played = { player : player_id; card : card option }
+(* One play in the log: who, what, and the flavour lines it produced. *)
+type history_entry = { player : player_id; card : card option; notes : note list }
 
 type hover =
   | Hover_card of card * player_id * int option (* the creature's current max life, if it is on the board *)
@@ -78,7 +79,10 @@ type spell_show = { ss_card : card; ss_player : player_id; ss_start : float }
 type game_ui = {
   table : Table.t;
   portraits : string * string;
-  last_played : last_played option ref;
+  (* The play log, newest first; [last_log_pos] is the entry the panel shows
+     (0 = the newest).  The arrows step back through the older ones. *)
+  last_log : history_entry list ref;
+  last_log_pos : int ref;
   discovered : (player_id * string, unit) Hashtbl.t;
   mutable mode : mode;
   mutable paused : bool;
@@ -122,18 +126,31 @@ type game_ui = {
 (* Filled once the board layout helpers exist, so submit can queue slides. *)
 let board_event : (game_ui -> game_event -> unit) ref = ref (fun _ _ -> ())
 
+let rec first_n n = function
+  | [] -> []
+  | _ when n <= 0 -> []
+  | x :: tl -> x :: first_n (n - 1) tl
+
 let make_game ?(campaign = None) (setup : Table.setup) portraits table_of =
   (* Rematch / new fight: the victory banner and portrait halo never expire,
      so a fresh board must drop the previous game's overlay effects. *)
   Fx.clear ();
-  let last_played = ref None in
+  let last_log = ref [] in
+  let last_log_pos = ref 0 in
   let discovered = Hashtbl.create 16 in
   let ui_holder = ref None in
   let on_event e =
     (match e with
     | Ev_submitted { player; command; _ } ->
-        last_played := Some { player; card = Option.map (fun c -> c.cmd_card) command };
+        let entry = { player; card = Option.map (fun c -> c.cmd_card) command; notes = [] } in
+        last_log := first_n 100 (entry :: !last_log);
+        (* Follow the new play unless you stepped back to read an older one. *)
+        if !last_log_pos > 0 then last_log_pos := min (List.length !last_log - 1) (!last_log_pos + 1);
         Option.iter (fun c -> Hashtbl.replace discovered (player, c.cmd_card.key) ()) command
+    | Ev_note { note; _ } ->
+        (match !last_log with
+        | e :: rest -> last_log := { e with notes = e.notes @ [ note ] } :: rest
+        | [] -> ())
     | Ev_spell_played c ->
         (* a spell with a delayed impact plays its sound from [queue_slides], once its effect starts *)
         if Fx.sound_delay c.cmd_card.key = 0. then play_card_sound c.cmd_card;
@@ -158,7 +175,8 @@ let make_game ?(campaign = None) (setup : Table.setup) portraits table_of =
     {
       table;
       portraits;
-      last_played;
+      last_log;
+      last_log_pos;
       discovered;
       mode = Browse;
       paused = false;
@@ -389,6 +407,7 @@ let opp_header_y = 42.
 let opp_hand_y0 = opp_header_y -. 4. -. cards_block_h
 let max_scroll = -.opp_hand_y0 +. 40.
 let last_played_h = 48.
+let last_played_w = 300.
 let spell_show_size = 86.
 let spell_show_duration = 1.
 let oy ui y = y +. ui.scroll_y
@@ -1882,7 +1901,6 @@ let draw_hands ui =
 (* ---------------------------------------------------------- left preview *)
 
 let preview_top ui = oy ui (if ui.hover_opp then opp_hand_y0 else hand_y)
-let last_played_rect _ui = rect 8. (vh -. last_played_h -. 8.) 180. last_played_h
 
 (* Between the portrait column and slot 0, midway between the two players. *)
 let spell_show_rect ui =
@@ -1956,23 +1974,125 @@ let draw_preview ui =
         (fun i l -> text ~size:desc_size (x +. pad) (y +. pad +. header_h +. 8. +. (float i *. desc_lh)) l)
         desc_lines
 
+(* The flavour lines a play produced.  Each line is an i18n template whose
+   arguments are i18n keys (usually card names) the front end resolves too;
+   the lines are joined into one wrapped paragraph. *)
+let note_size = 15.
+let note_line_h = 19.
+let note_pad = 7.
+let history_label_h = 18.
+let panel_art = 40.
+let panel_arrow_area = 26.
+let panel_text_x = 52.
+let panel_text_w = last_played_w -. panel_text_x -. panel_arrow_area
+
+let notes_body notes =
+  notes
+  |> List.map (fun n -> Assets.format (Assets.text n.note_key) (List.map Assets.text n.note_args))
+  |> String.concat " "
+
+let note_lines body = wrap note_size panel_text_w body
+let note_height body = float (List.length (note_lines body)) *. note_line_h
+
+(* ---- the play log the panel shows: newest first, [last_log_pos] picks one ---- *)
+let log_count ui = List.length !(ui.last_log)
+let log_entry ui = List.nth_opt !(ui.last_log) !(ui.last_log_pos)
+
+(* The lines an entry shows: the notes its effects emitted, plus the card's
+   static [<key>.note] when the bundle has one and no effect already quoted
+   it.  The static line is looked up here, at display time, so a card with no
+   rule-line still reads (Assets.card_note). *)
+let entry_notes (e : history_entry) =
+  match e.card with
+  | None -> e.notes
+  | Some c -> (
+      match Assets.card_note c with
+      | Some n when not (List.exists (fun x -> x.note_key = n.note_key) e.notes) -> n :: e.notes
+      | _ -> e.notes)
+
+let log_body ui =
+  match log_entry ui with
+  | Some e -> ( match entry_notes e with [] -> None | ns -> Some (notes_body ns))
+  | None -> None
+
+let log_older ui = if !(ui.last_log_pos) + 1 < log_count ui then incr ui.last_log_pos
+let log_newer ui = if !(ui.last_log_pos) > 0 then decr ui.last_log_pos
+
+(* The panel at the bottom-left, tall enough for the note its entry carries. *)
+let last_played_panel_rect ui =
+  let h =
+    match log_body ui with
+    | Some body -> Float.max last_played_h (note_height body +. (2. *. note_pad))
+    | None -> last_played_h
+  in
+  rect 8. (vh -. h -. 8.) last_played_w h
+
+(* A small solid arrow in a soft silver, so it reads as a control without
+   shouting.  Both windings are drawn so the face shows whatever raylib
+   culls. *)
+let silver = rgba 168 174 188 225
+let silver_dim = rgba 168 174 188 64
+
+let draw_arrow dir (r : rect) color =
+  let cx = r.x +. (r.w /. 2.) and cy = r.y +. (r.h /. 2.) in
+  let dx = r.w *. 0.26 and dy = r.h *. 0.26 in
+  let a, b, c =
+    match dir with
+    | `Up -> (pos (cx -. dx) (cy +. dy), pos (cx +. dx) (cy +. dy), pos cx (cy -. dy))
+    | `Down -> (pos (cx -. dx) (cy -. dy), pos (cx +. dx) (cy -. dy), pos cx (cy +. dy))
+    | `Left -> (pos (cx +. dx) (cy -. dy), pos (cx +. dx) (cy +. dy), pos (cx -. dx) cy)
+    | `Right -> (pos (cx -. dx) (cy -. dy), pos (cx -. dx) (cy +. dy), pos (cx +. dx) cy)
+  in
+  R.draw_triangle a b c (alpha_color color);
+  R.draw_triangle a c b (alpha_color color)
+
 let draw_last_played ui =
-  match !(ui.last_played) with
+  match log_entry ui with
   | None -> ()
   | Some lp -> (
-      let r = last_played_rect ui in
+      let r = last_played_panel_rect ui in
+      let body = log_body ui in
+      let count = log_count ui in
+      let arrows = count > 1 in
+      let older = !(ui.last_log_pos) + 1 < count in
+      let newer = !(ui.last_log_pos) > 0 in
+      (* the pair of arrows, centred on the right edge of the panel *)
+      let up, dn =
+        let x = r.x +. r.w -. panel_arrow_area +. 4. in
+        let cy = r.y +. (r.h /. 2.) in
+        (rect x (cy -. 18.) 18. 18., rect x cy 18. 18.)
+      in
+      let on_arrow = arrows && (inside up || inside dn) in
+      (* the panel's whole reason to exist, named above it *)
+      text ~size:14. ~color:muted r.x (r.y -. history_label_h) (Assets.text "history.title");
       fill ~round:0.06 r (rgba 10 8 5 148);
-      if inside r then hovering := true;
-      match lp.card with
+      if inside r && not on_arrow then hovering := true;
+      (match lp.card with
       | Some c ->
-          if inside r then ui.hover <- Some (Hover_card (c, lp.player, None));
-          let thumb = 40. in
-          draw_card_art (rect (r.x +. 6.) (r.y +. ((r.h -. thumb) /. 2.)) thumb thumb) c;
-          text ~size:14. ~color:fg (r.x +. 52.) (r.y +. ((r.h -. 14.) /. 2.)) (Assets.text "history.last")
+          if inside r && not on_arrow then ui.hover <- Some (Hover_card (c, lp.player, None));
+          draw_card_art
+            (rect (r.x +. 6.) (r.y +. ((r.h -. panel_art) /. 2.)) panel_art panel_art)
+            c;
+          (match body with
+          | Some b ->
+              let ty = r.y +. ((r.h -. note_height b) /. 2.) in
+              List.iteri
+                (fun i l ->
+                  text ~size:note_size ~color:fg (r.x +. panel_text_x) (ty +. (float i *. note_line_h)) l)
+                (note_lines b)
+          | None ->
+              (* no flavour line: at least say the card arrived *)
+              text ~size:15. ~color:fg (r.x +. panel_text_x) (r.y +. ((r.h -. 15.) /. 2.))
+                (Assets.format (Assets.text "history.summoned") [ Assets.card_name c ]))
       | None ->
-          text ~size:14. ~color:muted (r.x +. 12.)
-            (r.y +. ((r.h -. 14.) /. 2.))
-            (Assets.format (Assets.text "history.skip") [ Printf.sprintf "P%d" (lp.player + 1) ]))
+          text ~size:15. ~color:muted (r.x +. 12.)
+            (r.y +. ((r.h -. 15.) /. 2.))
+            (Assets.format (Assets.text "history.skip") [ Printf.sprintf "P%d" (lp.player + 1) ]));
+      if arrows then (
+        draw_arrow `Up up (if older then silver else silver_dim);
+        draw_arrow `Down dn (if newer then silver else silver_dim);
+        if older then on_click up (fun () -> log_older ui);
+        if newer then on_click dn (fun () -> log_newer ui)))
 
 let draw_spell_shows ui =
   let now = R.get_time () in

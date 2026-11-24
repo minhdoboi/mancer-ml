@@ -303,6 +303,49 @@ let distorter_redirects_spells () =
       check_int "half its life, rounded up" expected (life n)
   | _ -> Alcotest.fail "the rose found no target"
 
+(* The redirect is announced for the animation: the front end draws white
+   waves from the Distorter to the slot the dice chose. *)
+let distorter_announces_its_redirect () =
+  let u = new_game ~special:Chaospriest.house () in
+  place u 0 "chaospriest.distorter" 2;
+  let events = ref [] in
+  Updater.listen u (fun e -> events := e :: !events);
+  play u 1 "anger.dragon" ~input:(Some 3) ~cost:0;
+  let redirect =
+    List.filter_map
+      (function
+        | Ev_ability { kind = "chaospriest.distort"; player = 0; num = 2; target = Some (1, n) } -> Some n
+        | _ -> None)
+      !events
+  in
+  match redirect with
+  | [ n ] ->
+      check_bool "the wave lands on the caster's board" true (List.mem n base_slot_list);
+      check_bool "the dragon followed the wave" true (occupant u 1 n = Some "anger.dragon")
+  | _ -> Alcotest.fail "the distorter announced no redirect"
+
+(* A spell aimed at the Distorter's own side is announced against that board
+   too, so the wave runs to the creature the dice picked. *)
+let distorter_announces_a_spell_redirect () =
+  let u = new_game ~special:Chaospriest.house () in
+  place u 0 "chaospriest.distorter" 2;
+  place u 0 "anger.dragon" 0;
+  place u 0 "anger.werewolf" 3;
+  place u 0 "anger.sentinel" 5;
+  let events = ref [] in
+  Updater.listen u (fun e -> events := e :: !events);
+  play u 1 "trappers.rose" ~input:(Some 0) ~cost:0;
+  let redirect =
+    List.filter_map
+      (function
+        | Ev_ability { kind = "chaospriest.distort"; player = 0; num = 2; target = Some (0, n) } -> Some n
+        | _ -> None)
+      !events
+  in
+  match redirect with
+  | [ n ] -> check_bool "the wave lands on the directed creature" true (is_stunned u 0 n)
+  | _ -> Alcotest.fail "the spell redirect was not announced"
+
 let cannon_hits_three_on_entry () =
   let u = new_game ~special:Chaospriest.house () in
   place u 1 "anger.dragon" 0;
@@ -430,6 +473,9 @@ let () =
           Alcotest.test_case "distorter summons" `Quick distorter_redirects_summons;
           Alcotest.test_case "distorter blocked slots" `Quick distorter_respects_blocked_slots;
           Alcotest.test_case "distorter spells" `Quick distorter_redirects_spells;
+          Alcotest.test_case "distorter announces redirect" `Quick distorter_announces_its_redirect;
+          Alcotest.test_case "distorter announces spell redirect" `Quick
+            distorter_announces_a_spell_redirect;
           Alcotest.test_case "cannon entry" `Quick cannon_hits_three_on_entry;
           Alcotest.test_case "cannon entry bombs" `Quick cannon_entry_announces_its_bombs;
           Alcotest.test_case "cannon entry without a foe" `Quick cannon_entry_says_nothing_when_the_board_is_empty;

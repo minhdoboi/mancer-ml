@@ -416,7 +416,7 @@ let event_line ?(name = fun (c : card) -> c.name) =
       Some (Printf.sprintf "%s slot %d mana for %s: %s" (p player) num (p target) moves)
   | Ev_game_over { winner = Some w; reason } -> Some (Printf.sprintf "== %s wins (%s)" (p w) reason)
   | Ev_game_over { winner = None; reason } -> Some (Printf.sprintf "== draw (%s)" reason)
-  | Ev_spell_played _ | Ev_run_slot _ | Ev_focus _ | Ev_refresh _ -> None
+  | Ev_spell_played _ | Ev_run_slot _ | Ev_focus _ | Ev_refresh _ | Ev_note _ -> None
 
 let save t ~dir =
   if not (Sys.file_exists dir) then Sys.mkdir dir 0o755;

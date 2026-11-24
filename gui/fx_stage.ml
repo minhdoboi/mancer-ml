@@ -922,6 +922,15 @@ let for_ability layout ~kind ~player ~num ~target =
       Some
         (recipe ~duration:shockwave_duration ~blocking:true (fun ~start ->
              spawn_shockwave ~slots ~spared ~foe_pid:foe ~start))
+  | "chaospriest.distort" ->
+      (* the Distorter bends the foe's card to a random slot: white rings peel
+         off the Distorter and a crest runs to the slot the dice chose *)
+      Option.map
+        (fun (tp, tn) ->
+          recipe ~duration:distort_wave_duration ~blocking:false (fun ~start ->
+              spawn_distort_wave ~from_:(layout.slot_center player num)
+                ~to_:(layout.slot_center tp tn) ~start))
+        target
   | "chaospriest.unstablehealing" ->
       (* the dice healed one of the caster's own creatures: the healing falls on
          that creature alone, the way Nature's Care falls on its target *)
@@ -1020,6 +1029,15 @@ let for_ability layout ~kind ~player ~num ~target =
                  (fun n -> add_shake foe n ~start:(start +. buckshot_flight) ~duration:0.22 ~strength:0.5)
                  nums;
                spawn_buckshot ~from_:(layout.slot_center player num) ~targets ~start))
+  | "elitesoldiers.sling" ->
+      (* the Slinger's unopposed stone: a rock arcs from the soldier to the
+         creature with the most life *)
+      Option.map
+        (fun (tp, tn) ->
+          recipe ~duration:sling_stone_duration ~blocking:false (fun ~start ->
+              spawn_sling_stone ~from_:(layout.slot_center player num)
+                ~to_:(layout.slot_center tp tn) ~start))
+        target
   | _ -> None
 
 let demo_names =
@@ -1089,9 +1107,11 @@ let demo_names =
     "falcon";
     "cannonbomb";
     "naturecare";
+    "distort";
     "kojiro";
     "hunter";
     "fortify";
+    "sling";
   ]
 
 let spawn_demo layout name =
@@ -1290,6 +1310,9 @@ let spawn_demo layout name =
   | "naturecare" ->
       (* the Chaos Priest's Unstable Healing: nature's care on one creature *)
       go (spawn_nature_care [ own.(2) ] ~start:now)
+  | "distort" ->
+      (* the Chaos Priest's Distorter: white waves from it to the chosen slot *)
+      go (spawn_distort_wave ~from_:own.(2) ~to_:foe.(3) ~start:now)
   | "kojiro" ->
       (* Kojiro's turn cut: a blade mark from the opposite slot through the run *)
       go
@@ -1299,6 +1322,9 @@ let spawn_demo layout name =
   | "hunter" ->
       (* the Bounty hunter's summon strike: a short gash on the opposite creature *)
       go (spawn_blade_strike ~at:foe.(2) ~pid:opponent ~num:2 ~start:now)
+  | "sling" ->
+      (* the Elite Slinger's unopposed shot: a stone arcs onto the foe creature *)
+      go (spawn_sling_stone ~from_:own.(2) ~to_:foe.(3) ~start:now)
   | "fortify" ->
       (* Technomage's Fortification: elemental creatures turn to stone and break
          into the tower of their own element *)
